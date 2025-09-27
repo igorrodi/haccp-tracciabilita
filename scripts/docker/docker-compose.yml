@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  haccp-app:
+    build:
+      context: ../../
+      dockerfile: scripts/docker/Dockerfile
+    container_name: haccp-app
+    ports:
+      - "80:80"
+      - "443:443"  # Per HTTPS futuro
+    environment:
+      - NODE_ENV=production
+    volumes:
+      # Volume per certificati SSL (opzionale)
+      - ./ssl:/etc/nginx/ssl:ro
+      # Volume per log persistenti
+      - ./logs:/var/log/nginx
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "com.docker.compose.project=haccp"
+      - "description=HACCP Management Application"
+    
+  # Servizio opzionale per reverse proxy con SSL
+  nginx-proxy:
+    image: nginxproxy/nginx-proxy:alpine
+    container_name: haccp-proxy
+    ports:
+      - "8080:80"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./proxy-config:/etc/nginx/conf.d
+    environment:
+      - DEFAULT_HOST=haccp-app:80
+    depends_on:
+      - haccp-app
+    restart: unless-stopped
+    profiles:
+      - proxy
+
+networks:
+  default:
+    name: haccp-network
+    driver: bridge
+
+volumes:
+  logs:
+    driver: local
+  ssl:
+    driver: local
