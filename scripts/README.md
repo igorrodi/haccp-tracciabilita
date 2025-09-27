@@ -7,14 +7,48 @@ Questa directory contiene gli script per installare e deployare l'applicazione H
 ### 🍓 Raspberry Pi 5 con Ubuntu Server
 - **`install-raspberry-pi.sh`**: Script completo per installazione su Raspberry Pi 5
 
-### 🐳 Installazione Docker
-- **`docker/`**: Directory con tutti i file per deployment Docker
-  - `Dockerfile`: Immagine Docker ottimizzata
+### 🐳 Installazione Docker 
+- **`docker/build-and-run.sh`**: **RACCOMANDATO** - Script tutto-in-uno per build e deploy automatico
+- **`docker/`**: Directory con tutti i file per deployment Docker avanzato
+  - `Dockerfile`: Immagine Docker ottimizzata per produzione
+  - `Dockerfile.dev`: Immagine Docker per sviluppo con hot reload
   - `docker-compose.yml`: Configurazione servizi
   - `nginx.conf`: Configurazione web server
-  - `install-docker.sh`: Script automatico installazione Docker
+  - `install-docker.sh`: Script installazione Docker completo
 
 ## 🛠️ Utilizzo
+
+### 🚀 Installazione Docker Semplificata (RACCOMANDATO)
+
+**Un solo comando per tutto:**
+
+```bash
+# Dal root del progetto
+chmod +x scripts/docker/build-and-run.sh
+./scripts/docker/build-and-run.sh
+
+# Opzioni disponibili:
+./scripts/docker/build-and-run.sh --help           # Mostra aiuto completo
+./scripts/docker/build-and-run.sh -p 8080          # Usa porta 8080 invece di 80
+./scripts/docker/build-and-run.sh --dev            # Modalità sviluppo con hot reload
+./scripts/docker/build-and-run.sh --clean          # Pulisci e rebuilda tutto
+./scripts/docker/build-and-run.sh --no-cache       # Build senza cache Docker
+```
+
+**Lo script automaticamente:**
+- ✅ Verifica prerequisiti (Docker, permessi, etc.)
+- ✅ Crea l'immagine Docker dell'app (produzione o sviluppo)
+- ✅ Configura Nginx con sicurezza ottimizzata  
+- ✅ Avvia il container con health check automatici
+- ✅ Crea script di gestione (haccp-update.sh, haccp-backup.sh, haccp-monitor.sh)
+- ✅ Verifica il deployment e mostra URL di accesso
+- ✅ Supporta modalità sviluppo con hot reload (Vite dev server + Nginx)
+
+**Al termine avrai:**
+- App accessibile su `http://localhost` (o porta specificata)
+- Script `haccp-update.sh` per aggiornamenti
+- Script `haccp-backup.sh` per backup automatici  
+- Script `haccp-monitor.sh` per monitoraggio stato
 
 ### Installazione su Raspberry Pi 5
 
@@ -99,7 +133,21 @@ Dopo l'installazione, l'app sarà disponibile su:
 - `http://localhost`
 - `http://IP_DEL_SERVER`
 
-**Script di gestione:**
+**Script di gestione (build-and-run.sh):**
+```bash
+# Script generati automaticamente nella root del progetto:
+./haccp-update.sh       # Aggiorna l'app (rebuild e redeploy)
+./haccp-backup.sh       # Crea backup completo del container
+./haccp-monitor.sh      # Mostra stato, risorse e health check
+
+# Gestione diretta container:
+docker ps               # Stato container
+docker logs haccp-container    # Log applicazione
+docker restart haccp-container # Riavvia container
+docker stop haccp-container    # Ferma container
+```
+
+**Script di gestione (docker-compose avanzato):**
 ```bash
 cd ~/haccp-app-docker
 

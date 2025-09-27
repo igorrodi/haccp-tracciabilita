@@ -1,0 +1,27 @@
+# Dockerfile per sviluppo con hot reload
+FROM node:20-alpine AS development
+
+# Installa dipendenze di sistema
+RUN apk add --no-cache git curl
+
+# Crea directory di lavoro
+WORKDIR /app
+
+# Copia package.json e package-lock.json
+COPY package*.json ./
+
+# Installa tutte le dipendenze (incluse quelle di sviluppo)
+RUN npm ci --silent
+
+# Copia il codice sorgente
+COPY . .
+
+# Espone porte per dev server e produzione
+EXPOSE 5173 80
+
+# Script per avvio in modalità sviluppo o produzione
+COPY scripts/docker/dev-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/dev-entrypoint.sh
+
+# Avvia in modalità sviluppo
+CMD ["/usr/local/bin/dev-entrypoint.sh"]
