@@ -14,7 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      haccp_lots: {
+        Row: {
+          created_at: string
+          expiry_date: string | null
+          humidity: number | null
+          id: string
+          lot_number: string
+          notes: string | null
+          ph_level: number | null
+          product_name: string
+          production_date: string
+          status: string | null
+          temperature: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expiry_date?: string | null
+          humidity?: number | null
+          id?: string
+          lot_number: string
+          notes?: string | null
+          ph_level?: number | null
+          product_name: string
+          production_date: string
+          status?: string | null
+          temperature?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expiry_date?: string | null
+          humidity?: number | null
+          id?: string
+          lot_number?: string
+          notes?: string | null
+          ph_level?: number | null
+          product_name?: string
+          production_date?: string
+          status?: string | null
+          temperature?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          company_name: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          role: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_name?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          role?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_name?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          role?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
