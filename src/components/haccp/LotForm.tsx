@@ -1,29 +1,70 @@
-import { useState } from "react";
-import { Camera, Upload } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Camera, Upload, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { z } from 'zod';
 
-const PRODUCT_CATEGORIES = [
-  "Salsiccia",
-  "Stinchi",
-  "Salami di cervo",
-  "Prosciutto",
-  "Bresaola",
-  "Altro"
-];
+const lotSchema = z.object({
+  category_id: z.string().uuid('Seleziona una categoria'),
+  lot_number: z.string().trim().min(1, 'Numero lotto richiesto'),
+  product_name: z.string().trim().min(2, 'Nome prodotto richiesto'),
+  production_date: z.string().min(1, 'Data produzione richiesta'),
+  expiry_date: z.string().optional(),
+  temperature: z.number().optional(),
+  humidity: z.number().optional(),
+  ph_level: z.number().optional(),
+  notes: z.string().trim().max(500, 'Note troppo lunghe').optional()
+});
+
+interface Category {
+  id: string;
+  name: string;
+  description?: string;
+  preparation_procedure?: string;
+}
 
 export const LotForm = () => {
-  const { toast } = useToast();
-  const [selectedProduct, setSelectedProduct] = useState("");
-  const [originalLot, setOriginalLot] = useState("");
-  const [productionDate, setProductionDate] = useState("");
-  const [freezingDate, setFreezingDate] = useState("");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
+  // Fetch categories
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data, error } = await supabase
+          .from('product_categories')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('name');
+
+        if (error) {
+          toast.error('Errore nel caricamento delle categorie');
+        } else {
+          setCategories(data || []);
+        }
+      } catch (error) {
+        toast.error('Errore nel caricamento delle categorie');
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -34,39 +75,70 @@ export const LotForm = () => {
         setImagePreview(e.target?.result as string);
       };
       reader.readAsDataURL(file);
-      toast({
-        title: "Immagine caricata",
-        description: "Ora puoi ritagliare l'etichetta se necessario",
-      });
+      toast.success("Immagine caricata con successo!");
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
-    if (!selectedProduct || !originalLot || !productionDate) {
-      toast({
-        title: "Errore",
-        description: "Compila tutti i campi obbligatori",
-        variant: "destructive",
-      });
-      return;
+    setLoading(true);
+    setError('');
+
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      category_id: selectedCategory,
+      lot_number: formData.get('lot_number') as string,
+      product_name: formData.get('product_name') as string,
+      production_date: formData.get('production_date') as string,
+      expiry_date: formData.get('expiry_date') as string,
+      temperature: formData.get('temperature') ? Number(formData.get('temperature')) : undefined,
+      humidity: formData.get('humidity') ? Number(formData.get('humidity')) : undefined,
+      ph_level: formData.get('ph_level') ? Number(formData.get('ph_level')) : undefined,
+      notes: formData.get('notes') as string
+    };
+
+    try {
+      const validatedData = lotSchema.parse(data);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Utente non autenticato');
+
+      const { error } = await supabase
+        .from('haccp_lots')
+        .insert([{
+          user_id: user.id,
+          category_id: validatedData.category_id,
+          lot_number: validatedData.lot_number,
+          product_name: validatedData.product_name,
+          production_date: validatedData.production_date,
+          expiry_date: validatedData.expiry_date || null,
+          temperature: validatedData.temperature || null,
+          humidity: validatedData.humidity || null,
+          ph_level: validatedData.ph_level || null,
+          notes: validatedData.notes || null
+        }]);
+
+      if (error) {
+        setError(error.message);
+      } else {
+        toast.success('Lotto salvato con successo!');
+        (e.target as HTMLFormElement).reset();
+        setSelectedCategory("");
+        setSelectedImage(null);
+        setImagePreview(null);
+      }
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        setError(err.errors[0].message);
+      } else {
+        setError('Errore durante il salvataggio del lotto');
+      }
+    } finally {
+      setLoading(false);
     }
-
-    // TODO: Implementare il salvataggio quando Supabase sarà attivato
-    toast({
-      title: "Successo!",
-      description: "Lotto salvato correttamente",
-    });
-
-    // Reset form
-    setSelectedProduct("");
-    setOriginalLot("");
-    setProductionDate("");
-    setFreezingDate("");
-    setSelectedImage(null);
-    setImagePreview(null);
   };
+
+  const selectedCategoryData = categories.find(cat => cat.id === selectedCategory);
 
   return (
     <Card className="haccp-card">
@@ -80,65 +152,151 @@ export const LotForm = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Categoria Prodotto */}
           <div className="space-y-2">
-            <Label htmlFor="product">Categoria Prodotto *</Label>
-            <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-              <SelectTrigger className="rounded-xl">
-                <SelectValue placeholder="Seleziona categoria" />
-              </SelectTrigger>
-              <SelectContent>
-                {PRODUCT_CATEGORIES.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="category">Categoria Prodotto *</Label>
+            {categoriesLoading ? (
+              <div className="h-10 bg-muted animate-pulse rounded-xl"></div>
+            ) : categories.length === 0 ? (
+              <Alert>
+                <Package className="w-4 h-4" />
+                <AlertDescription>
+                  Nessuna categoria disponibile. Vai alla sezione "Prodotti" per aggiungere delle categorie.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue placeholder="Seleziona categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
-          {/* Lotto Originale */}
+          {/* Dettagli categoria selezionata */}
+          {selectedCategoryData && (
+            <div className="bg-muted/50 p-4 rounded-xl space-y-2">
+              <h4 className="font-medium text-sm">Categoria: {selectedCategoryData.name}</h4>
+              {selectedCategoryData.description && (
+                <p className="text-sm text-muted-foreground">{selectedCategoryData.description}</p>
+              )}
+              {selectedCategoryData.preparation_procedure && (
+                <div className="text-sm">
+                  <span className="font-medium">Procedimento: </span>
+                  <span className="text-muted-foreground">{selectedCategoryData.preparation_procedure}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Nome Prodotto */}
           <div className="space-y-2">
-            <Label htmlFor="original-lot">Lotto originale *</Label>
+            <Label htmlFor="product_name">Nome Prodotto *</Label>
             <Input
-              id="original-lot"
+              id="product_name"
+              name="product_name"
               type="text"
-              value={originalLot}
-              onChange={(e) => setOriginalLot(e.target.value)}
-              placeholder="Es. ORIG-123 (estratto da OCR)"
+              placeholder="Es. Salsiccia fresca di suino"
               className="rounded-xl"
+              required
             />
-            <p className="text-xs text-muted-foreground">
-              Verrà compilato automaticamente tramite OCR dall'etichetta caricata
-            </p>
+          </div>
+
+          {/* Numero Lotto */}
+          <div className="space-y-2">
+            <Label htmlFor="lot_number">Numero Lotto *</Label>
+            <Input
+              id="lot_number"
+              name="lot_number"
+              type="text"
+              placeholder="Es. L.503586"
+              className="rounded-xl"
+              required
+            />
           </div>
 
           {/* Date */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="production-date">Data produzione *</Label>
+              <Label htmlFor="production_date">Data produzione *</Label>
               <Input
-                id="production-date"
+                id="production_date"
+                name="production_date"
                 type="date"
-                value={productionDate}
-                onChange={(e) => setProductionDate(e.target.value)}
                 className="rounded-xl"
+                required
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="freezing-date">Data congelamento</Label>
+              <Label htmlFor="expiry_date">Data scadenza</Label>
               <Input
-                id="freezing-date"
+                id="expiry_date"
+                name="expiry_date"
                 type="date"
-                value={freezingDate}
-                onChange={(e) => setFreezingDate(e.target.value)}
                 className="rounded-xl"
               />
             </div>
           </div>
 
+          {/* Parametri HACCP */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="temperature">Temperatura (°C)</Label>
+              <Input
+                id="temperature"
+                name="temperature"
+                type="number"
+                step="0.1"
+                placeholder="es. 4.5"
+                className="rounded-xl"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="humidity">Umidità (%)</Label>
+              <Input
+                id="humidity"
+                name="humidity"
+                type="number"
+                step="0.1"
+                placeholder="es. 75.0"
+                className="rounded-xl"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="ph_level">pH</Label>
+              <Input
+                id="ph_level"
+                name="ph_level"
+                type="number"
+                step="0.01"
+                placeholder="es. 6.2"
+                className="rounded-xl"
+              />
+            </div>
+          </div>
+
+          {/* Note */}
+          <div className="space-y-2">
+            <Label htmlFor="notes">Note</Label>
+            <Input
+              id="notes"
+              name="notes"
+              placeholder="Note aggiuntive..."
+              className="rounded-xl"
+            />
+          </div>
+
           {/* Upload Etichetta */}
           <div className="space-y-2">
-            <Label>Etichetta originale</Label>
+            <Label>Etichetta originale (opzionale)</Label>
             <div className="camera-upload-area">
               <input
                 type="file"
@@ -168,15 +326,22 @@ export const LotForm = () => {
                   alt="Anteprima etichetta"
                   className="max-w-full h-48 object-cover rounded-xl border"
                 />
-                <p className="text-xs text-muted-foreground mt-2">
-                  Dopo il caricamento potrai ritagliare l'etichetta e il lotto verrà estratto automaticamente (OCR)
-                </p>
               </div>
             )}
           </div>
 
-          <Button type="submit" className="w-full haccp-btn-primary">
-            Salva lotto
+          {error && (
+            <Alert className="border-destructive/50 text-destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <Button 
+            type="submit" 
+            className="w-full haccp-btn-primary" 
+            disabled={loading || categories.length === 0}
+          >
+            {loading ? 'Salvataggio in corso...' : 'Salva lotto'}
           </Button>
         </form>
       </CardContent>

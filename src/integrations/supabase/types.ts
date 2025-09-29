@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       haccp_lots: {
         Row: {
+          category_id: string | null
           created_at: string
           expiry_date: string | null
           humidity: number | null
@@ -31,6 +32,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          category_id?: string | null
           created_at?: string
           expiry_date?: string | null
           humidity?: number | null
@@ -46,6 +48,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          category_id?: string | null
           created_at?: string
           expiry_date?: string | null
           humidity?: number | null
@@ -57,6 +60,44 @@ export type Database = {
           production_date?: string
           status?: string | null
           temperature?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "haccp_lots_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          preparation_procedure: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          preparation_procedure?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          preparation_procedure?: string | null
           updated_at?: string
           user_id?: string
         }
