@@ -21,6 +21,9 @@ export type Database = {
           expiry_date: string | null
           humidity: number | null
           id: string
+          internal_lot_number: string | null
+          is_frozen: boolean | null
+          label_image_url: string | null
           lot_number: string
           notes: string | null
           ph_level: number | null
@@ -37,6 +40,9 @@ export type Database = {
           expiry_date?: string | null
           humidity?: number | null
           id?: string
+          internal_lot_number?: string | null
+          is_frozen?: boolean | null
+          label_image_url?: string | null
           lot_number: string
           notes?: string | null
           ph_level?: number | null
@@ -53,6 +59,9 @@ export type Database = {
           expiry_date?: string | null
           humidity?: number | null
           id?: string
+          internal_lot_number?: string | null
+          is_frozen?: boolean | null
+          label_image_url?: string | null
           lot_number?: string
           notes?: string | null
           ph_level?: number | null
@@ -103,6 +112,35 @@ export type Database = {
         }
         Relationships: []
       }
+      product_images: {
+        Row: {
+          category_id: string
+          created_at: string
+          id: string
+          image_url: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          id?: string
+          image_url: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          id?: string
+          image_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_images_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           company_name: string | null
@@ -138,7 +176,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_internal_lot_number: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
