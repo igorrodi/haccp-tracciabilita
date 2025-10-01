@@ -15,12 +15,8 @@ import { createWorker } from 'tesseract.js';
 const lotSchema = z.object({
   category_id: z.string().uuid('Seleziona una categoria'),
   lot_number: z.string().trim().min(1, 'Numero lotto richiesto'),
-  product_name: z.string().trim().min(2, 'Nome prodotto richiesto'),
   production_date: z.string().min(1, 'Data produzione richiesta'),
   expiry_date: z.string().optional(),
-  temperature: z.number().optional(),
-  humidity: z.number().optional(),
-  ph_level: z.number().optional(),
   notes: z.string().trim().max(500, 'Note troppo lunghe').optional()
 });
 
@@ -141,12 +137,8 @@ export const LotForm = () => {
     const data = {
       category_id: selectedCategory,
       lot_number: lotNumber || (formData.get('lot_number') as string),
-      product_name: formData.get('product_name') as string,
       production_date: formData.get('production_date') as string,
       expiry_date: formData.get('expiry_date') as string,
-      temperature: formData.get('temperature') ? Number(formData.get('temperature')) : undefined,
-      humidity: formData.get('humidity') ? Number(formData.get('humidity')) : undefined,
-      ph_level: formData.get('ph_level') ? Number(formData.get('ph_level')) : undefined,
       notes: formData.get('notes') as string
     };
 
@@ -182,12 +174,8 @@ export const LotForm = () => {
           user_id: user.id,
           category_id: validatedData.category_id,
           lot_number: validatedData.lot_number,
-          product_name: validatedData.product_name,
           production_date: validatedData.production_date,
           expiry_date: validatedData.expiry_date || null,
-          temperature: validatedData.temperature || null,
-          humidity: validatedData.humidity || null,
-          ph_level: validatedData.ph_level || null,
           notes: validatedData.notes || null,
           is_frozen: isFrozen,
           label_image_url: labelImageUrl
@@ -271,19 +259,6 @@ export const LotForm = () => {
             </div>
           )}
 
-          {/* Nome Prodotto */}
-          <div className="space-y-2">
-            <Label htmlFor="product_name">Nome Prodotto *</Label>
-            <Input
-              id="product_name"
-              name="product_name"
-              type="text"
-              placeholder="Es. Salsiccia fresca di suino"
-              className="rounded-xl"
-              required
-            />
-          </div>
-
           {/* Numero Lotto */}
           <div className="space-y-2">
             <Label htmlFor="lot_number">Numero Lotto *</Label>
@@ -339,45 +314,6 @@ export const LotForm = () => {
                 id="expiry_date"
                 name="expiry_date"
                 type="date"
-                className="rounded-xl"
-              />
-            </div>
-          </div>
-
-          {/* Parametri HACCP */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="temperature">Temperatura (°C)</Label>
-              <Input
-                id="temperature"
-                name="temperature"
-                type="number"
-                step="0.1"
-                placeholder="es. 4.5"
-                className="rounded-xl"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="humidity">Umidità (%)</Label>
-              <Input
-                id="humidity"
-                name="humidity"
-                type="number"
-                step="0.1"
-                placeholder="es. 75.0"
-                className="rounded-xl"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="ph_level">pH</Label>
-              <Input
-                id="ph_level"
-                name="ph_level"
-                type="number"
-                step="0.01"
-                placeholder="es. 6.2"
                 className="rounded-xl"
               />
             </div>

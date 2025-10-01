@@ -19,18 +19,14 @@ export type Database = {
           category_id: string | null
           created_at: string
           expiry_date: string | null
-          humidity: number | null
           id: string
           internal_lot_number: string | null
           is_frozen: boolean | null
           label_image_url: string | null
           lot_number: string
           notes: string | null
-          ph_level: number | null
-          product_name: string
           production_date: string
           status: string | null
-          temperature: number | null
           updated_at: string
           user_id: string
         }
@@ -38,18 +34,14 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           expiry_date?: string | null
-          humidity?: number | null
           id?: string
           internal_lot_number?: string | null
           is_frozen?: boolean | null
           label_image_url?: string | null
           lot_number: string
           notes?: string | null
-          ph_level?: number | null
-          product_name: string
           production_date: string
           status?: string | null
-          temperature?: number | null
           updated_at?: string
           user_id: string
         }
@@ -57,18 +49,14 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           expiry_date?: string | null
-          humidity?: number | null
           id?: string
           internal_lot_number?: string | null
           is_frozen?: boolean | null
           label_image_url?: string | null
           lot_number?: string
           notes?: string | null
-          ph_level?: number | null
-          product_name?: string
           production_date?: string
           status?: string | null
-          temperature?: number | null
           updated_at?: string
           user_id?: string
         }
