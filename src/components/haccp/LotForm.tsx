@@ -286,7 +286,7 @@ export const LotForm = () => {
           <div className="flex items-center justify-between space-x-2 p-4 rounded-xl border bg-card">
             <div className="space-y-0.5">
               <Label htmlFor="is_frozen">Prodotto congelato</Label>
-              <p className="text-sm text-muted-foreground">Il prodotto è stato congelato</p>
+              <p className="text-sm text-muted-foreground">Il prodotto verrà conservato a -18°</p>
             </div>
             <Switch
               id="is_frozen"
