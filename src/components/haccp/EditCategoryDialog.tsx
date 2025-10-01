@@ -1,0 +1,160 @@
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { z } from "zod";
+
+const categorySchema = z.object({
+  name: z.string().trim().min(2, 'Il nome deve avere almeno 2 caratteri').max(100, 'Nome troppo lungo'),
+  description: z.string().trim().max(500, 'Descrizione troppo lunga').optional(),
+  preparation_procedure: z.string().trim().max(2000, 'Procedimento troppo lungo').optional()
+});
+
+interface Category {
+  id: string;
+  name: string;
+  description?: string;
+  preparation_procedure?: string;
+}
+
+interface EditCategoryDialogProps {
+  category: Category | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCategoryUpdated: () => void;
+}
+
+export const EditCategoryDialog = ({ 
+  category, 
+  open, 
+  onOpenChange, 
+  onCategoryUpdated 
+}: EditCategoryDialogProps) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    preparation_procedure: ''
+  });
+
+  useEffect(() => {
+    if (category) {
+      setFormData({
+        name: category.name || '',
+        description: category.description || '',
+        preparation_procedure: category.preparation_procedure || ''
+      });
+    }
+  }, [category]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!category) return;
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const validatedData = categorySchema.parse(formData);
+
+      const { error } = await supabase
+        .from('product_categories')
+        .update({
+          name: validatedData.name,
+          description: validatedData.description || null,
+          preparation_procedure: validatedData.preparation_procedure || null
+        })
+        .eq('id', category.id);
+
+      if (error) {
+        if (error.message.includes('duplicate key')) {
+          setError('Categoria già esistente con questo nome');
+        } else {
+          setError(error.message);
+        }
+      } else {
+        toast.success('Categoria aggiornata con successo!');
+        onCategoryUpdated();
+        onOpenChange(false);
+      }
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        setError(err.errors[0].message);
+      } else {
+        setError('Errore durante l\'aggiornamento della categoria');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Modifica Categoria</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-name">Nome Categoria *</Label>
+            <Input
+              id="edit-name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="es. Pasta Fresca, Dolci, Carni..."
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-description">Descrizione</Label>
+            <Textarea
+              id="edit-description"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Descrizione della categoria di prodotti..."
+              rows={3}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-procedure">Procedimento di Preparazione</Label>
+            <Textarea
+              id="edit-procedure"
+              value={formData.preparation_procedure}
+              onChange={(e) => setFormData({ ...formData, preparation_procedure: e.target.value })}
+              placeholder="Descrivere il procedimento standard di preparazione per questa categoria..."
+              rows={4}
+            />
+          </div>
+
+          {error && (
+            <Alert className="border-destructive/50 text-destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="flex gap-3 justify-end">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
+              Annulla
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Salvataggio...' : 'Salva Modifiche'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};

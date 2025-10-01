@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Package, Trash2, FileText, Clock } from 'lucide-react';
+import { Package, Trash2, FileText, Clock, Edit } from 'lucide-react';
+import { EditCategoryDialog } from './EditCategoryDialog';
 
 interface Category {
   id: string;
@@ -21,6 +22,8 @@ interface CategoriesListProps {
 export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const fetchCategories = async () => {
     try {
@@ -48,6 +51,11 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
   useEffect(() => {
     fetchCategories();
   }, [refreshTrigger]);
+
+  const handleEdit = (category: Category) => {
+    setEditingCategory(category);
+    setEditDialogOpen(true);
+  };
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Sei sicuro di voler eliminare la categoria "${name}"?`)) {
@@ -88,11 +96,19 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 mb-4">
-        <Package className="w-5 h-5" />
-        <h3 className="text-lg font-semibold">Categorie Prodotti ({categories.length})</h3>
-      </div>
+    <>
+      <EditCategoryDialog
+        category={editingCategory}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onCategoryUpdated={fetchCategories}
+      />
+      
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 mb-4">
+          <Package className="w-5 h-5" />
+          <h3 className="text-lg font-semibold">Categorie Prodotti ({categories.length})</h3>
+        </div>
 
       {categories.length === 0 ? (
         <Card>
@@ -114,14 +130,24 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
                     <Package className="w-5 h-5 text-primary" />
                     {category.name}
                   </CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(category.id, category.name)}
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEdit(category)}
+                      className="text-primary hover:text-primary hover:bg-primary/10"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDelete(category.id, category.name)}
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -159,6 +185,7 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 };
