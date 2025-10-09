@@ -319,6 +319,19 @@ export const LotForm = () => {
             </div>
           </div>
 
+          {/* Data Congelamento - visibile solo se congelato */}
+          {isFrozen && (
+            <div className="space-y-2">
+              <Label htmlFor="freezing_date">Data congelamento</Label>
+              <Input
+                id="freezing_date"
+                name="freezing_date"
+                type="date"
+                className="rounded-xl"
+              />
+            </div>
+          )}
+
           {/* Note */}
           <div className="space-y-2">
             <Label htmlFor="notes">Note</Label>

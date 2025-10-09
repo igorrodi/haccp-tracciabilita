@@ -24,6 +24,7 @@ interface Lot {
   label_image_url?: string;
   internal_lot_number?: string;
   notes?: string;
+  is_frozen?: boolean;
   created_at: string;
 }
 
@@ -153,6 +154,7 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
                       <TableHead>Lotto</TableHead>
                       <TableHead>Lotto originale</TableHead>
                       <TableHead>Produzione</TableHead>
+                      <TableHead>Scadenza</TableHead>
                       <TableHead>Congelamento</TableHead>
                       <TableHead className="text-right">Azioni</TableHead>
                     </TableRow>
@@ -183,6 +185,9 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
                         <TableCell>{format(new Date(lot.production_date), 'yyyy-MM-dd')}</TableCell>
                         <TableCell>
                           {lot.expiry_date ? format(new Date(lot.expiry_date), 'yyyy-MM-dd') : '—'}
+                        </TableCell>
+                        <TableCell>
+                          {lot.is_frozen ? format(new Date(lot.production_date), 'yyyy-MM-dd') : '—'}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
