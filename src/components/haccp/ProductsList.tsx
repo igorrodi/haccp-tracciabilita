@@ -19,19 +19,19 @@ export const ProductsList = () => {
         <h2 className="text-2xl font-bold">Gestione Prodotti</h2>
       </div>
 
-      <Tabs defaultValue="categories" className="w-full">
+      <Tabs defaultValue="products" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="categories" className="flex items-center gap-2">
+          <TabsTrigger value="products" className="flex items-center gap-2">
             <Package className="w-4 h-4" />
-            Categorie Prodotti
+            Prodotti
           </TabsTrigger>
           <TabsTrigger value="add" className="flex items-center gap-2">
             <Plus className="w-4 h-4" />
-            Aggiungi Categoria
+            Aggiungi Prodotto
           </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="categories" className="space-y-4">
+        <TabsContent value="products" className="space-y-4">
           <CategoriesList refreshTrigger={refreshTrigger} />
         </TabsContent>
         

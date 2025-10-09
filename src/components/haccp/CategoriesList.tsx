@@ -4,8 +4,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Package, Trash2, FileText, Clock, Edit } from 'lucide-react';
+import { Package, Trash2, FileText, Clock, Edit, ChevronRight } from 'lucide-react';
 import { EditCategoryDialog } from './EditCategoryDialog';
+import { ProductDetails } from './ProductDetails';
 
 interface Category {
   id: string;
@@ -24,6 +25,7 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
   const [loading, setLoading] = useState(true);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Category | null>(null);
 
   const fetchCategories = async () => {
     try {
@@ -79,6 +81,16 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
     }
   };
 
+  // Se un prodotto è selezionato, mostra i suoi dettagli
+  if (selectedProduct) {
+    return (
+      <ProductDetails 
+        product={selectedProduct} 
+        onBack={() => setSelectedProduct(null)} 
+      />
+    );
+  }
+
   if (loading) {
     return (
       <Card>
@@ -107,7 +119,7 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-4">
           <Package className="w-5 h-5" />
-          <h3 className="text-lg font-semibold">Categorie Prodotti ({categories.length})</h3>
+          <h3 className="text-lg font-semibold">Prodotti ({categories.length})</h3>
         </div>
 
       {categories.length === 0 ? (
@@ -115,15 +127,19 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
           <CardContent className="p-6">
             <div className="text-center text-muted-foreground">
               <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Nessuna categoria ancora creata</p>
-              <p className="text-sm">Aggiungi la prima categoria per iniziare</p>
+              <p>Nessun prodotto ancora creato</p>
+              <p className="text-sm">Aggiungi il primo prodotto per iniziare</p>
             </div>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4">
           {categories.map((category) => (
-            <Card key={category.id} className="relative">
+            <Card 
+              key={category.id} 
+              className="relative hover:shadow-lg transition-shadow cursor-pointer"
+              onClick={() => setSelectedProduct(category)}
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -134,7 +150,10 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleEdit(category)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(category);
+                      }}
                       className="text-primary hover:text-primary hover:bg-primary/10"
                     >
                       <Edit className="w-4 h-4" />
@@ -142,7 +161,10 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDelete(category.id, category.name)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(category.id, category.name);
+                      }}
                       className="text-destructive hover:text-destructive hover:bg-destructive/10"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -155,7 +177,7 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <FileText className="w-4 h-4" />
-                      Descrizione
+                      Ingredienti
                     </div>
                     <p className="text-sm text-muted-foreground pl-6">
                       {category.description}
@@ -167,10 +189,12 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <Clock className="w-4 h-4" />
-                      Procedimento di Preparazione
+                      Preparazione
                     </div>
                     <p className="text-sm text-muted-foreground pl-6 whitespace-pre-wrap">
-                      {category.preparation_procedure}
+                      {category.preparation_procedure.length > 100 
+                        ? `${category.preparation_procedure.substring(0, 100)}...` 
+                        : category.preparation_procedure}
                     </p>
                   </div>
                 )}
@@ -179,6 +203,9 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
                   <Badge variant="secondary" className="text-xs">
                     Creata il {new Date(category.created_at).toLocaleDateString('it-IT')}
                   </Badge>
+                  <Button variant="ghost" size="sm" className="text-primary">
+                    Vedi lotti <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
                 </div>
               </CardContent>
             </Card>

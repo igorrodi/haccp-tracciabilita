@@ -215,22 +215,22 @@ export const LotForm = () => {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Categoria Prodotto */}
+          {/* Prodotto */}
           <div className="space-y-2">
-            <Label htmlFor="category">Categoria Prodotto *</Label>
+            <Label htmlFor="category">Prodotto *</Label>
             {categoriesLoading ? (
               <div className="h-10 bg-muted animate-pulse rounded-xl"></div>
             ) : categories.length === 0 ? (
               <Alert>
                 <Package className="w-4 h-4" />
                 <AlertDescription>
-                  Nessuna categoria disponibile. Vai alla sezione "Prodotti" per aggiungere delle categorie.
+                  Nessun prodotto disponibile. Vai alla sezione "Prodotti" per aggiungere dei prodotti.
                 </AlertDescription>
               </Alert>
             ) : (
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="Seleziona categoria" />
+                  <SelectValue placeholder="Seleziona prodotto" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((category) => (
@@ -243,10 +243,10 @@ export const LotForm = () => {
             )}
           </div>
 
-          {/* Dettagli categoria selezionata */}
+          {/* Dettagli prodotto selezionato */}
           {selectedCategoryData && (
             <div className="bg-muted/50 p-4 rounded-xl space-y-2">
-              <h4 className="font-medium text-sm">Categoria: {selectedCategoryData.name}</h4>
+              <h4 className="font-medium text-sm">Prodotto: {selectedCategoryData.name}</h4>
               {selectedCategoryData.description && (
                 <p className="text-sm text-muted-foreground">{selectedCategoryData.description}</p>
               )}
@@ -259,9 +259,9 @@ export const LotForm = () => {
             </div>
           )}
 
-          {/* Numero Lotto */}
+          {/* Lotto originale */}
           <div className="space-y-2">
-            <Label htmlFor="lot_number">Numero Lotto *</Label>
+            <Label htmlFor="lot_number">Lotto originale *</Label>
             <div className="relative">
               <Input
                 id="lot_number"

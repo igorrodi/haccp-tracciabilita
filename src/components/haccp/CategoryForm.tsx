@@ -78,7 +78,7 @@ export const CategoryForm = ({ onCategoryAdded }: CategoryFormProps) => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Plus className="w-5 h-5" />
-          Aggiungi Categoria Prodotto
+          Aggiungi Prodotto
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -86,13 +86,13 @@ export const CategoryForm = ({ onCategoryAdded }: CategoryFormProps) => {
           <div className="space-y-2">
             <Label htmlFor="name">
               <Package className="w-4 h-4 inline mr-2" />
-              Nome Categoria *
+              Nome Prodotto *
             </Label>
             <Input
               id="name"
               name="name"
               type="text"
-              placeholder="es. Pasta Fresca, Dolci, Carni..."
+              placeholder="es. Salsiccia, Salmone, Pasta Fresca..."
               required
             />
           </div>
@@ -102,7 +102,7 @@ export const CategoryForm = ({ onCategoryAdded }: CategoryFormProps) => {
             <Textarea
               id="description"
               name="description"
-              placeholder="Descrizione della categoria di prodotti..."
+              placeholder="Descrizione del prodotto (ingredienti, caratteristiche...)..."
               rows={3}
             />
           </div>
@@ -112,7 +112,7 @@ export const CategoryForm = ({ onCategoryAdded }: CategoryFormProps) => {
             <Textarea
               id="preparation_procedure"
               name="preparation_procedure"
-              placeholder="Descrivere il procedimento standard di preparazione per questa categoria..."
+              placeholder="Descrivere il procedimento standard di preparazione per questo prodotto..."
               rows={4}
             />
           </div>
@@ -124,7 +124,7 @@ export const CategoryForm = ({ onCategoryAdded }: CategoryFormProps) => {
           )}
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Aggiunta in corso...' : 'Aggiungi Categoria'}
+            {loading ? 'Aggiunta in corso...' : 'Aggiungi Prodotto'}
           </Button>
         </form>
       </CardContent>
