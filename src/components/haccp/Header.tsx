@@ -1,9 +1,16 @@
 import { useEffect, useState } from "react";
-import { Shield, LogOut, User } from "lucide-react";
+import { Shield, LogOut, User, Home, Package, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface HeaderProps {
   activeTab: "home" | "products" | "system";
@@ -59,13 +66,35 @@ export const Header = ({ activeTab, onTabChange }: HeaderProps) => {
           </div>
         </div>
         
-        <div className="flex items-center gap-4">
-          <nav className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {/* Mobile: Icons only */}
+          <nav className="flex items-center gap-1 md:hidden">
+            <Button
+              variant={activeTab === "home" ? "default" : "ghost"}
+              size="icon"
+              className="rounded-xl"
+              onClick={() => onTabChange("home")}
+            >
+              <Home className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={activeTab === "products" ? "default" : "ghost"}
+              size="icon"
+              className="rounded-xl"
+              onClick={() => onTabChange("products")}
+            >
+              <Package className="w-4 h-4" />
+            </Button>
+          </nav>
+
+          {/* Desktop: Full text */}
+          <nav className="hidden md:flex items-center gap-3">
             <Button
               variant={activeTab === "home" ? "default" : "ghost"}
               className="rounded-xl"
               onClick={() => onTabChange("home")}
             >
+              <Home className="w-4 h-4 mr-2" />
               Home
             </Button>
             <Button
@@ -73,6 +102,7 @@ export const Header = ({ activeTab, onTabChange }: HeaderProps) => {
               className="rounded-xl"
               onClick={() => onTabChange("products")}
             >
+              <Package className="w-4 h-4 mr-2" />
               Prodotti
             </Button>
             <Button
@@ -80,33 +110,47 @@ export const Header = ({ activeTab, onTabChange }: HeaderProps) => {
               className="rounded-xl"
               onClick={() => onTabChange("system")}
             >
+              <Settings className="w-4 h-4 mr-2" />
               Sistema
             </Button>
           </nav>
 
-          <div className="flex items-center gap-3 pl-3 border-l border-border">
-            <div className="flex items-center gap-2">
-              <Avatar className="w-8 h-8">
-                <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                  {getInitials(userProfile?.full_name)}
-                </AvatarFallback>
-              </Avatar>
+          {/* Account Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-xl ml-2">
+                <Avatar className="w-8 h-8">
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                    {getInitials(userProfile?.full_name)}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
               {userProfile?.full_name && (
-                <span className="text-sm font-medium hidden sm:block">
-                  {userProfile.full_name}
-                </span>
+                <>
+                  <div className="px-2 py-1.5 text-sm font-medium">
+                    {userProfile.full_name}
+                  </div>
+                  <DropdownMenuSeparator />
+                </>
               )}
-            </div>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              className="rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={handleLogout}
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
-          </div>
+              <DropdownMenuItem 
+                className="md:hidden"
+                onClick={() => onTabChange("system")}
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Sistema
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="text-destructive focus:text-destructive"
+                onClick={handleLogout}
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>
