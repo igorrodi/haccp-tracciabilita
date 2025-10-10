@@ -12,7 +12,8 @@ import { z } from "zod";
 const categorySchema = z.object({
   name: z.string().trim().min(2, 'Il nome deve avere almeno 2 caratteri').max(100, 'Nome troppo lungo'),
   description: z.string().trim().max(500, 'Descrizione troppo lunga').optional(),
-  preparation_procedure: z.string().trim().max(2000, 'Procedimento troppo lungo').optional()
+  preparation_procedure: z.string().trim().max(2000, 'Procedimento troppo lungo').optional(),
+  shelf_life_days: z.number().int().positive('Inserire un numero positivo').optional()
 });
 
 interface Category {
@@ -20,6 +21,7 @@ interface Category {
   name: string;
   description?: string;
   preparation_procedure?: string;
+  shelf_life_days?: number;
 }
 
 interface EditCategoryDialogProps {
@@ -40,7 +42,8 @@ export const EditCategoryDialog = ({
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    preparation_procedure: ''
+    preparation_procedure: '',
+    shelf_life_days: undefined as number | undefined
   });
 
   useEffect(() => {
@@ -48,7 +51,8 @@ export const EditCategoryDialog = ({
       setFormData({
         name: category.name || '',
         description: category.description || '',
-        preparation_procedure: category.preparation_procedure || ''
+        preparation_procedure: category.preparation_procedure || '',
+        shelf_life_days: category.shelf_life_days || undefined
       });
     }
   }, [category]);
@@ -68,7 +72,8 @@ export const EditCategoryDialog = ({
         .update({
           name: validatedData.name,
           description: validatedData.description || null,
-          preparation_procedure: validatedData.preparation_procedure || null
+          preparation_procedure: validatedData.preparation_procedure || null,
+          shelf_life_days: validatedData.shelf_life_days || null
         })
         .eq('id', category.id);
 
@@ -132,6 +137,24 @@ export const EditCategoryDialog = ({
               placeholder="Descrivere il procedimento standard di preparazione per questa categoria..."
               rows={4}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-shelf-life">Giorni di Scadenza</Label>
+            <Input
+              id="edit-shelf-life"
+              type="number"
+              min="1"
+              value={formData.shelf_life_days || ''}
+              onChange={(e) => setFormData({ 
+                ...formData, 
+                shelf_life_days: e.target.value ? parseInt(e.target.value) : undefined 
+              })}
+              placeholder="es. 7, 30, 90..."
+            />
+            <p className="text-sm text-muted-foreground">
+              Numero di giorni di conservazione dalla data di produzione (opzionale)
+            </p>
           </div>
 
           {error && (

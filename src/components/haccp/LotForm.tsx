@@ -26,6 +26,7 @@ interface Category {
   name: string;
   description?: string;
   preparation_procedure?: string;
+  shelf_life_days?: number;
 }
 
 export const LotForm = () => {
@@ -42,6 +43,8 @@ export const LotForm = () => {
   const [cropperOpen, setCropperOpen] = useState(false);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const [pendingImageIndex, setPendingImageIndex] = useState<number | null>(null);
+  const [productionDate, setProductionDate] = useState("");
+  const [expiryDate, setExpiryDate] = useState("");
 
   // Fetch categories
   useEffect(() => {
@@ -239,6 +242,8 @@ export const LotForm = () => {
         setImagePreviews([]);
         setLotNumbers(['']);
         setIsFrozen(false);
+        setProductionDate("");
+        setExpiryDate("");
       }
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -252,6 +257,18 @@ export const LotForm = () => {
   };
 
   const selectedCategoryData = categories.find(cat => cat.id === selectedCategory);
+
+  // Calcola automaticamente la data di scadenza
+  const handleProductionDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const date = e.target.value;
+    setProductionDate(date);
+    
+    if (date && selectedCategoryData?.shelf_life_days) {
+      const prodDate = new Date(date);
+      prodDate.setDate(prodDate.getDate() + selectedCategoryData.shelf_life_days);
+      setExpiryDate(prodDate.toISOString().split('T')[0]);
+    }
+  };
 
   return (
     <Card className="haccp-card">
@@ -378,17 +395,28 @@ export const LotForm = () => {
                 name="production_date"
                 type="date"
                 className="rounded-xl"
+                value={productionDate}
+                onChange={handleProductionDateChange}
                 required
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="expiry_date">Data scadenza</Label>
+              <Label htmlFor="expiry_date">
+                Data scadenza
+                {selectedCategoryData?.shelf_life_days && (
+                  <span className="text-xs text-muted-foreground ml-1">
+                    (auto: +{selectedCategoryData.shelf_life_days}gg)
+                  </span>
+                )}
+              </Label>
               <Input
                 id="expiry_date"
                 name="expiry_date"
                 type="date"
                 className="rounded-xl"
+                value={expiryDate}
+                onChange={(e) => setExpiryDate(e.target.value)}
               />
             </div>
           </div>

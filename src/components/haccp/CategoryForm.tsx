@@ -13,7 +13,8 @@ import { Plus, Package } from 'lucide-react';
 const categorySchema = z.object({
   name: z.string().trim().min(2, 'Il nome deve avere almeno 2 caratteri').max(100, 'Nome troppo lungo'),
   description: z.string().trim().max(500, 'Descrizione troppo lunga').optional(),
-  preparation_procedure: z.string().trim().max(2000, 'Procedimento troppo lungo').optional()
+  preparation_procedure: z.string().trim().max(2000, 'Procedimento troppo lungo').optional(),
+  shelf_life_days: z.number().int().positive('Inserire un numero positivo').optional()
 });
 
 interface CategoryFormProps {
@@ -30,10 +31,12 @@ export const CategoryForm = ({ onCategoryAdded }: CategoryFormProps) => {
     setError('');
 
     const formData = new FormData(e.currentTarget);
+    const shelfLifeDaysValue = formData.get('shelf_life_days') as string;
     const data = {
       name: formData.get('name') as string,
       description: formData.get('description') as string,
-      preparation_procedure: formData.get('preparation_procedure') as string
+      preparation_procedure: formData.get('preparation_procedure') as string,
+      shelf_life_days: shelfLifeDaysValue ? parseInt(shelfLifeDaysValue) : undefined
     };
 
     try {
@@ -48,7 +51,8 @@ export const CategoryForm = ({ onCategoryAdded }: CategoryFormProps) => {
           user_id: user.id,
           name: validatedData.name,
           description: validatedData.description || null,
-          preparation_procedure: validatedData.preparation_procedure || null
+          preparation_procedure: validatedData.preparation_procedure || null,
+          shelf_life_days: validatedData.shelf_life_days || null
         }]);
 
       if (error) {
@@ -74,15 +78,8 @@ export const CategoryForm = ({ onCategoryAdded }: CategoryFormProps) => {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Plus className="w-5 h-5" />
-          Aggiungi Prodotto
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <div>
+      <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">
               <Package className="w-4 h-4 inline mr-2" />
@@ -117,17 +114,30 @@ export const CategoryForm = ({ onCategoryAdded }: CategoryFormProps) => {
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="shelf_life_days">Giorni di Scadenza</Label>
+            <Input
+              id="shelf_life_days"
+              name="shelf_life_days"
+              type="number"
+              min="1"
+              placeholder="es. 7, 30, 90..."
+            />
+            <p className="text-sm text-muted-foreground">
+              Numero di giorni di conservazione dalla data di produzione (opzionale)
+            </p>
+          </div>
+
           {error && (
             <Alert className="border-destructive/50 text-destructive">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Aggiunta in corso...' : 'Aggiungi Prodotto'}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? 'Aggiunta in corso...' : 'Aggiungi Prodotto'}
+        </Button>
+      </form>
+    </div>
   );
 };

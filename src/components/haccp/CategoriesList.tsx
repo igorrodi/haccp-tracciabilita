@@ -13,6 +13,7 @@ interface Category {
   name: string;
   description?: string;
   preparation_procedure?: string;
+  shelf_life_days?: number;
   created_at: string;
 }
 
@@ -179,7 +180,10 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
                       <FileText className="w-4 h-4" />
                       Ingredienti
                     </div>
-                    <p className="text-sm text-muted-foreground pl-6">
+                    <p className="text-sm text-muted-foreground pl-6 hidden md:block">
+                      {category.description}
+                    </p>
+                    <p className="text-sm text-muted-foreground pl-6 md:hidden line-clamp-2">
                       {category.description}
                     </p>
                   </div>

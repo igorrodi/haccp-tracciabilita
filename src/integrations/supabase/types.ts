@@ -77,6 +77,7 @@ export type Database = {
           id: string
           name: string
           preparation_procedure: string | null
+          shelf_life_days: number | null
           updated_at: string
           user_id: string
         }
@@ -86,6 +87,7 @@ export type Database = {
           id?: string
           name: string
           preparation_procedure?: string | null
+          shelf_life_days?: number | null
           updated_at?: string
           user_id: string
         }
@@ -95,6 +97,7 @@ export type Database = {
           id?: string
           name?: string
           preparation_procedure?: string | null
+          shelf_life_days?: number | null
           updated_at?: string
           user_id?: string
         }
