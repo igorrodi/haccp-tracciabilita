@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Header } from "@/components/haccp/Header";
 import { LotForm } from "@/components/haccp/LotForm";
 import { ProductsList } from "@/components/haccp/ProductsList";
+import { RecentLotsList } from "@/components/haccp/RecentLotsList";
 import { SystemPanel } from "@/components/haccp/SystemPanel";
 
 const Index = () => {
@@ -18,7 +19,7 @@ const Index = () => {
               <LotForm />
             </div>
             <div className="lg:col-span-2">
-              <ProductsList />
+              <RecentLotsList />
             </div>
           </div>
         )}

@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { z } from 'zod';
 import { createWorker } from 'tesseract.js';
+import { ImageCropper } from "./ImageCropper";
 
 const lotSchema = z.object({
   category_id: z.string().uuid('Seleziona una categoria'),
@@ -36,8 +37,11 @@ export const LotForm = () => {
   const [ocrLoading, setOcrLoading] = useState(false);
   const [error, setError] = useState('');
   const [categoriesLoading, setCategoriesLoading] = useState(true);
-  const [lotNumber, setLotNumber] = useState('');
+  const [lotNumbers, setLotNumbers] = useState<string[]>(['']);
   const [isFrozen, setIsFrozen] = useState(false);
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+  const [pendingImageIndex, setPendingImageIndex] = useState<number | null>(null);
 
   // Fetch categories
   useEffect(() => {
@@ -67,7 +71,7 @@ export const LotForm = () => {
     fetchCategories();
   }, []);
 
-  const performOCR = async (file: File) => {
+  const performOCR = async (file: File, imageIndex: number) => {
     setOcrLoading(true);
     try {
       const worker = await createWorker('ita');
@@ -86,7 +90,11 @@ export const LotForm = () => {
         const match = text.match(pattern);
         if (match) {
           const extractedLot = match[0].replace(/\s+/g, '');
-          setLotNumber(extractedLot);
+          setLotNumbers(prev => {
+            const updated = [...prev];
+            updated[imageIndex] = extractedLot;
+            return updated;
+          });
           toast.success(`Numero lotto rilevato: ${extractedLot}`);
           break;
         }
@@ -103,29 +111,67 @@ export const LotForm = () => {
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
 
-    const newImages = [...selectedImages, ...files];
-    setSelectedImages(newImages);
-
-    const newPreviews = await Promise.all(
-      files.map(file => new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target?.result as string);
-        reader.readAsDataURL(file);
-      }))
-    );
-
-    setImagePreviews([...imagePreviews, ...newPreviews]);
-    toast.success(`${files.length} immagine/i caricata/e`);
-
-    // Perform OCR on first image if lot number is empty
-    if (!lotNumber && files[0]) {
-      await performOCR(files[0]);
+    // Process each file with cropper
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        const imageUrl = e.target?.result as string;
+        setImageToCrop(imageUrl);
+        setPendingImageIndex(selectedImages.length + i);
+        setCropperOpen(true);
+      };
+      
+      reader.readAsDataURL(file);
+      
+      // Wait for cropping to complete before processing next image
+      await new Promise<void>(resolve => {
+        const checkCropper = setInterval(() => {
+          if (!cropperOpen) {
+            clearInterval(checkCropper);
+            resolve();
+          }
+        }, 100);
+      });
     }
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    const croppedFile = new File([croppedBlob], `cropped_${Date.now()}.jpg`, { type: 'image/jpeg' });
+    const currentIndex = selectedImages.length;
+    
+    setSelectedImages(prev => [...prev, croppedFile]);
+    
+    const preview = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target?.result as string);
+      reader.readAsDataURL(croppedFile);
+    });
+    
+    setImagePreviews(prev => [...prev, preview]);
+    setLotNumbers(prev => [...prev, '']);
+    
+    setCropperOpen(false);
+    setImageToCrop(null);
+    setPendingImageIndex(null);
+    
+    toast.success('Immagine aggiunta');
+    
+    // Perform OCR on the cropped image
+    await performOCR(croppedFile, currentIndex);
+  };
+
+  const handleCropCancel = () => {
+    setCropperOpen(false);
+    setImageToCrop(null);
+    setPendingImageIndex(null);
   };
 
   const removeImage = (index: number) => {
     setSelectedImages(prev => prev.filter((_, i) => i !== index));
     setImagePreviews(prev => prev.filter((_, i) => i !== index));
+    setLotNumbers(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -134,9 +180,11 @@ export const LotForm = () => {
     setError('');
 
     const formData = new FormData(e.currentTarget);
+    const primaryLotNumber = lotNumbers[0] || (formData.get('lot_number_0') as string);
+    
     const data = {
       category_id: selectedCategory,
-      lot_number: lotNumber || (formData.get('lot_number') as string),
+      lot_number: primaryLotNumber,
       production_date: formData.get('production_date') as string,
       expiry_date: formData.get('expiry_date') as string,
       notes: formData.get('notes') as string
@@ -189,7 +237,7 @@ export const LotForm = () => {
         setSelectedCategory("");
         setSelectedImages([]);
         setImagePreviews([]);
-        setLotNumber('');
+        setLotNumbers(['']);
         setIsFrozen(false);
       }
     } catch (err) {
@@ -259,24 +307,50 @@ export const LotForm = () => {
             </div>
           )}
 
-          {/* Lotto originale */}
-          <div className="space-y-2">
-            <Label htmlFor="lot_number">Lotto originale *</Label>
-            <div className="relative">
-              <Input
-                id="lot_number"
-                name="lot_number"
-                type="text"
-                placeholder="Es. L.503586"
-                className="rounded-xl"
-                value={lotNumber}
-                onChange={(e) => setLotNumber(e.target.value)}
-                required
-              />
-              {ocrLoading && (
-                <Loader2 className="absolute right-3 top-3 w-4 h-4 animate-spin text-muted-foreground" />
-              )}
-            </div>
+          {/* Lotti originali - uno per ogni foto */}
+          <div className="space-y-3">
+            <Label>Lotto originale {selectedImages.length > 1 ? 'per ogni etichetta' : ''} *</Label>
+            {selectedImages.length > 0 ? (
+              selectedImages.map((_, index) => (
+                <div key={index} className="space-y-2">
+                  <Label htmlFor={`lot_number_${index}`} className="text-sm text-muted-foreground">
+                    Foto {index + 1}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id={`lot_number_${index}`}
+                      name={`lot_number_${index}`}
+                      type="text"
+                      placeholder="Es. L.503586"
+                      className="rounded-xl"
+                      value={lotNumbers[index] || ''}
+                      onChange={(e) => {
+                        const updated = [...lotNumbers];
+                        updated[index] = e.target.value;
+                        setLotNumbers(updated);
+                      }}
+                      required
+                    />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="relative">
+                <Input
+                  id="lot_number_0"
+                  name="lot_number_0"
+                  type="text"
+                  placeholder="Es. L.503586"
+                  className="rounded-xl"
+                  value={lotNumbers[0] || ''}
+                  onChange={(e) => setLotNumbers([e.target.value])}
+                  required
+                />
+                {ocrLoading && (
+                  <Loader2 className="absolute right-3 top-3 w-4 h-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
+            )}
             {ocrLoading && (
               <p className="text-xs text-muted-foreground">Riconoscimento testo in corso...</p>
             )}
@@ -406,6 +480,15 @@ export const LotForm = () => {
           </Button>
         </form>
       </CardContent>
+
+      {imageToCrop && (
+        <ImageCropper
+          image={imageToCrop}
+          isOpen={cropperOpen}
+          onCropComplete={handleCropComplete}
+          onCancel={handleCropCancel}
+        />
+      )}
     </Card>
   );
 };
