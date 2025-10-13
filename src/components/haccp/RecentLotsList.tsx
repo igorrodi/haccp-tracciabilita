@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Package } from 'lucide-react';
+import { Package, Search } from 'lucide-react';
 
 interface Lot {
   id: string;
@@ -26,6 +27,7 @@ export const RecentLotsList = () => {
   const [lots, setLots] = useState<Lot[]>([]);
   const [categories, setCategories] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchRecentLots();
@@ -72,15 +74,32 @@ export const RecentLotsList = () => {
     }
   };
 
+  const filteredLots = lots.filter(lot => {
+    const searchLower = searchQuery.toLowerCase();
+    const internalLotMatch = lot.internal_lot_number?.toLowerCase().includes(searchLower);
+    const originalLotMatch = lot.lot_number.toLowerCase().includes(searchLower);
+    return internalLotMatch || originalLotMatch;
+  });
+
   return (
     <Card className="rounded-2xl border-2">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Package className="w-5 h-5" />
-          Ultimi lotti registrati
+          Prodotti
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Cerca per lotto interno o originale..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 rounded-xl"
+          />
+        </div>
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
@@ -89,13 +108,13 @@ export const RecentLotsList = () => {
               </div>
             ))}
           </div>
-        ) : lots.length === 0 ? (
+        ) : filteredLots.length === 0 ? (
           <p className="text-muted-foreground text-center py-8">
-            Nessun lotto registrato ancora
+            {searchQuery ? 'Nessun lotto trovato' : 'Nessun lotto registrato ancora'}
           </p>
         ) : (
           <div className="space-y-3">
-            {lots.map((lot) => (
+            {filteredLots.map((lot) => (
               <div
                 key={lot.id}
                 className="p-3 border rounded-lg space-y-2 hover:bg-muted/50 transition-colors"

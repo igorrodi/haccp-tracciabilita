@@ -40,11 +40,18 @@ export const LotForm = () => {
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [lotNumbers, setLotNumbers] = useState<string[]>(['']);
   const [isFrozen, setIsFrozen] = useState(false);
+  const [freezingDate, setFreezingDate] = useState("");
   const [cropperOpen, setCropperOpen] = useState(false);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const [pendingImageIndex, setPendingImageIndex] = useState<number | null>(null);
   const [productionDate, setProductionDate] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
+
+  // Imposta data produzione corrente al mount
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    setProductionDate(today);
+  }, []);
 
   // Fetch categories
   useEffect(() => {
@@ -242,7 +249,9 @@ export const LotForm = () => {
         setImagePreviews([]);
         setLotNumbers(['']);
         setIsFrozen(false);
-        setProductionDate("");
+        setFreezingDate("");
+        const today = new Date().toISOString().split('T')[0];
+        setProductionDate(today);
         setExpiryDate("");
       }
     } catch (err) {
@@ -324,56 +333,41 @@ export const LotForm = () => {
             </div>
           )}
 
-          {/* Lotti originali - uno per ogni foto */}
-          <div className="space-y-3">
-            <Label>Lotto originale {selectedImages.length > 1 ? 'per ogni etichetta' : ''} *</Label>
-            {selectedImages.length > 0 ? (
-              selectedImages.map((_, index) => (
-                <div key={index} className="space-y-2">
-                  <Label htmlFor={`lot_number_${index}`} className="text-sm text-muted-foreground">
-                    Foto {index + 1}
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id={`lot_number_${index}`}
-                      name={`lot_number_${index}`}
-                      type="text"
-                      placeholder="Es. L.503586"
-                      className="rounded-xl"
-                      value={lotNumbers[index] || ''}
-                      onChange={(e) => {
-                        const updated = [...lotNumbers];
-                        updated[index] = e.target.value;
-                        setLotNumbers(updated);
-                      }}
-                      required
-                    />
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="relative">
-                <Input
-                  id="lot_number_0"
-                  name="lot_number_0"
-                  type="text"
-                  placeholder="Es. L.503586"
-                  className="rounded-xl"
-                  value={lotNumbers[0] || ''}
-                  onChange={(e) => setLotNumbers([e.target.value])}
-                  required
-                />
-                {ocrLoading && (
-                  <Loader2 className="absolute right-3 top-3 w-4 h-4 animate-spin text-muted-foreground" />
-                )}
-              </div>
-            )}
-            {ocrLoading && (
-              <p className="text-xs text-muted-foreground">Riconoscimento testo in corso...</p>
-            )}
+          {/* Data produzione */}
+          <div className="space-y-2">
+            <Label htmlFor="production_date">Data produzione *</Label>
+            <Input
+              id="production_date"
+              name="production_date"
+              type="date"
+              className="rounded-xl"
+              value={productionDate}
+              onChange={handleProductionDateChange}
+              required
+            />
+          </div>
+          
+          {/* Data scadenza */}
+          <div className="space-y-2">
+            <Label htmlFor="expiry_date">
+              Data scadenza
+              {selectedCategoryData?.shelf_life_days && (
+                <span className="text-xs text-muted-foreground ml-1">
+                  (auto: +{selectedCategoryData.shelf_life_days}gg)
+                </span>
+              )}
+            </Label>
+            <Input
+              id="expiry_date"
+              name="expiry_date"
+              type="date"
+              className="rounded-xl"
+              value={expiryDate}
+              onChange={(e) => setExpiryDate(e.target.value)}
+            />
           </div>
 
-          {/* Stato congelamento */}
+          {/* Toggle congelamento */}
           <div className="flex items-center justify-between space-x-2 p-4 rounded-xl border bg-card">
             <div className="space-y-0.5">
               <Label htmlFor="is_frozen">Prodotto congelato</Label>
@@ -386,41 +380,6 @@ export const LotForm = () => {
             />
           </div>
 
-          {/* Date */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="production_date">Data produzione *</Label>
-              <Input
-                id="production_date"
-                name="production_date"
-                type="date"
-                className="rounded-xl"
-                value={productionDate}
-                onChange={handleProductionDateChange}
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="expiry_date">
-                Data scadenza
-                {selectedCategoryData?.shelf_life_days && (
-                  <span className="text-xs text-muted-foreground ml-1">
-                    (auto: +{selectedCategoryData.shelf_life_days}gg)
-                  </span>
-                )}
-              </Label>
-              <Input
-                id="expiry_date"
-                name="expiry_date"
-                type="date"
-                className="rounded-xl"
-                value={expiryDate}
-                onChange={(e) => setExpiryDate(e.target.value)}
-              />
-            </div>
-          </div>
-
           {/* Data Congelamento - visibile solo se congelato */}
           {isFrozen && (
             <div className="space-y-2">
@@ -430,24 +389,15 @@ export const LotForm = () => {
                 name="freezing_date"
                 type="date"
                 className="rounded-xl"
+                value={freezingDate}
+                onChange={(e) => setFreezingDate(e.target.value)}
               />
             </div>
           )}
 
-          {/* Note */}
+          {/* Caricamento foto */}
           <div className="space-y-2">
-            <Label htmlFor="notes">Note</Label>
-            <Input
-              id="notes"
-              name="notes"
-              placeholder="Note aggiuntive..."
-              className="rounded-xl"
-            />
-          </div>
-
-          {/* Upload Etichetta */}
-          <div className="space-y-2">
-            <Label>Foto etichetta (opzionale - OCR automatico)</Label>
+            <Label>Caricamento foto</Label>
             <div className="camera-upload-area">
               <input
                 type="file"
@@ -492,6 +442,59 @@ export const LotForm = () => {
               </div>
             )}
           </div>
+
+          {/* Lotti originali - appare dopo caricamento foto */}
+          {imagePreviews.length > 0 && (
+            <div className="space-y-3">
+              <Label>Lotto originale {selectedImages.length > 1 ? 'per ogni etichetta' : ''} *</Label>
+              {selectedImages.map((_, index) => (
+                <div key={index} className="space-y-2">
+                  <Label htmlFor={`lot_number_${index}`} className="text-sm text-muted-foreground">
+                    Foto {index + 1}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id={`lot_number_${index}`}
+                      name={`lot_number_${index}`}
+                      type="text"
+                      placeholder="Es. L.503586"
+                      className="rounded-xl"
+                      value={lotNumbers[index] || ''}
+                      onChange={(e) => {
+                        const updated = [...lotNumbers];
+                        updated[index] = e.target.value;
+                        setLotNumbers(updated);
+                      }}
+                      required
+                    />
+                    {ocrLoading && index === selectedImages.length - 1 && (
+                      <Loader2 className="absolute right-3 top-3 w-4 h-4 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
+              ))}
+              {ocrLoading && (
+                <p className="text-xs text-muted-foreground">Riconoscimento testo in corso...</p>
+              )}
+            </div>
+          )}
+
+          {/* Lotto originale - campo manuale se nessuna foto */}
+          {imagePreviews.length === 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="lot_number_0">Lotto originale *</Label>
+              <Input
+                id="lot_number_0"
+                name="lot_number_0"
+                type="text"
+                placeholder="Es. L.503586"
+                className="rounded-xl"
+                value={lotNumbers[0] || ''}
+                onChange={(e) => setLotNumbers([e.target.value])}
+                required
+              />
+            </div>
+          )}
 
           {error && (
             <Alert className="border-destructive/50 text-destructive">
