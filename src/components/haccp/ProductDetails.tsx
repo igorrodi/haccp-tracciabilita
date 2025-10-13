@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Image as ImageIcon, Edit, Trash2, X } from 'lucide-react';
+import { Image as ImageIcon, Edit, Trash2, X, ListOrdered } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Product {
@@ -121,10 +121,10 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
         )}
 
         <div>
-          <h4 className="text-lg font-semibold mb-3">
-            Lotti collegati (ultimo in cima)
-            <Badge variant="secondary" className="ml-2">Totale: {lots.length}</Badge>
-          </h4>
+          <div className="flex items-center gap-2 mb-3">
+            <ListOrdered className="w-5 h-5" />
+            <Badge variant="secondary">Totale: {lots.length}</Badge>
+          </div>
 
           {loading ? (
             <Card>

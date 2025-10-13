@@ -3,6 +3,8 @@ import Cropper from 'react-easy-crop';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 interface ImageCropperProps {
   image: string;
@@ -22,6 +24,8 @@ export const ImageCropper = ({ image, onCropComplete, onCancel, isOpen }: ImageC
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [aspectRatio, setAspectRatio] = useState<number>(4 / 3);
+  const [outputSize, setOutputSize] = useState<string>('800');
 
   const onCropChange = (location: { x: number; y: number }) => {
     setCrop(location);
@@ -39,7 +43,7 @@ export const ImageCropper = ({ image, onCropComplete, onCancel, isOpen }: ImageC
     if (!croppedAreaPixels) return;
 
     try {
-      const croppedImage = await getCroppedImg(image, croppedAreaPixels);
+      const croppedImage = await getCroppedImg(image, croppedAreaPixels, parseInt(outputSize));
       onCropComplete(croppedImage);
     } catch (error) {
       console.error('Errore nel ritaglio:', error);
@@ -58,23 +62,58 @@ export const ImageCropper = ({ image, onCropComplete, onCancel, isOpen }: ImageC
             image={image}
             crop={crop}
             zoom={zoom}
-            aspect={4 / 3}
+            aspect={aspectRatio}
             onCropChange={onCropChange}
             onZoomChange={onZoomChange}
             onCropComplete={onCropAreaComplete}
           />
         </div>
 
-        <div className="space-y-2 py-4">
-          <label className="text-sm font-medium">Zoom</label>
-          <Slider
-            value={[zoom]}
-            onValueChange={(values) => setZoom(values[0])}
-            min={1}
-            max={3}
-            step={0.1}
-            className="w-full"
-          />
+        <div className="space-y-4 py-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Formato</Label>
+              <Select value={aspectRatio.toString()} onValueChange={(value) => setAspectRatio(parseFloat(value))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Quadrato (1:1)</SelectItem>
+                  <SelectItem value="1.3333333333333333">4:3 Orizzontale</SelectItem>
+                  <SelectItem value="0.75">3:4 Verticale</SelectItem>
+                  <SelectItem value="1.7777777777777777">16:9 Orizzontale</SelectItem>
+                  <SelectItem value="0.5625">9:16 Verticale</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Dimensione</Label>
+              <Select value={outputSize} onValueChange={setOutputSize}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="400">Piccola (400px)</SelectItem>
+                  <SelectItem value="800">Media (800px)</SelectItem>
+                  <SelectItem value="1200">Grande (1200px)</SelectItem>
+                  <SelectItem value="1600">Molto grande (1600px)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Zoom</Label>
+            <Slider
+              value={[zoom]}
+              onValueChange={(values) => setZoom(values[0])}
+              min={1}
+              max={3}
+              step={0.1}
+              className="w-full"
+            />
+          </div>
         </div>
 
         <DialogFooter>
@@ -90,7 +129,7 @@ export const ImageCropper = ({ image, onCropComplete, onCancel, isOpen }: ImageC
   );
 };
 
-const getCroppedImg = async (imageSrc: string, pixelCrop: Area): Promise<Blob> => {
+const getCroppedImg = async (imageSrc: string, pixelCrop: Area, maxWidth: number = 800): Promise<Blob> => {
   const image = await createImage(imageSrc);
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
@@ -99,8 +138,18 @@ const getCroppedImg = async (imageSrc: string, pixelCrop: Area): Promise<Blob> =
     throw new Error('Impossibile creare il canvas');
   }
 
-  canvas.width = pixelCrop.width;
-  canvas.height = pixelCrop.height;
+  // Calculate output dimensions maintaining aspect ratio
+  let outputWidth = pixelCrop.width;
+  let outputHeight = pixelCrop.height;
+  
+  if (outputWidth > maxWidth) {
+    const scale = maxWidth / outputWidth;
+    outputWidth = maxWidth;
+    outputHeight = outputHeight * scale;
+  }
+
+  canvas.width = outputWidth;
+  canvas.height = outputHeight;
 
   ctx.drawImage(
     image,
@@ -110,8 +159,8 @@ const getCroppedImg = async (imageSrc: string, pixelCrop: Area): Promise<Blob> =
     pixelCrop.height,
     0,
     0,
-    pixelCrop.width,
-    pixelCrop.height
+    outputWidth,
+    outputHeight
   );
 
   return new Promise((resolve) => {
