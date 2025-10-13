@@ -73,8 +73,8 @@ export type Database = {
       product_categories: {
         Row: {
           created_at: string
-          description: string | null
           id: string
+          ingredients: string | null
           name: string
           preparation_procedure: string | null
           shelf_life_days: number | null
@@ -83,8 +83,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          description?: string | null
           id?: string
+          ingredients?: string | null
           name: string
           preparation_procedure?: string | null
           shelf_life_days?: number | null
@@ -93,8 +93,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          description?: string | null
           id?: string
+          ingredients?: string | null
           name?: string
           preparation_procedure?: string | null
           shelf_life_days?: number | null

@@ -7,11 +7,12 @@ import { toast } from 'sonner';
 import { Package, Trash2, FileText, Clock, Edit, ChevronRight } from 'lucide-react';
 import { EditCategoryDialog } from './EditCategoryDialog';
 import { ProductDetails } from './ProductDetails';
+import { highlightAllergens } from '@/lib/allergens';
 
 interface Category {
   id: string;
   name: string;
-  description?: string;
+  ingredients?: string;
   preparation_procedure?: string;
   shelf_life_days?: number;
   created_at: string;
@@ -174,18 +175,22 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {category.description && (
+                {category.ingredients && (
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <FileText className="w-4 h-4" />
                       Ingredienti
                     </div>
-                    <p className="text-sm text-muted-foreground pl-6 hidden md:block">
-                      {category.description}
-                    </p>
-                    <p className="text-sm text-muted-foreground pl-6 md:hidden line-clamp-2">
-                      {category.description}
-                    </p>
+                    <div className="text-sm pl-6">
+                      {highlightAllergens(category.ingredients).map((part, idx) => (
+                        <span
+                          key={idx}
+                          className={part.isAllergen ? 'font-bold underline decoration-2 decoration-amber-500' : ''}
+                        >
+                          {part.text}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
 

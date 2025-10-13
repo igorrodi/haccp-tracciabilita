@@ -11,7 +11,7 @@ import { z } from "zod";
 
 const categorySchema = z.object({
   name: z.string().trim().min(2, 'Il nome deve avere almeno 2 caratteri').max(100, 'Nome troppo lungo'),
-  description: z.string().trim().max(500, 'Descrizione troppo lunga').optional(),
+  ingredients: z.string().trim().max(2000, 'Lista ingredienti troppo lunga').optional(),
   preparation_procedure: z.string().trim().max(2000, 'Procedimento troppo lungo').optional(),
   shelf_life_days: z.number().int().positive('Inserire un numero positivo').optional()
 });
@@ -19,7 +19,7 @@ const categorySchema = z.object({
 interface Category {
   id: string;
   name: string;
-  description?: string;
+  ingredients?: string;
   preparation_procedure?: string;
   shelf_life_days?: number;
 }
@@ -41,7 +41,7 @@ export const EditCategoryDialog = ({
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
+    ingredients: '',
     preparation_procedure: '',
     shelf_life_days: undefined as number | undefined
   });
@@ -50,7 +50,7 @@ export const EditCategoryDialog = ({
     if (category) {
       setFormData({
         name: category.name || '',
-        description: category.description || '',
+        ingredients: category.ingredients || '',
         preparation_procedure: category.preparation_procedure || '',
         shelf_life_days: category.shelf_life_days || undefined
       });
@@ -71,7 +71,7 @@ export const EditCategoryDialog = ({
         .from('product_categories')
         .update({
           name: validatedData.name,
-          description: validatedData.description || null,
+          ingredients: validatedData.ingredients || null,
           preparation_procedure: validatedData.preparation_procedure || null,
           shelf_life_days: validatedData.shelf_life_days || null
         })
@@ -118,14 +118,17 @@ export const EditCategoryDialog = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="edit-description">Descrizione</Label>
+            <Label htmlFor="edit-ingredients">Ingredienti (uno per riga)</Label>
             <Textarea
-              id="edit-description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Descrizione della categoria di prodotti..."
-              rows={3}
+              id="edit-ingredients"
+              value={formData.ingredients}
+              onChange={(e) => setFormData({ ...formData, ingredients: e.target.value })}
+              placeholder="Elenco ingredienti, uno per riga..."
+              rows={5}
             />
+            <p className="text-xs text-muted-foreground">
+              Gli allergeni alimentari saranno evidenziati automaticamente
+            </p>
           </div>
 
           <div className="space-y-2">
