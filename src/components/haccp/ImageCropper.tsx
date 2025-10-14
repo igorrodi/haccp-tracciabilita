@@ -55,9 +55,12 @@ export const ImageCropper = ({ image, onCropComplete, onCancel, isOpen }: ImageC
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Ritaglia immagine</DialogTitle>
+          <p className="text-sm text-muted-foreground mt-2">
+            Trascina l'immagine per riposizionarla, usa gli angoli per ridimensionare l'area di ritaglio
+          </p>
         </DialogHeader>
         
-        <div className="relative h-[400px] bg-black">
+        <div className="relative h-[400px] bg-black rounded-lg overflow-hidden">
           <Cropper
             image={image}
             crop={crop}
@@ -66,6 +69,17 @@ export const ImageCropper = ({ image, onCropComplete, onCancel, isOpen }: ImageC
             onCropChange={onCropChange}
             onZoomChange={onZoomChange}
             onCropComplete={onCropAreaComplete}
+            showGrid={true}
+            cropShape="rect"
+            style={{
+              containerStyle: {
+                backgroundColor: '#000',
+              },
+              cropAreaStyle: {
+                border: '2px solid #fff',
+                boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)',
+              }
+            }}
           />
         </div>
 
@@ -104,7 +118,10 @@ export const ImageCropper = ({ image, onCropComplete, onCancel, isOpen }: ImageC
           </div>
 
           <div className="space-y-2">
-            <Label>Zoom</Label>
+            <div className="flex items-center justify-between">
+              <Label>Zoom</Label>
+              <span className="text-xs text-muted-foreground">{zoom.toFixed(1)}x</span>
+            </div>
             <Slider
               value={[zoom]}
               onValueChange={(values) => setZoom(values[0])}
@@ -113,6 +130,9 @@ export const ImageCropper = ({ image, onCropComplete, onCancel, isOpen }: ImageC
               step={0.1}
               className="w-full"
             />
+            <p className="text-xs text-muted-foreground">
+              💡 Puoi anche usare la rotella del mouse per zoomare
+            </p>
           </div>
         </div>
 
