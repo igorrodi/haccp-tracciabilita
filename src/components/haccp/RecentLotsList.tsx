@@ -82,73 +82,93 @@ export const RecentLotsList = () => {
   });
 
   return (
-    <Card className="rounded-2xl border-2">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Package className="w-5 h-5" />
-          Prodotti
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Cerca per lotto interno o originale..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 rounded-xl"
-          />
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 mb-4">
+        <Package className="w-5 h-5" />
+        <h3 className="text-lg font-semibold">Ultimi Lotti Registrati</h3>
+      </div>
+
+      <div className="relative mb-4">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          type="text"
+          placeholder="Cerca per lotto interno o originale..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9 rounded-xl"
+        />
+      </div>
+
+      {loading ? (
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <div className="animate-pulse space-y-4">
+                  <div className="h-4 bg-muted rounded w-1/4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 bg-muted rounded"></div>
+                    <div className="h-3 bg-muted rounded w-5/6"></div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
-        {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="animate-pulse">
-                <div className="h-16 bg-muted rounded-lg"></div>
-              </div>
-            ))}
-          </div>
-        ) : filteredLots.length === 0 ? (
-          <p className="text-muted-foreground text-center py-8">
-            {searchQuery ? 'Nessun lotto trovato' : 'Nessun lotto registrato ancora'}
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {filteredLots.map((lot) => (
-              <div
-                key={lot.id}
-                className="p-3 border rounded-lg space-y-2 hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate">
-                      {categories[lot.category_id] || 'Prodotto sconosciuto'}
-                    </p>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {lot.internal_lot_number && (
-                        <Badge variant="secondary" className="text-xs">
-                          Lotto: {lot.internal_lot_number}
-                        </Badge>
-                      )}
-                      {lot.is_frozen && (
-                        <Badge variant="outline" className="text-xs">
-                          Congelato
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-right text-xs text-muted-foreground shrink-0">
+      ) : filteredLots.length === 0 ? (
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center text-muted-foreground">
+              <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>{searchQuery ? 'Nessun lotto trovato' : 'Nessun lotto registrato ancora'}</p>
+              <p className="text-sm">Registra il primo lotto per iniziare</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {filteredLots.map((lot) => (
+            <Card 
+              key={lot.id} 
+              className="relative hover:shadow-lg transition-shadow"
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Package className="w-5 h-5 text-primary" />
+                    {categories[lot.category_id] || 'Prodotto sconosciuto'}
+                  </CardTitle>
+                  <Badge variant="secondary" className="text-xs">
                     {format(new Date(lot.production_date), 'dd/MM/yyyy')}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {lot.internal_lot_number && (
+                    <Badge variant="outline" className="text-xs">
+                      Lotto Interno: {lot.internal_lot_number}
+                    </Badge>
+                  )}
+                  <Badge variant="outline" className="text-xs">
+                    Lotto Originale: {lot.lot_number}
+                  </Badge>
+                  {lot.is_frozen && (
+                    <Badge className="text-xs bg-blue-500">
+                      Congelato
+                    </Badge>
+                  )}
+                </div>
+                {lot.expiry_date && (
+                  <div className="text-sm text-muted-foreground">
+                    Scadenza: {format(new Date(lot.expiry_date), 'dd/MM/yyyy')}
                   </div>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Lotto originale: {lot.lot_number}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
   );
 };

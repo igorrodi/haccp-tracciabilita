@@ -95,15 +95,16 @@ export const CategoryForm = ({ onCategoryAdded }: CategoryFormProps) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="ingredients">Ingredienti (uno per riga)</Label>
+            <Label htmlFor="ingredients">Ingredienti</Label>
             <Textarea
               id="ingredients"
               name="ingredients"
-              placeholder="Elenco ingredienti, uno per riga. Gli allergeni saranno evidenziati automaticamente..."
-              rows={5}
+              placeholder="• Farina di grano tenero tipo 00&#10;• Uova fresche&#10;• Latte intero&#10;• Burro&#10;• Sale"
+              rows={6}
+              className="font-mono text-sm"
             />
             <p className="text-xs text-muted-foreground">
-              Gli allergeni alimentari (glutine, crostacei, uova, pesce, arachidi, soia, latte, frutta a guscio, sedano, senape, sesamo, solfiti, lupini, molluschi) saranno evidenziati automaticamente
+              💡 Inserisci ogni ingrediente su una nuova riga, anche senza bullet point. Gli allergeni saranno evidenziati automaticamente (glutine, crostacei, uova, pesce, arachidi, soia, latte, frutta a guscio, sedano, senape, sesamo, solfiti, lupini, molluschi)
             </p>
           </div>
 

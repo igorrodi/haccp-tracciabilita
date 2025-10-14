@@ -181,16 +181,23 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
                       <FileText className="w-4 h-4" />
                       Ingredienti
                     </div>
-                    <div className="text-sm pl-6">
-                      {highlightAllergens(category.ingredients).map((part, idx) => (
-                        <span
-                          key={idx}
-                          className={part.isAllergen ? 'font-bold underline decoration-2 decoration-amber-500' : ''}
-                        >
-                          {part.text}
-                        </span>
-                      ))}
-                    </div>
+                    <ul className="text-sm pl-6 space-y-1 list-disc list-inside">
+                      {category.ingredients.split('\n').filter(line => line.trim()).map((ingredient, idx) => {
+                        const cleanIngredient = ingredient.trim().replace(/^[•\-\*]\s*/, '');
+                        return (
+                          <li key={idx}>
+                            {highlightAllergens(cleanIngredient).map((part, partIdx) => (
+                              <span
+                                key={partIdx}
+                                className={part.isAllergen ? 'font-bold underline decoration-2 decoration-amber-500' : ''}
+                              >
+                                {part.text}
+                              </span>
+                            ))}
+                          </li>
+                        );
+                      })}
+                    </ul>
                   </div>
                 )}
 

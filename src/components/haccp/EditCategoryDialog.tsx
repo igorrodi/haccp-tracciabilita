@@ -118,16 +118,17 @@ export const EditCategoryDialog = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="edit-ingredients">Ingredienti (uno per riga)</Label>
+            <Label htmlFor="edit-ingredients">Ingredienti</Label>
             <Textarea
               id="edit-ingredients"
               value={formData.ingredients}
               onChange={(e) => setFormData({ ...formData, ingredients: e.target.value })}
-              placeholder="Elenco ingredienti, uno per riga..."
-              rows={5}
+              placeholder="• Farina di grano tenero tipo 00&#10;• Uova fresche&#10;• Latte intero"
+              rows={6}
+              className="font-mono text-sm"
             />
             <p className="text-xs text-muted-foreground">
-              Gli allergeni alimentari saranno evidenziati automaticamente
+              💡 Inserisci ogni ingrediente su una nuova riga. Gli allergeni saranno evidenziati automaticamente
             </p>
           </div>
 
