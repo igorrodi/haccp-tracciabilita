@@ -11,8 +11,8 @@ import { z } from "zod";
 
 const categorySchema = z.object({
   name: z.string().trim().min(2, 'Il nome deve avere almeno 2 caratteri').max(100, 'Nome troppo lungo'),
-  ingredients: z.string().trim().max(2000, 'Lista ingredienti troppo lunga').optional(),
-  preparation_procedure: z.string().trim().max(2000, 'Procedimento troppo lungo').optional(),
+  ingredients: z.string().max(2000, 'Lista ingredienti troppo lunga').optional(),
+  preparation_procedure: z.string().max(2000, 'Procedimento troppo lungo').optional(),
   shelf_life_days: z.number().int().positive('Inserire un numero positivo').optional()
 });
 
@@ -65,7 +65,12 @@ export const EditCategoryDialog = ({
     setError('');
 
     try {
-      const validatedData = categorySchema.parse(formData);
+      const dataToValidate = {
+        ...formData,
+        ingredients: formData.ingredients?.trim() || undefined,
+        preparation_procedure: formData.preparation_procedure?.trim() || undefined
+      };
+      const validatedData = categorySchema.parse(dataToValidate);
 
       const { error } = await supabase
         .from('product_categories')

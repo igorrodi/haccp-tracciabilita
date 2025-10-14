@@ -12,8 +12,8 @@ import { Plus, Package } from 'lucide-react';
 
 const categorySchema = z.object({
   name: z.string().trim().min(2, 'Il nome deve avere almeno 2 caratteri').max(100, 'Nome troppo lungo'),
-  ingredients: z.string().trim().max(2000, 'Lista ingredienti troppo lunga').optional(),
-  preparation_procedure: z.string().trim().max(2000, 'Procedimento troppo lungo').optional(),
+  ingredients: z.string().max(2000, 'Lista ingredienti troppo lunga').optional(),
+  preparation_procedure: z.string().max(2000, 'Procedimento troppo lungo').optional(),
   shelf_life_days: z.number().int().positive('Inserire un numero positivo').optional()
 });
 
@@ -33,9 +33,9 @@ export const CategoryForm = ({ onCategoryAdded }: CategoryFormProps) => {
     const formData = new FormData(e.currentTarget);
     const shelfLifeDaysValue = formData.get('shelf_life_days') as string;
     const data = {
-      name: formData.get('name') as string,
-      ingredients: formData.get('ingredients') as string,
-      preparation_procedure: formData.get('preparation_procedure') as string,
+      name: (formData.get('name') as string)?.trim() || '',
+      ingredients: (formData.get('ingredients') as string)?.trim() || undefined,
+      preparation_procedure: (formData.get('preparation_procedure') as string)?.trim() || undefined,
       shelf_life_days: shelfLifeDaysValue ? parseInt(shelfLifeDaysValue) : undefined
     };
 
