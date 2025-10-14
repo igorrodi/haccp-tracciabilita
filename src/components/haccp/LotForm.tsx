@@ -17,8 +17,8 @@ const lotSchema = z.object({
   category_id: z.string().uuid('Seleziona una categoria'),
   lot_number: z.string().trim().min(1, 'Numero lotto richiesto'),
   production_date: z.string().min(1, 'Data produzione richiesta'),
-  expiry_date: z.string().optional(),
-  notes: z.string().trim().max(500, 'Note troppo lunghe').optional()
+  expiry_date: z.string().transform(val => val || undefined).optional(),
+  notes: z.string().transform(val => val?.trim() || undefined).optional()
 });
 
 interface Category {
@@ -196,8 +196,8 @@ export const LotForm = () => {
       category_id: selectedCategory,
       lot_number: primaryLotNumber,
       production_date: formData.get('production_date') as string,
-      expiry_date: formData.get('expiry_date') as string,
-      notes: formData.get('notes') as string
+      expiry_date: (formData.get('expiry_date') as string) || '',
+      notes: (formData.get('notes') as string) || ''
     };
 
     try {
