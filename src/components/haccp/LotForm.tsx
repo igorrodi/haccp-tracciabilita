@@ -317,22 +317,6 @@ export const LotForm = () => {
             )}
           </div>
 
-          {/* Dettagli prodotto selezionato */}
-          {selectedCategoryData && (
-            <div className="bg-muted/50 p-4 rounded-xl space-y-2">
-              <h4 className="font-medium text-sm">Prodotto: {selectedCategoryData.name}</h4>
-              {selectedCategoryData.description && (
-                <p className="text-sm text-muted-foreground">{selectedCategoryData.description}</p>
-              )}
-              {selectedCategoryData.preparation_procedure && (
-                <div className="text-sm">
-                  <span className="font-medium">Procedimento: </span>
-                  <span className="text-muted-foreground">{selectedCategoryData.preparation_procedure}</span>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Data produzione */}
           <div className="space-y-2">
             <Label htmlFor="production_date">Data produzione *</Label>
