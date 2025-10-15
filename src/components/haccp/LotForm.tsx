@@ -18,7 +18,9 @@ const lotSchema = z.object({
   lot_number: z.string().trim().min(1, 'Numero lotto richiesto'),
   production_date: z.string().min(1, 'Data produzione richiesta'),
   expiry_date: z.string().transform(val => val || undefined).optional(),
-  notes: z.string().transform(val => val?.trim() || undefined).optional()
+  notes: z.string().transform(val => val?.trim() || undefined).optional(),
+  reception_date: z.string().transform(val => val || undefined).optional(),
+  supplier_id: z.string().transform(val => val || undefined).optional()
 });
 
 interface Category {
@@ -29,9 +31,17 @@ interface Category {
   shelf_life_days?: number;
 }
 
+interface Supplier {
+  id: string;
+  name: string;
+}
+
 export const LotForm = () => {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedSupplier, setSelectedSupplier] = useState("");
+  const [receptionDate, setReceptionDate] = useState("");
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -53,32 +63,44 @@ export const LotForm = () => {
     setProductionDate(today);
   }, []);
 
-  // Fetch categories
+  // Fetch categories and suppliers
   useEffect(() => {
-    const fetchCategories = async () => {
+    const fetchData = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data, error } = await supabase
+        const { data: categoriesData, error: categoriesError } = await supabase
           .from('product_categories')
           .select('*')
           .eq('user_id', user.id)
           .order('name');
 
-        if (error) {
+        const { data: suppliersData, error: suppliersError } = await supabase
+          .from('suppliers')
+          .select('id, name')
+          .eq('user_id', user.id)
+          .order('name');
+
+        if (categoriesError) {
           toast.error('Errore nel caricamento delle categorie');
         } else {
-          setCategories(data || []);
+          setCategories(categoriesData || []);
+        }
+
+        if (suppliersError) {
+          toast.error('Errore nel caricamento dei fornitori');
+        } else {
+          setSuppliers(suppliersData || []);
         }
       } catch (error) {
-        toast.error('Errore nel caricamento delle categorie');
+        toast.error('Errore nel caricamento dei dati');
       } finally {
         setCategoriesLoading(false);
       }
     };
 
-    fetchCategories();
+    fetchData();
   }, []);
 
   const performOCR = async (file: File, imageIndex: number) => {
@@ -197,7 +219,9 @@ export const LotForm = () => {
       lot_number: primaryLotNumber,
       production_date: formData.get('production_date') as string,
       expiry_date: (formData.get('expiry_date') as string) || '',
-      notes: (formData.get('notes') as string) || ''
+      notes: (formData.get('notes') as string) || '',
+      reception_date: (formData.get('reception_date') as string) || '',
+      supplier_id: selectedSupplier || ''
     };
 
     try {
@@ -236,7 +260,9 @@ export const LotForm = () => {
           expiry_date: validatedData.expiry_date || null,
           notes: validatedData.notes || null,
           is_frozen: isFrozen,
-          label_image_url: labelImageUrl
+          label_image_url: labelImageUrl,
+          reception_date: validatedData.reception_date || null,
+          supplier_id: validatedData.supplier_id || null
         }]);
 
       if (error) {
@@ -245,6 +271,8 @@ export const LotForm = () => {
         toast.success('Lotto salvato con successo!');
         (e.target as HTMLFormElement).reset();
         setSelectedCategory("");
+        setSelectedSupplier("");
+        setReceptionDate("");
         setSelectedImages([]);
         setImagePreviews([]);
         setLotNumbers(['']);
@@ -479,6 +507,41 @@ export const LotForm = () => {
               />
             </div>
           )}
+
+          {/* Data ricezione merce */}
+          <div className="space-y-2">
+            <Label htmlFor="reception_date">Data ricezione merce</Label>
+            <Input
+              id="reception_date"
+              name="reception_date"
+              type="date"
+              className="rounded-xl"
+              value={receptionDate}
+              onChange={(e) => setReceptionDate(e.target.value)}
+            />
+          </div>
+
+          {/* Fornitore */}
+          <div className="space-y-2">
+            <Label htmlFor="supplier">Fornitore</Label>
+            <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
+              <SelectTrigger className="rounded-xl">
+                <SelectValue placeholder="Seleziona fornitore" />
+              </SelectTrigger>
+              <SelectContent>
+                {suppliers.map((supplier) => (
+                  <SelectItem key={supplier.id} value={supplier.id}>
+                    {supplier.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {suppliers.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                Nessun fornitore disponibile. Vai al pannello Sistema per aggiungere fornitori.
+              </p>
+            )}
+          </div>
 
           {error && (
             <Alert className="border-destructive/50 text-destructive">

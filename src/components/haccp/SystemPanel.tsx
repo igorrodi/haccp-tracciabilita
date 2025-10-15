@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { UserManagement } from "./UserManagement";
+import { SupplierManagement } from "./SupplierManagement";
 
 export const SystemPanel = () => {
   const { toast } = useToast();
@@ -26,6 +27,9 @@ export const SystemPanel = () => {
     <div className="space-y-6">
       {/* Gestione Utenti */}
       <UserManagement />
+
+      {/* Gestione Fornitori */}
+      <SupplierManagement />
 
       {/* Stato Sistema */}
       <Card className="haccp-card">

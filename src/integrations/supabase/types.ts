@@ -26,7 +26,9 @@ export type Database = {
           lot_number: string
           notes: string | null
           production_date: string
+          reception_date: string | null
           status: string | null
+          supplier_id: string | null
           updated_at: string
           user_id: string
         }
@@ -41,7 +43,9 @@ export type Database = {
           lot_number: string
           notes?: string | null
           production_date: string
+          reception_date?: string | null
           status?: string | null
+          supplier_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -56,7 +60,9 @@ export type Database = {
           lot_number?: string
           notes?: string | null
           production_date?: string
+          reception_date?: string | null
           status?: string | null
+          supplier_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -66,6 +72,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "haccp_lots_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -157,6 +170,36 @@ export type Database = {
           full_name?: string | null
           id?: string
           role?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      suppliers: {
+        Row: {
+          contact_info: string | null
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          contact_info?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          contact_info?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
           updated_at?: string
           user_id?: string
         }

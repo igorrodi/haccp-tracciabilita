@@ -3,7 +3,6 @@ import Cropper from 'react-easy-crop';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 
 interface ImageCropperProps {
@@ -24,7 +23,6 @@ export const ImageCropper = ({ image, onCropComplete, onCancel, isOpen }: ImageC
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
-  const [aspectRatio, setAspectRatio] = useState<number>(4 / 3);
   const [outputSize, setOutputSize] = useState<string>('800');
 
   const onCropChange = (location: { x: number; y: number }) => {
@@ -56,7 +54,7 @@ export const ImageCropper = ({ image, onCropComplete, onCancel, isOpen }: ImageC
         <DialogHeader>
           <DialogTitle>Ritaglia immagine</DialogTitle>
           <p className="text-sm text-muted-foreground mt-2">
-            Trascina l'immagine per riposizionarla, usa gli angoli per ridimensionare l'area di ritaglio
+            Trascina l'immagine per riposizionarla, usa lo zoom per ingrandire. Il ritaglio è libero, puoi ridimensionare l'area come preferisci.
           </p>
         </DialogHeader>
         
@@ -65,7 +63,7 @@ export const ImageCropper = ({ image, onCropComplete, onCancel, isOpen }: ImageC
             image={image}
             crop={crop}
             zoom={zoom}
-            aspect={aspectRatio}
+            aspect={undefined}
             onCropChange={onCropChange}
             onZoomChange={onZoomChange}
             onCropComplete={onCropAreaComplete}
@@ -84,36 +82,41 @@ export const ImageCropper = ({ image, onCropComplete, onCancel, isOpen }: ImageC
         </div>
 
         <div className="space-y-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Formato</Label>
-              <Select value={aspectRatio.toString()} onValueChange={(value) => setAspectRatio(parseFloat(value))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Quadrato (1:1)</SelectItem>
-                  <SelectItem value="1.3333333333333333">4:3 Orizzontale</SelectItem>
-                  <SelectItem value="0.75">3:4 Verticale</SelectItem>
-                  <SelectItem value="1.7777777777777777">16:9 Orizzontale</SelectItem>
-                  <SelectItem value="0.5625">9:16 Verticale</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Dimensione</Label>
-              <Select value={outputSize} onValueChange={setOutputSize}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="400">Piccola (400px)</SelectItem>
-                  <SelectItem value="800">Media (800px)</SelectItem>
-                  <SelectItem value="1200">Grande (1200px)</SelectItem>
-                  <SelectItem value="1600">Molto grande (1600px)</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="space-y-2">
+            <Label>Dimensione output</Label>
+            <div className="grid grid-cols-4 gap-2">
+              <Button
+                type="button"
+                variant={outputSize === '400' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setOutputSize('400')}
+              >
+                Piccola
+              </Button>
+              <Button
+                type="button"
+                variant={outputSize === '800' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setOutputSize('800')}
+              >
+                Media
+              </Button>
+              <Button
+                type="button"
+                variant={outputSize === '1200' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setOutputSize('1200')}
+              >
+                Grande
+              </Button>
+              <Button
+                type="button"
+                variant={outputSize === '1600' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setOutputSize('1600')}
+              >
+                XL
+              </Button>
             </div>
           </div>
 
