@@ -15,6 +15,8 @@ interface Lot {
   expiry_date?: string;
   is_frozen?: boolean;
   category_id: string;
+  supplier_id?: string;
+  reception_date?: string;
   created_at: string;
 }
 
@@ -23,9 +25,15 @@ interface Category {
   name: string;
 }
 
+interface Supplier {
+  id: string;
+  name: string;
+}
+
 export const RecentLotsList = () => {
   const [lots, setLots] = useState<Lot[]>([]);
   const [categories, setCategories] = useState<Record<string, string>>({});
+  const [suppliers, setSuppliers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -66,6 +74,21 @@ export const RecentLotsList = () => {
           categoriesMap[cat.id] = cat.name;
         });
         setCategories(categoriesMap);
+      }
+
+      // Fetch suppliers for these lots
+      const supplierIds = [...new Set(lotsData?.map(lot => lot.supplier_id).filter(Boolean))];
+      if (supplierIds.length > 0) {
+        const { data: suppliersData } = await supabase
+          .from('suppliers')
+          .select('id, name')
+          .in('id', supplierIds);
+
+        const suppliersMap: Record<string, string> = {};
+        suppliersData?.forEach((sup: Supplier) => {
+          suppliersMap[sup.id] = sup.name;
+        });
+        setSuppliers(suppliersMap);
       }
     } catch (error) {
       toast.error('Errore nel caricamento dei lotti');
@@ -159,11 +182,30 @@ export const RecentLotsList = () => {
                     </Badge>
                   )}
                 </div>
-                {lot.expiry_date && (
-                  <div className="text-sm text-muted-foreground">
-                    Scadenza: {format(new Date(lot.expiry_date), 'dd/MM/yyyy')}
-                  </div>
-                )}
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {lot.expiry_date && (
+                    <div>
+                      <span className="text-muted-foreground">Scadenza: </span>
+                      <span className="font-medium">
+                        {format(new Date(lot.expiry_date), 'dd/MM/yyyy')}
+                      </span>
+                    </div>
+                  )}
+                  {lot.supplier_id && suppliers[lot.supplier_id] && (
+                    <div>
+                      <span className="text-muted-foreground">Fornitore: </span>
+                      <span className="font-medium">{suppliers[lot.supplier_id]}</span>
+                    </div>
+                  )}
+                  {lot.reception_date && (
+                    <div>
+                      <span className="text-muted-foreground">Ricezione: </span>
+                      <span className="font-medium">
+                        {format(new Date(lot.reception_date), 'dd/MM/yyyy')}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           ))}
