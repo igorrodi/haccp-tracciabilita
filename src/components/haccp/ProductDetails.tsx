@@ -28,7 +28,14 @@ interface Lot {
   internal_lot_number?: string;
   notes?: string;
   is_frozen?: boolean;
+  supplier_id?: string;
+  reception_date?: string;
   created_at: string;
+}
+
+interface Supplier {
+  id: string;
+  name: string;
 }
 
 interface ProductDetailsProps {
@@ -43,10 +50,15 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [selectedLotForQR, setSelectedLotForQR] = useState<Lot | null>(null);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [highlightedIngredients, setHighlightedIngredients] = useState<Array<{ text: string; isAllergen: boolean }>>([]);
+  const [suppliers, setSuppliers] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchLots();
-  }, [product.id]);
+    if (product.ingredients) {
+      highlightAllergens(product.ingredients).then(setHighlightedIngredients);
+    }
+  }, [product.id, product.ingredients]);
 
   const fetchLots = async () => {
     try {
@@ -64,6 +76,21 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
         toast.error('Errore nel caricamento dei lotti');
       } else {
         setLots(data || []);
+        
+        // Fetch suppliers for these lots
+        const supplierIds = [...new Set(data?.map(lot => lot.supplier_id).filter(Boolean))];
+        if (supplierIds.length > 0) {
+          const { data: suppliersData } = await supabase
+            .from('suppliers')
+            .select('id, name')
+            .in('id', supplierIds);
+
+          const suppliersMap: Record<string, string> = {};
+          suppliersData?.forEach((sup: Supplier) => {
+            suppliersMap[sup.id] = sup.name;
+          });
+          setSuppliers(suppliersMap);
+        }
       }
     } catch (error) {
       toast.error('Errore nel caricamento dei lotti');
@@ -137,7 +164,7 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
                 Ingredienti
               </h4>
               <div className="text-sm whitespace-pre-wrap">
-                {highlightAllergens(product.ingredients).map((part, idx) => (
+                {highlightedIngredients.map((part, idx) => (
                   <span
                     key={idx}
                     className={part.isAllergen ? 'font-bold underline decoration-2 decoration-amber-500' : ''}
@@ -196,6 +223,8 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
                       <TableHead>Lotto originale</TableHead>
                       <TableHead>Produzione</TableHead>
                       <TableHead>Scadenza</TableHead>
+                      <TableHead>Fornitore</TableHead>
+                      <TableHead>Ricezione</TableHead>
                       <TableHead>Congelamento</TableHead>
                       <TableHead className="text-right">Azioni</TableHead>
                     </TableRow>
@@ -223,12 +252,18 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
                         </TableCell>
                         <TableCell className="font-medium">{lot.internal_lot_number || '—'}</TableCell>
                         <TableCell>{lot.lot_number}</TableCell>
-                        <TableCell>{format(new Date(lot.production_date), 'yyyy-MM-dd')}</TableCell>
+                        <TableCell>{format(new Date(lot.production_date), 'dd/MM/yyyy')}</TableCell>
                         <TableCell>
-                          {lot.expiry_date ? format(new Date(lot.expiry_date), 'yyyy-MM-dd') : '—'}
+                          {lot.expiry_date ? format(new Date(lot.expiry_date), 'dd/MM/yyyy') : '—'}
                         </TableCell>
                         <TableCell>
-                          {lot.is_frozen ? format(new Date(lot.production_date), 'yyyy-MM-dd') : '—'}
+                          {lot.supplier_id && suppliers[lot.supplier_id] ? suppliers[lot.supplier_id] : '—'}
+                        </TableCell>
+                        <TableCell>
+                          {lot.reception_date ? format(new Date(lot.reception_date), 'dd/MM/yyyy') : '—'}
+                        </TableCell>
+                        <TableCell>
+                          {lot.is_frozen ? format(new Date(lot.production_date), 'dd/MM/yyyy') : '—'}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">

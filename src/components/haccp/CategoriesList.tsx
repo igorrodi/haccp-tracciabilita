@@ -22,12 +22,18 @@ interface CategoriesListProps {
   refreshTrigger: number;
 }
 
+interface IngredientHighlight {
+  ingredient: string;
+  parts: Array<{ text: string; isAllergen: boolean }>;
+}
+
 export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Category | null>(null);
+  const [ingredientHighlights, setIngredientHighlights] = useState<Record<string, IngredientHighlight[]>>({});
 
   const fetchCategories = async () => {
     try {
@@ -44,6 +50,24 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
         toast.error('Errore nel caricamento delle categorie');
       } else {
         setCategories(data || []);
+        
+        // Pre-process ingredients highlighting
+        const highlights: Record<string, IngredientHighlight[]> = {};
+        for (const category of data || []) {
+          if (category.ingredients) {
+            const ingredients = category.ingredients.split('\n').filter(line => line.trim());
+            const categoryHighlights: IngredientHighlight[] = [];
+            
+            for (const ingredient of ingredients) {
+              const cleanIngredient = ingredient.trim().replace(/^[•\-\*]\s*/, '');
+              const parts = await highlightAllergens(cleanIngredient);
+              categoryHighlights.push({ ingredient: cleanIngredient, parts });
+            }
+            
+            highlights[category.id] = categoryHighlights;
+          }
+        }
+        setIngredientHighlights(highlights);
       }
     } catch (error) {
       toast.error('Errore nel caricamento delle categorie');
@@ -175,28 +199,25 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {category.ingredients && (
+                {category.ingredients && ingredientHighlights[category.id] && (
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <FileText className="w-4 h-4" />
                       Ingredienti
                     </div>
                     <ul className="text-sm pl-6 space-y-1 list-disc list-inside">
-                      {category.ingredients.split('\n').filter(line => line.trim()).map((ingredient, idx) => {
-                        const cleanIngredient = ingredient.trim().replace(/^[•\-\*]\s*/, '');
-                        return (
-                          <li key={idx}>
-                            {highlightAllergens(cleanIngredient).map((part, partIdx) => (
-                              <span
-                                key={partIdx}
-                                className={part.isAllergen ? 'font-bold underline decoration-2 decoration-amber-500' : ''}
-                              >
-                                {part.text}
-                              </span>
-                            ))}
-                          </li>
-                        );
-                      })}
+                      {ingredientHighlights[category.id].map((item, idx) => (
+                        <li key={idx}>
+                          {item.parts.map((part, partIdx) => (
+                            <span
+                              key={partIdx}
+                              className={part.isAllergen ? 'font-bold underline decoration-2 decoration-amber-500' : ''}
+                            >
+                              {part.text}
+                            </span>
+                          ))}
+                        </li>
+                      ))}
                     </ul>
                   </div>
                 )}

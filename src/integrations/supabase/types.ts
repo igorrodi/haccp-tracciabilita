@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      allergens: {
+        Row: {
+          category_name: string
+          common_examples: string | null
+          created_at: string | null
+          id: string
+          number: number
+          official_ingredients: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          category_name: string
+          common_examples?: string | null
+          created_at?: string | null
+          id?: string
+          number: number
+          official_ingredients?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          category_name?: string
+          common_examples?: string | null
+          created_at?: string | null
+          id?: string
+          number?: number
+          official_ingredients?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       haccp_lots: {
         Row: {
           category_id: string | null
