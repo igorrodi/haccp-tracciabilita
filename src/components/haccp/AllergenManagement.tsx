@@ -19,30 +19,10 @@ export const AllergenManagement = () => {
   const [allergens, setAllergens] = useState<Allergen[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    checkAdminStatus();
     fetchAllergens();
   }, []);
-
-  const checkAdminStatus = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('role', 'admin')
-        .maybeSingle();
-
-      setIsAdmin(!!data);
-    } catch (error) {
-      console.error('Error checking admin status:', error);
-    }
-  };
 
   const fetchAllergens = async () => {
     try {
@@ -111,19 +91,6 @@ export const AllergenManagement = () => {
       event.target.value = '';
     }
   };
-
-  if (!isAdmin) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="text-center text-muted-foreground">
-            <AlertTriangle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>Solo gli amministratori possono gestire gli allergeni</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <div className="space-y-4">

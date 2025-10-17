@@ -17,26 +17,37 @@ export const DataExport = () => {
         .from('haccp_lots')
         .select(`
           *,
-          product_categories(name, ingredients),
-          suppliers(name)
+          product_categories(name, ingredients, shelf_life_days, preparation_procedure),
+          suppliers(name, contact_info, notes)
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      // Prepare data for CSV
+      // Prepare data for CSV - complete 1:1 table export
       const csvData = lots?.map(lot => ({
+        'ID': lot.id,
         'Numero Lotto Interno': lot.internal_lot_number,
         'Numero Lotto': lot.lot_number,
-        'Prodotto': lot.product_categories?.name || '',
-        'Fornitore': lot.suppliers?.name || '',
+        'ID Categoria': lot.category_id || '',
+        'Nome Prodotto': lot.product_categories?.name || '',
+        'Ingredienti Prodotto': lot.product_categories?.ingredients || '',
+        'Durata Prodotto (giorni)': lot.product_categories?.shelf_life_days || '',
+        'Procedura Prodotto': lot.product_categories?.preparation_procedure || '',
+        'ID Fornitore': lot.supplier_id || '',
+        'Nome Fornitore': lot.suppliers?.name || '',
+        'Contatti Fornitore': lot.suppliers?.contact_info || '',
+        'Note Fornitore': lot.suppliers?.notes || '',
         'Data Produzione': lot.production_date,
         'Data Scadenza': lot.expiry_date || '',
         'Data Ricezione': lot.reception_date || '',
         'Congelato': lot.is_frozen ? 'Sì' : 'No',
         'Stato': lot.status,
-        'Note': lot.notes || '',
-        'Data Creazione': new Date(lot.created_at).toLocaleString('it-IT')
+        'Note Lotto': lot.notes || '',
+        'URL Immagine Etichetta': lot.label_image_url || '',
+        'ID Utente': lot.user_id,
+        'Data Creazione': new Date(lot.created_at).toLocaleString('it-IT'),
+        'Data Aggiornamento': new Date(lot.updated_at).toLocaleString('it-IT')
       })) || [];
 
       // Create CSV
@@ -47,7 +58,7 @@ export const DataExport = () => {
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `lotti_haccp_${new Date().toISOString().split('T')[0]}.csv`;
+      link.download = `lotti_completo_${new Date().toISOString().split('T')[0]}.csv`;
       link.click();
 
       toast.success("Dati esportati in CSV con successo");
@@ -67,8 +78,8 @@ export const DataExport = () => {
         .from('haccp_lots')
         .select(`
           *,
-          product_categories(name, ingredients),
-          suppliers(name)
+          product_categories(name, ingredients, shelf_life_days, preparation_procedure),
+          suppliers(name, contact_info, notes)
         `)
         .order('created_at', { ascending: false });
 
@@ -93,40 +104,57 @@ export const DataExport = () => {
       // Create workbook
       const wb = XLSX.utils.book_new();
 
-      // Lots sheet
+      // Lots sheet - complete data with label images
       const lotsData = lots?.map(lot => ({
+        'ID': lot.id,
         'Numero Lotto Interno': lot.internal_lot_number,
         'Numero Lotto': lot.lot_number,
-        'Prodotto': lot.product_categories?.name || '',
-        'Fornitore': lot.suppliers?.name || '',
+        'ID Categoria': lot.category_id || '',
+        'Nome Prodotto': lot.product_categories?.name || '',
+        'Ingredienti Prodotto': lot.product_categories?.ingredients || '',
+        'Durata Prodotto (giorni)': lot.product_categories?.shelf_life_days || '',
+        'Procedura Prodotto': lot.product_categories?.preparation_procedure || '',
+        'ID Fornitore': lot.supplier_id || '',
+        'Nome Fornitore': lot.suppliers?.name || '',
+        'Contatti Fornitore': lot.suppliers?.contact_info || '',
+        'Note Fornitore': lot.suppliers?.notes || '',
         'Data Produzione': lot.production_date,
         'Data Scadenza': lot.expiry_date || '',
         'Data Ricezione': lot.reception_date || '',
         'Congelato': lot.is_frozen ? 'Sì' : 'No',
         'Stato': lot.status,
-        'Note': lot.notes || '',
-        'Data Creazione': new Date(lot.created_at).toLocaleString('it-IT')
+        'Note Lotto': lot.notes || '',
+        'URL Immagine Etichetta': lot.label_image_url || '',
+        'ID Utente': lot.user_id,
+        'Data Creazione': new Date(lot.created_at).toLocaleString('it-IT'),
+        'Data Aggiornamento': new Date(lot.updated_at).toLocaleString('it-IT')
       })) || [];
       const lotsWs = XLSX.utils.json_to_sheet(lotsData);
       XLSX.utils.book_append_sheet(wb, lotsWs, 'Lotti');
 
       // Categories sheet
       const categoriesData = categories?.map(cat => ({
+        'ID': cat.id,
         'Nome': cat.name,
         'Ingredienti': cat.ingredients || '',
         'Durata (giorni)': cat.shelf_life_days || '',
         'Procedura': cat.preparation_procedure || '',
-        'Data Creazione': new Date(cat.created_at).toLocaleString('it-IT')
+        'ID Utente': cat.user_id,
+        'Data Creazione': new Date(cat.created_at).toLocaleString('it-IT'),
+        'Data Aggiornamento': new Date(cat.updated_at).toLocaleString('it-IT')
       })) || [];
       const categoriesWs = XLSX.utils.json_to_sheet(categoriesData);
       XLSX.utils.book_append_sheet(wb, categoriesWs, 'Prodotti');
 
       // Suppliers sheet
       const suppliersData = suppliers?.map(sup => ({
+        'ID': sup.id,
         'Nome': sup.name,
         'Contatti': sup.contact_info || '',
         'Note': sup.notes || '',
-        'Data Creazione': new Date(sup.created_at).toLocaleString('it-IT')
+        'ID Utente': sup.user_id,
+        'Data Creazione': new Date(sup.created_at).toLocaleString('it-IT'),
+        'Data Aggiornamento': new Date(sup.updated_at).toLocaleString('it-IT')
       })) || [];
       const suppliersWs = XLSX.utils.json_to_sheet(suppliersData);
       XLSX.utils.book_append_sheet(wb, suppliersWs, 'Fornitori');
@@ -160,7 +188,7 @@ export const DataExport = () => {
             variant="outline"
           >
             <Download className="w-4 h-4 mr-2" />
-            Esporta CSV (Solo Lotti)
+            Esporta CSV (Lotti Completi)
           </Button>
           <Button
             onClick={exportToExcel}
@@ -172,7 +200,7 @@ export const DataExport = () => {
           </Button>
         </div>
         <p className="text-sm text-muted-foreground">
-          L'esportazione CSV include solo i lotti. L'esportazione Excel include lotti, prodotti e fornitori in fogli separati.
+          L'esportazione CSV include tutti i dati dei lotti con prodotti e fornitori correlati. L'esportazione Excel include lotti (con URL foto etichette), prodotti e fornitori in fogli separati.
         </p>
       </CardContent>
     </Card>
