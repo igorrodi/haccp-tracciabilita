@@ -2,9 +2,21 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, UserCheck, UserX, Shield } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Users, UserCheck, UserX, Shield, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { z } from "zod";
+
+const createUserSchema = z.object({
+  email: z.string().email('Email non valida').max(255, 'Email troppo lunga'),
+  password: z.string()
+    .min(8, 'La password deve avere almeno 8 caratteri')
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'La password deve contenere almeno una lettera minuscola, una maiuscola e un numero'),
+  fullName: z.string().trim().min(2, 'Il nome deve avere almeno 2 caratteri').max(100, 'Nome troppo lungo')
+});
 
 interface UserWithRole {
   user_id: string;
@@ -18,6 +30,8 @@ export const UserManagement = () => {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     checkAdminStatus();
@@ -120,6 +134,67 @@ export const UserManagement = () => {
     }
   };
 
+  const handleCreateUser = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setCreating(true);
+
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      email: formData.get('email') as string,
+      password: formData.get('password') as string,
+      fullName: formData.get('fullName') as string,
+      role: formData.get('role') as 'admin' | 'guest'
+    };
+
+    try {
+      const validatedData = createUserSchema.parse(data);
+      
+      // Create user using Supabase admin API
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: validatedData.email,
+        password: validatedData.password,
+        options: {
+          data: {
+            full_name: validatedData.fullName
+          },
+          emailRedirectTo: `${window.location.origin}/`
+        }
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('Errore nella creazione utente');
+
+      // Assign role to the new user
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error('Non autenticato');
+
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: authData.user.id,
+          role: data.role,
+          authorized_by: currentUser.id
+        });
+
+      if (roleError) throw roleError;
+
+      toast.success('Utente creato con successo');
+      setCreateDialogOpen(false);
+      fetchUsers();
+      (e.target as HTMLFormElement).reset();
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        toast.error(err.errors[0].message);
+      } else if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error('Errore nella creazione utente');
+      }
+    } finally {
+      setCreating(false);
+    }
+  };
+
   if (!isAdmin) {
     return (
       <Card className="haccp-card">
@@ -144,15 +219,22 @@ export const UserManagement = () => {
   }
 
   return (
-    <Card className="haccp-card">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Users className="w-5 h-5" />
-          Gestione Utenti
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
+    <>
+      <Card className="haccp-card">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Gestione Utenti
+            </CardTitle>
+            <Button onClick={() => setCreateDialogOpen(true)}>
+              <UserPlus className="w-4 h-4 mr-2" />
+              Crea Utente
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
           {users.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
               Nessun utente trovato
@@ -221,5 +303,70 @@ export const UserManagement = () => {
         </div>
       </CardContent>
     </Card>
+
+    <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Crea Nuovo Utente</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleCreateUser} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="fullName">Nome e Cognome</Label>
+            <Input
+              id="fullName"
+              name="fullName"
+              type="text"
+              placeholder="Mario Rossi"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">Email (Username)</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="utente@azienda.com"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Almeno 8 caratteri, maiuscole e numeri"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="role">Ruolo</Label>
+            <select
+              id="role"
+              name="role"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              required
+            >
+              <option value="guest">Guest</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCreateDialogOpen(false)}
+            >
+              Annulla
+            </Button>
+            <Button type="submit" disabled={creating}>
+              {creating ? 'Creazione...' : 'Crea Utente'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };

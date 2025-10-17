@@ -135,106 +135,40 @@ export default function Auth() {
           <CardHeader>
             <CardTitle>Accesso al Sistema</CardTitle>
             <CardDescription>
-              Accedi al tuo account o registrati per iniziare
+              Inserisci le tue credenziali per accedere
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="signin" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Accedi</TabsTrigger>
-                <TabsTrigger value="signup">Registrati</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="signin">
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-email">
-                      <Mail className="w-4 h-4 inline mr-2" />
-                      Email
-                    </Label>
-                    <Input
-                      id="signin-email"
-                      name="email"
-                      type="email"
-                      placeholder="esempio@azienda.com"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-password">
-                      <Lock className="w-4 h-4 inline mr-2" />
-                      Password
-                    </Label>
-                    <Input
-                      id="signin-password"
-                      name="password"
-                      type="password"
-                      required
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? 'Accesso in corso...' : 'Accedi'}
-                  </Button>
-                </form>
-              </TabsContent>
-              
-              <TabsContent value="signup">
-                <form onSubmit={handleSignUp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-name">
-                      <User className="w-4 h-4 inline mr-2" />
-                      Nome e Cognome
-                    </Label>
-                    <Input
-                      id="signup-name"
-                      name="fullName"
-                      type="text"
-                      placeholder="Mario Rossi"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-company">Azienda</Label>
-                    <Input
-                      id="signup-company"
-                      name="companyName"
-                      type="text"
-                      placeholder="Nome Azienda"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">
-                      <Mail className="w-4 h-4 inline mr-2" />
-                      Email
-                    </Label>
-                    <Input
-                      id="signup-email"
-                      name="email"
-                      type="email"
-                      placeholder="esempio@azienda.com"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">
-                      <Lock className="w-4 h-4 inline mr-2" />
-                      Password
-                    </Label>
-                    <Input
-                      id="signup-password"
-                      name="password"
-                      type="password"
-                      placeholder="Almeno 8 caratteri, maiuscole e numeri"
-                      required
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? 'Registrazione in corso...' : 'Registrati'}
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="signin-email">
+                  <Mail className="w-4 h-4 inline mr-2" />
+                  Email
+                </Label>
+                <Input
+                  id="signin-email"
+                  name="email"
+                  type="email"
+                  placeholder="esempio@azienda.com"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="signin-password">
+                  <Lock className="w-4 h-4 inline mr-2" />
+                  Password
+                </Label>
+                <Input
+                  id="signin-password"
+                  name="password"
+                  type="password"
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Accesso in corso...' : 'Accedi'}
+              </Button>
+            </form>
 
             {error && (
               <Alert className="mt-4 border-destructive/50 text-destructive">

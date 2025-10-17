@@ -223,9 +223,9 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
                       <TableHead>Lotto originale</TableHead>
                       <TableHead>Produzione</TableHead>
                       <TableHead>Scadenza</TableHead>
+                      <TableHead>Congelamento</TableHead>
                       <TableHead>Fornitore</TableHead>
                       <TableHead>Ricezione</TableHead>
-                      <TableHead>Congelamento</TableHead>
                       <TableHead className="text-right">Azioni</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -257,13 +257,13 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
                           {lot.expiry_date ? format(new Date(lot.expiry_date), 'dd/MM/yyyy') : '—'}
                         </TableCell>
                         <TableCell>
+                          {lot.is_frozen ? format(new Date(lot.production_date), 'dd/MM/yyyy') : '—'}
+                        </TableCell>
+                        <TableCell>
                           {lot.supplier_id && suppliers[lot.supplier_id] ? suppliers[lot.supplier_id] : '—'}
                         </TableCell>
                         <TableCell>
                           {lot.reception_date ? format(new Date(lot.reception_date), 'dd/MM/yyyy') : '—'}
-                        </TableCell>
-                        <TableCell>
-                          {lot.is_frozen ? format(new Date(lot.production_date), 'dd/MM/yyyy') : '—'}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
