@@ -54,10 +54,10 @@ export const UserManagement = () => {
 
   const fetchUsers = async () => {
     try {
-      // Get all profiles
+      // Get all profiles with email
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('user_id, full_name');
+        .select('user_id, full_name, email');
 
       if (profilesError) throw profilesError;
 
@@ -68,19 +68,14 @@ export const UserManagement = () => {
 
       if (rolesError) throw rolesError;
 
-      // Get current user's auth data to get emails
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // For now, we can only show the current user's email
-      // In a real scenario, you'd need an admin API endpoint to list all users
+      // Map profiles with roles
       const usersMap = new Map<string, UserWithRole>();
 
       profiles?.forEach(profile => {
         const userRole = roles?.find(r => r.user_id === profile.user_id);
         usersMap.set(profile.user_id, {
           user_id: profile.user_id,
-          email: profile.user_id === user.id ? user.email! : 'user@example.com',
+          email: profile.email || 'email@example.com',
           role: userRole?.role as 'admin' | 'guest' | null,
           full_name: profile.full_name || undefined,
           authorized_at: userRole?.authorized_at
