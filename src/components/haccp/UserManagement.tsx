@@ -253,7 +253,7 @@ export const UserManagement = () => {
                   {user.role ? (
                     <>
                       <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                        {user.role}
+                        {user.role === 'admin' ? 'Amministratore' : 'Utente'}
                       </Badge>
                       <Button
                         size="sm"
@@ -271,7 +271,7 @@ export const UserManagement = () => {
                         onClick={() => authorizeUser(user.user_id, 'admin')}
                       >
                         <UserCheck className="w-4 h-4 mr-1" />
-                        Admin
+                        Amministratore
                       </Button>
                       <Button
                         size="sm"
@@ -279,7 +279,7 @@ export const UserManagement = () => {
                         onClick={() => authorizeUser(user.user_id, 'guest')}
                       >
                         <UserCheck className="w-4 h-4 mr-1" />
-                        Guest
+                        Utente
                       </Button>
                     </div>
                   )}
@@ -292,8 +292,8 @@ export const UserManagement = () => {
         <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
           <h4 className="font-medium text-blue-800 mb-2">ℹ️ Nota</h4>
           <p className="text-sm text-blue-700">
-            <strong>Admin:</strong> Accesso completo al sistema, può autorizzare altri utenti<br />
-            <strong>Guest:</strong> Accesso limitato alle funzionalità base
+            <strong>Amministratore:</strong> Accesso completo al sistema, può autorizzare altri utenti<br />
+            <strong>Utente:</strong> Accesso limitato alle funzionalità base
           </p>
         </div>
       </CardContent>
@@ -343,8 +343,8 @@ export const UserManagement = () => {
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               required
             >
-              <option value="guest">Guest</option>
-              <option value="admin">Admin</option>
+              <option value="guest">Utente</option>
+              <option value="admin">Amministratore</option>
             </select>
           </div>
           <div className="flex justify-end gap-2">

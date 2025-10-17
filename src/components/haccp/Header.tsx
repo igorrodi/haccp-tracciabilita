@@ -19,6 +19,7 @@ interface HeaderProps {
 
 export const Header = ({ activeTab, onTabChange }: HeaderProps) => {
   const [userProfile, setUserProfile] = useState<{ full_name?: string; company_name?: string } | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -31,6 +32,16 @@ export const Header = ({ activeTab, onTabChange }: HeaderProps) => {
           .maybeSingle();
         
         setUserProfile(profile);
+
+        // Check if user is admin
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'admin')
+          .maybeSingle();
+        
+        setIsAdmin(!!roleData);
       }
     };
 
@@ -105,14 +116,16 @@ export const Header = ({ activeTab, onTabChange }: HeaderProps) => {
               <Package className="w-4 h-4 mr-2" />
               Prodotti
             </Button>
-            <Button
-              variant={activeTab === "system" ? "default" : "ghost"}
-              className="rounded-xl"
-              onClick={() => onTabChange("system")}
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Sistema
-            </Button>
+            {isAdmin && (
+              <Button
+                variant={activeTab === "system" ? "default" : "ghost"}
+                className="rounded-xl"
+                onClick={() => onTabChange("system")}
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Sistema
+              </Button>
+            )}
           </nav>
 
           {/* Account Menu */}
@@ -135,13 +148,15 @@ export const Header = ({ activeTab, onTabChange }: HeaderProps) => {
                   <DropdownMenuSeparator />
                 </>
               )}
-              <DropdownMenuItem 
-                className="md:hidden"
-                onClick={() => onTabChange("system")}
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Sistema
-              </DropdownMenuItem>
+              {isAdmin && (
+                <DropdownMenuItem 
+                  className="md:hidden"
+                  onClick={() => onTabChange("system")}
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Sistema
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem 
                 className="text-destructive focus:text-destructive"
                 onClick={handleLogout}
