@@ -43,7 +43,6 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
       const { data, error } = await supabase
         .from('product_categories')
         .select('*')
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) {

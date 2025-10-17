@@ -50,7 +50,6 @@ export const RecentLotsList = () => {
       const { data: lotsData, error: lotsError } = await supabase
         .from('haccp_lots')
         .select('*')
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(5);
 

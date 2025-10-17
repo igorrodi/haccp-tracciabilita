@@ -70,17 +70,15 @@ export const LotForm = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data: categoriesData, error: categoriesError } = await supabase
-          .from('product_categories')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('name');
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from('product_categories')
+        .select('*')
+        .order('name');
 
-        const { data: suppliersData, error: suppliersError } = await supabase
-          .from('suppliers')
-          .select('id, name')
-          .eq('user_id', user.id)
-          .order('name');
+      const { data: suppliersData, error: suppliersError } = await supabase
+        .from('suppliers')
+        .select('id, name')
+        .order('name');
 
         if (categoriesError) {
           toast.error('Errore nel caricamento delle categorie');
