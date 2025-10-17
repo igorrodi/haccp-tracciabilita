@@ -34,6 +34,7 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Category | null>(null);
   const [ingredientHighlights, setIngredientHighlights] = useState<Record<string, IngredientHighlight[]>>({});
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const fetchCategories = async () => {
     try {
@@ -76,8 +77,23 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
   };
 
   useEffect(() => {
+    checkAdminStatus();
     fetchCategories();
   }, [refreshTrigger]);
+
+  const checkAdminStatus = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .maybeSingle();
+
+    setIsAdmin(!!data);
+  };
 
   const handleEdit = (category: Category) => {
     setEditingCategory(category);
@@ -171,30 +187,32 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
                     <Package className="w-5 h-5 text-primary" />
                     {category.name}
                   </CardTitle>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEdit(category);
-                      }}
-                      className="text-primary hover:text-primary hover:bg-primary/10"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(category.id, category.name);
-                      }}
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
+                  {isAdmin && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEdit(category);
+                        }}
+                        className="text-primary hover:text-primary hover:bg-primary/10"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(category.id, category.name);
+                        }}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">

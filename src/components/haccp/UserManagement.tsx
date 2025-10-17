@@ -29,28 +29,12 @@ interface UserWithRole {
 export const UserManagement = () => {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    checkAdminStatus();
     fetchUsers();
   }, []);
-
-  const checkAdminStatus = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'admin')
-      .maybeSingle();
-
-    setIsAdmin(!!data);
-  };
 
   const fetchUsers = async () => {
     try {
@@ -189,19 +173,6 @@ export const UserManagement = () => {
       setCreating(false);
     }
   };
-
-  if (!isAdmin) {
-    return (
-      <Card className="haccp-card">
-        <CardContent className="p-6">
-          <div className="text-center text-muted-foreground">
-            <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>Solo gli amministratori possono gestire gli utenti</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
   if (loading) {
     return (
