@@ -133,4 +133,24 @@ All colors MUST be HSL.
   .camera-upload-area {
     @apply border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-primary/50 transition-colors cursor-pointer;
   }
+
+  /* Fix date input alignment on iOS */
+  input[type="date"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    min-height: 2.5rem;
+    display: flex;
+    align-items: center;
+  }
+
+  input[type="date"]::-webkit-date-and-time-value {
+    text-align: left;
+    margin: 0;
+    padding: 0;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    margin-left: auto;
+  }
 }
