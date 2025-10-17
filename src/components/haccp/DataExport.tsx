@@ -17,37 +17,23 @@ export const DataExport = () => {
         .from('haccp_lots')
         .select(`
           *,
-          product_categories(name, ingredients, shelf_life_days, preparation_procedure),
-          suppliers(name, contact_info, notes)
+          product_categories(name),
+          suppliers(name)
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      // Prepare data for CSV - complete 1:1 table export
+      // Prepare data for CSV - only visible table columns
       const csvData = lots?.map(lot => ({
-        'ID': lot.id,
-        'Numero Lotto Interno': lot.internal_lot_number,
-        'Numero Lotto': lot.lot_number,
-        'ID Categoria': lot.category_id || '',
-        'Nome Prodotto': lot.product_categories?.name || '',
-        'Ingredienti Prodotto': lot.product_categories?.ingredients || '',
-        'Durata Prodotto (giorni)': lot.product_categories?.shelf_life_days || '',
-        'Procedura Prodotto': lot.product_categories?.preparation_procedure || '',
-        'ID Fornitore': lot.supplier_id || '',
-        'Nome Fornitore': lot.suppliers?.name || '',
-        'Contatti Fornitore': lot.suppliers?.contact_info || '',
-        'Note Fornitore': lot.suppliers?.notes || '',
+        'Lotto Interno': lot.internal_lot_number || '',
+        'Lotto Originale': lot.lot_number,
+        'Prodotto': lot.product_categories?.name || '',
         'Data Produzione': lot.production_date,
         'Data Scadenza': lot.expiry_date || '',
-        'Data Ricezione': lot.reception_date || '',
         'Congelato': lot.is_frozen ? 'Sì' : 'No',
-        'Stato': lot.status,
-        'Note Lotto': lot.notes || '',
-        'URL Immagine Etichetta': lot.label_image_url || '',
-        'ID Utente': lot.user_id,
-        'Data Creazione': new Date(lot.created_at).toLocaleString('it-IT'),
-        'Data Aggiornamento': new Date(lot.updated_at).toLocaleString('it-IT')
+        'Fornitore': lot.suppliers?.name || '',
+        'Ricezione Merce': lot.reception_date || ''
       })) || [];
 
       // Create CSV
@@ -58,7 +44,7 @@ export const DataExport = () => {
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `lotti_completo_${new Date().toISOString().split('T')[0]}.csv`;
+      link.download = `lotti_${new Date().toISOString().split('T')[0]}.csv`;
       link.click();
 
       toast.success("Dati esportati in CSV con successo");
@@ -78,89 +64,33 @@ export const DataExport = () => {
         .from('haccp_lots')
         .select(`
           *,
-          product_categories(name, ingredients, shelf_life_days, preparation_procedure),
-          suppliers(name, contact_info, notes)
+          product_categories(name),
+          suppliers(name)
         `)
         .order('created_at', { ascending: false });
 
       if (lotsError) throw lotsError;
 
-      // Fetch categories
-      const { data: categories, error: categoriesError } = await supabase
-        .from('product_categories')
-        .select('*')
-        .order('name');
-
-      if (categoriesError) throw categoriesError;
-
-      // Fetch suppliers
-      const { data: suppliers, error: suppliersError } = await supabase
-        .from('suppliers')
-        .select('*')
-        .order('name');
-
-      if (suppliersError) throw suppliersError;
-
       // Create workbook
       const wb = XLSX.utils.book_new();
 
-      // Lots sheet - complete data with label images
+      // Lots sheet - table columns + label image URLs
       const lotsData = lots?.map(lot => ({
-        'ID': lot.id,
-        'Numero Lotto Interno': lot.internal_lot_number,
-        'Numero Lotto': lot.lot_number,
-        'ID Categoria': lot.category_id || '',
-        'Nome Prodotto': lot.product_categories?.name || '',
-        'Ingredienti Prodotto': lot.product_categories?.ingredients || '',
-        'Durata Prodotto (giorni)': lot.product_categories?.shelf_life_days || '',
-        'Procedura Prodotto': lot.product_categories?.preparation_procedure || '',
-        'ID Fornitore': lot.supplier_id || '',
-        'Nome Fornitore': lot.suppliers?.name || '',
-        'Contatti Fornitore': lot.suppliers?.contact_info || '',
-        'Note Fornitore': lot.suppliers?.notes || '',
+        'Lotto Interno': lot.internal_lot_number || '',
+        'Lotto Originale': lot.lot_number,
+        'Prodotto': lot.product_categories?.name || '',
         'Data Produzione': lot.production_date,
         'Data Scadenza': lot.expiry_date || '',
-        'Data Ricezione': lot.reception_date || '',
         'Congelato': lot.is_frozen ? 'Sì' : 'No',
-        'Stato': lot.status,
-        'Note Lotto': lot.notes || '',
-        'URL Immagine Etichetta': lot.label_image_url || '',
-        'ID Utente': lot.user_id,
-        'Data Creazione': new Date(lot.created_at).toLocaleString('it-IT'),
-        'Data Aggiornamento': new Date(lot.updated_at).toLocaleString('it-IT')
+        'Fornitore': lot.suppliers?.name || '',
+        'Ricezione Merce': lot.reception_date || '',
+        'Foto Etichetta': lot.label_image_url || ''
       })) || [];
       const lotsWs = XLSX.utils.json_to_sheet(lotsData);
       XLSX.utils.book_append_sheet(wb, lotsWs, 'Lotti');
 
-      // Categories sheet
-      const categoriesData = categories?.map(cat => ({
-        'ID': cat.id,
-        'Nome': cat.name,
-        'Ingredienti': cat.ingredients || '',
-        'Durata (giorni)': cat.shelf_life_days || '',
-        'Procedura': cat.preparation_procedure || '',
-        'ID Utente': cat.user_id,
-        'Data Creazione': new Date(cat.created_at).toLocaleString('it-IT'),
-        'Data Aggiornamento': new Date(cat.updated_at).toLocaleString('it-IT')
-      })) || [];
-      const categoriesWs = XLSX.utils.json_to_sheet(categoriesData);
-      XLSX.utils.book_append_sheet(wb, categoriesWs, 'Prodotti');
-
-      // Suppliers sheet
-      const suppliersData = suppliers?.map(sup => ({
-        'ID': sup.id,
-        'Nome': sup.name,
-        'Contatti': sup.contact_info || '',
-        'Note': sup.notes || '',
-        'ID Utente': sup.user_id,
-        'Data Creazione': new Date(sup.created_at).toLocaleString('it-IT'),
-        'Data Aggiornamento': new Date(sup.updated_at).toLocaleString('it-IT')
-      })) || [];
-      const suppliersWs = XLSX.utils.json_to_sheet(suppliersData);
-      XLSX.utils.book_append_sheet(wb, suppliersWs, 'Fornitori');
-
       // Download Excel
-      XLSX.writeFile(wb, `haccp_completo_${new Date().toISOString().split('T')[0]}.xlsx`);
+      XLSX.writeFile(wb, `lotti_${new Date().toISOString().split('T')[0]}.xlsx`);
 
       toast.success("Dati esportati in Excel con successo");
     } catch (error) {
@@ -169,6 +99,10 @@ export const DataExport = () => {
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const handleMegaBackup = () => {
+    toast.info("Funzione di backup su Mega in arrivo. Sarà necessario configurare le credenziali Mega.");
   };
 
   return (
@@ -180,7 +114,7 @@ export const DataExport = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Button
             onClick={exportToCSV}
             disabled={isExporting}
@@ -188,7 +122,7 @@ export const DataExport = () => {
             variant="outline"
           >
             <Download className="w-4 h-4 mr-2" />
-            Esporta CSV (Lotti Completi)
+            Esporta CSV
           </Button>
           <Button
             onClick={exportToExcel}
@@ -196,11 +130,20 @@ export const DataExport = () => {
             className="w-full"
           >
             <FileSpreadsheet className="w-4 h-4 mr-2" />
-            Esporta Excel (Completo)
+            Esporta Excel
+          </Button>
+          <Button
+            onClick={handleMegaBackup}
+            disabled={isExporting}
+            className="w-full"
+            variant="secondary"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Backup su Mega
           </Button>
         </div>
         <p className="text-sm text-muted-foreground">
-          L'esportazione CSV include tutti i dati dei lotti con prodotti e fornitori correlati. L'esportazione Excel include lotti (con URL foto etichette), prodotti e fornitori in fogli separati.
+          CSV ed Excel includono: lotto interno/originale, prodotto, date, fornitore e ricezione merce. Excel include anche le foto delle etichette. Il backup su Mega salverà tutti i dati e le immagini.
         </p>
       </CardContent>
     </Card>
