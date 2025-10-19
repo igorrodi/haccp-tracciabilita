@@ -31,6 +31,13 @@ interface Lot {
   supplier_id?: string;
   reception_date?: string;
   created_at: string;
+  user_id: string;
+}
+
+interface Profile {
+  user_id: string;
+  full_name?: string;
+  email?: string;
 }
 
 interface Supplier {
@@ -52,6 +59,7 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [highlightedIngredients, setHighlightedIngredients] = useState<Array<{ text: string; isAllergen: boolean }>>([]);
   const [suppliers, setSuppliers] = useState<Record<string, string>>({});
+  const [profiles, setProfiles] = useState<Record<string, Profile>>({});
 
   useEffect(() => {
     fetchLots();
@@ -89,6 +97,21 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
             suppliersMap[sup.id] = sup.name;
           });
           setSuppliers(suppliersMap);
+        }
+
+        // Fetch user profiles for these lots
+        const userIds = [...new Set(data?.map(lot => lot.user_id).filter(Boolean))];
+        if (userIds.length > 0) {
+          const { data: profilesData } = await supabase
+            .from('profiles')
+            .select('user_id, full_name, email')
+            .in('user_id', userIds);
+
+          const profilesMap: Record<string, Profile> = {};
+          profilesData?.forEach((profile: Profile) => {
+            profilesMap[profile.user_id] = profile;
+          });
+          setProfiles(profilesMap);
         }
       }
     } catch (error) {
@@ -218,6 +241,7 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Etichetta</TableHead>
+                      <TableHead>Utente</TableHead>
                       <TableHead>Lotto</TableHead>
                       <TableHead>Lotto originale</TableHead>
                       <TableHead>Produzione</TableHead>
@@ -246,6 +270,25 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
                           ) : (
                             <div className="w-12 h-12 rounded border flex items-center justify-center bg-muted">
                               <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {profiles[lot.user_id] ? (
+                            <div 
+                              className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary"
+                              title={profiles[lot.user_id].full_name || profiles[lot.user_id].email}
+                            >
+                              {(profiles[lot.user_id].full_name || profiles[lot.user_id].email || 'U')
+                                .split(' ')
+                                .map(n => n[0])
+                                .join('')
+                                .toUpperCase()
+                                .substring(0, 2)}
+                            </div>
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs">
+                              ?
                             </div>
                           )}
                         </TableCell>

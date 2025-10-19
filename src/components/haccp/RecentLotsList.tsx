@@ -18,6 +18,13 @@ interface Lot {
   supplier_id?: string;
   reception_date?: string;
   created_at: string;
+  user_id: string;
+}
+
+interface Profile {
+  user_id: string;
+  full_name?: string;
+  email?: string;
 }
 
 interface Category {
@@ -34,6 +41,7 @@ export const RecentLotsList = () => {
   const [lots, setLots] = useState<Lot[]>([]);
   const [categories, setCategories] = useState<Record<string, string>>({});
   const [suppliers, setSuppliers] = useState<Record<string, string>>({});
+  const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -88,6 +96,21 @@ export const RecentLotsList = () => {
           suppliersMap[sup.id] = sup.name;
         });
         setSuppliers(suppliersMap);
+      }
+
+      // Fetch user profiles for these lots
+      const userIds = [...new Set(lotsData?.map(lot => lot.user_id).filter(Boolean))];
+      if (userIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, email')
+          .in('user_id', userIds);
+
+        const profilesMap: Record<string, Profile> = {};
+        profilesData?.forEach((profile: Profile) => {
+          profilesMap[profile.user_id] = profile;
+        });
+        setProfiles(profilesMap);
       }
     } catch (error) {
       toast.error('Errore nel caricamento dei lotti');
@@ -156,10 +179,25 @@ export const RecentLotsList = () => {
             >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Package className="w-5 h-5 text-primary" />
-                    {categories[lot.category_id] || 'Prodotto sconosciuto'}
-                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Package className="w-5 h-5 text-primary" />
+                      {categories[lot.category_id] || 'Prodotto sconosciuto'}
+                    </CardTitle>
+                    {profiles[lot.user_id] && (
+                      <div 
+                        className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary"
+                        title={profiles[lot.user_id].full_name || profiles[lot.user_id].email}
+                      >
+                        {(profiles[lot.user_id].full_name || profiles[lot.user_id].email || 'U')
+                          .split(' ')
+                          .map(n => n[0])
+                          .join('')
+                          .toUpperCase()
+                          .substring(0, 2)}
+                      </div>
+                    )}
+                  </div>
                   <Badge variant="secondary" className="text-xs">
                     {format(new Date(lot.production_date), 'dd/MM/yyyy')}
                   </Badge>

@@ -293,16 +293,17 @@ export const LotForm = () => {
 
   const selectedCategoryData = categories.find(cat => cat.id === selectedCategory);
 
-  // Calcola automaticamente la data di scadenza
-  const handleProductionDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const date = e.target.value;
-    setProductionDate(date);
-    
-    if (date && selectedCategoryData?.shelf_life_days) {
-      const prodDate = new Date(date);
+  // Ricalcola automaticamente la scadenza quando cambia la categoria o la data di produzione
+  useEffect(() => {
+    if (productionDate && selectedCategoryData?.shelf_life_days) {
+      const prodDate = new Date(productionDate);
       prodDate.setDate(prodDate.getDate() + selectedCategoryData.shelf_life_days);
       setExpiryDate(prodDate.toISOString().split('T')[0]);
     }
+  }, [selectedCategory, productionDate, selectedCategoryData]);
+
+  const handleProductionDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setProductionDate(e.target.value);
   };
 
   return (

@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { Download, FileSpreadsheet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -8,12 +10,37 @@ import * as XLSX from 'xlsx';
 
 export const DataExport = () => {
   const [isExporting, setIsExporting] = useState(false);
+  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
+  // Fetch categories on mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('product_categories')
+          .select('id, name')
+          .order('name');
+
+        if (!error && data) {
+          setCategories(data);
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   const exportToCSV = async () => {
     setIsExporting(true);
     try {
-      // Fetch all lots with related data
-      const { data: lots, error } = await supabase
+      // Build query with optional category filter
+      let query = supabase
         .from('haccp_lots')
         .select(`
           *,
@@ -21,6 +48,12 @@ export const DataExport = () => {
           suppliers(name)
         `)
         .order('created_at', { ascending: false });
+
+      if (selectedCategory !== "all") {
+        query = query.eq('category_id', selectedCategory);
+      }
+
+      const { data: lots, error } = await query;
 
       if (error) throw error;
 
@@ -59,8 +92,8 @@ export const DataExport = () => {
   const exportToExcel = async () => {
     setIsExporting(true);
     try {
-      // Fetch all lots with related data
-      const { data: lots, error: lotsError } = await supabase
+      // Build query with optional category filter
+      let query = supabase
         .from('haccp_lots')
         .select(`
           *,
@@ -68,6 +101,12 @@ export const DataExport = () => {
           suppliers(name)
         `)
         .order('created_at', { ascending: false });
+
+      if (selectedCategory !== "all") {
+        query = query.eq('category_id', selectedCategory);
+      }
+
+      const { data: lots, error: lotsError } = await query;
 
       if (lotsError) throw lotsError;
 
@@ -114,6 +153,27 @@ export const DataExport = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="category-filter">Filtra per prodotto</Label>
+          {categoriesLoading ? (
+            <div className="h-10 bg-muted animate-pulse rounded-xl"></div>
+          ) : (
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="rounded-xl">
+                <SelectValue placeholder="Tutti i prodotti" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tutti i prodotti</SelectItem>
+                {categories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Button
             onClick={exportToCSV}
@@ -143,7 +203,8 @@ export const DataExport = () => {
           </Button>
         </div>
         <p className="text-sm text-muted-foreground">
-          CSV ed Excel includono: lotto interno/originale, prodotto, date, fornitore e ricezione merce. Excel include anche le foto delle etichette. Il backup su Mega salverà tutti i dati e le immagini.
+          CSV ed Excel includono: lotto interno/originale, prodotto, date, fornitore e ricezione merce
+          {selectedCategory !== "all" && " per il prodotto selezionato"}. Excel include anche le foto delle etichette. Il backup su Mega salverà tutti i dati e le immagini.
         </p>
       </CardContent>
     </Card>
