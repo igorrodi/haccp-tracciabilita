@@ -6,10 +6,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Image as ImageIcon, Edit, Trash2, X, ListOrdered, QrCode, FileText } from 'lucide-react';
+import { Image as ImageIcon, Edit, Trash2, X, ListOrdered, QrCode, FileText, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 import { QRCodeSVG } from 'qrcode.react';
 import { highlightAllergens } from '@/lib/allergens';
+import { printLabel } from '@/lib/labelPrinter';
 
 interface Product {
   id: string;
@@ -61,10 +62,13 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
   const [suppliers, setSuppliers] = useState<Record<string, string>>({});
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [isAdmin, setIsAdmin] = useState(false);
+  const [printerEnabled, setPrinterEnabled] = useState(false);
+  const [printerSettings, setPrinterSettings] = useState<any>(null);
 
   useEffect(() => {
     fetchLots();
     checkAdminStatus();
+    checkPrinterSettings();
     if (product.ingredients) {
       highlightAllergens(product.ingredients).then(setHighlightedIngredients);
     }
@@ -85,6 +89,26 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
       setIsAdmin(!!data);
     } catch (error) {
       console.error('Error checking admin status:', error);
+    }
+  };
+
+  const checkPrinterSettings = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from('printer_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (data) {
+        setPrinterEnabled(data.printer_enabled);
+        setPrinterSettings(data);
+      }
+    } catch (error) {
+      console.error('Error checking printer settings:', error);
     }
   };
 
@@ -183,6 +207,30 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
       }
     } catch (error) {
       toast.error('Errore durante l\'eliminazione');
+    }
+  };
+
+  const handlePrintLabel = async (lot: Lot) => {
+    if (!printerSettings) {
+      toast.error('Configurazione stampante non trovata');
+      return;
+    }
+
+    try {
+      await printLabel(
+        {
+          internal_lot_number: lot.internal_lot_number,
+          lot_number: lot.lot_number,
+          production_date: lot.production_date,
+          expiry_date: lot.expiry_date,
+          product_name: product.name,
+        },
+        printerSettings
+      );
+      toast.success('Etichetta inviata alla stampante');
+    } catch (error) {
+      console.error('Print error:', error);
+      toast.error('Errore durante la stampa');
     }
   };
 
@@ -337,6 +385,16 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
                             >
                               <QrCode className="w-4 h-4" />
                             </Button>
+                            {printerEnabled && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handlePrintLabel(lot)}
+                                className="text-primary hover:text-primary hover:bg-primary/10"
+                              >
+                                <Printer className="w-4 h-4" />
+                              </Button>
+                            )}
                             {isAdmin && (
                               <Button
                                 variant="ghost"

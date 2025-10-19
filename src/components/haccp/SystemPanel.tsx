@@ -3,15 +3,17 @@ import { SupplierManagement } from './SupplierManagement';
 import { UserManagement } from './UserManagement';
 import { AllergenManagement } from './AllergenManagement';
 import { DataExport } from './DataExport';
+import { PrinterSettings } from './PrinterSettings';
 
 export const SystemPanel = () => {
   return (
     <Tabs defaultValue="suppliers" className="w-full">
-      <TabsList className="grid w-full grid-cols-4">
+      <TabsList className="grid w-full grid-cols-5">
         <TabsTrigger value="suppliers">Fornitori</TabsTrigger>
         <TabsTrigger value="users">Utenti</TabsTrigger>
         <TabsTrigger value="allergens">Allergeni</TabsTrigger>
         <TabsTrigger value="export">Esportazione</TabsTrigger>
+        <TabsTrigger value="printer">Stampante</TabsTrigger>
       </TabsList>
       <TabsContent value="suppliers">
         <SupplierManagement />
@@ -24,6 +26,9 @@ export const SystemPanel = () => {
       </TabsContent>
       <TabsContent value="export">
         <DataExport />
+      </TabsContent>
+      <TabsContent value="printer">
+        <PrinterSettings />
       </TabsContent>
     </Tabs>
   );

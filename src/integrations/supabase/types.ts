@@ -113,6 +113,60 @@ export type Database = {
           },
         ]
       }
+      printer_settings: {
+        Row: {
+          created_at: string
+          font_size: string
+          id: string
+          include_barcode: boolean
+          include_expiry_date: boolean
+          include_lot_number: boolean
+          include_product_name: boolean
+          include_production_date: boolean
+          include_qr_code: boolean
+          label_height: number
+          label_width: number
+          printer_enabled: boolean
+          printer_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          font_size?: string
+          id?: string
+          include_barcode?: boolean
+          include_expiry_date?: boolean
+          include_lot_number?: boolean
+          include_product_name?: boolean
+          include_production_date?: boolean
+          include_qr_code?: boolean
+          label_height?: number
+          label_width?: number
+          printer_enabled?: boolean
+          printer_type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          font_size?: string
+          id?: string
+          include_barcode?: boolean
+          include_expiry_date?: boolean
+          include_lot_number?: boolean
+          include_product_name?: boolean
+          include_production_date?: boolean
+          include_qr_code?: boolean
+          label_height?: number
+          label_width?: number
+          printer_enabled?: boolean
+          printer_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       product_categories: {
         Row: {
           created_at: string
