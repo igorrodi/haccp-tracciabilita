@@ -60,13 +60,33 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
   const [highlightedIngredients, setHighlightedIngredients] = useState<Array<{ text: string; isAllergen: boolean }>>([]);
   const [suppliers, setSuppliers] = useState<Record<string, string>>({});
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     fetchLots();
+    checkAdminStatus();
     if (product.ingredients) {
       highlightAllergens(product.ingredients).then(setHighlightedIngredients);
     }
   }, [product.id, product.ingredients]);
+
+  const checkAdminStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+
+      setIsAdmin(!!data);
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+    }
+  };
 
   const fetchLots = async () => {
     try {
@@ -317,14 +337,16 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
                             >
                               <QrCode className="w-4 h-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteLot(lot.id, lot.lot_number)}
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            {isAdmin && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteLot(lot.id, lot.lot_number)}
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
