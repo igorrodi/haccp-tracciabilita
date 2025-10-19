@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Users, UserCheck, UserX, Shield, UserPlus } from "lucide-react";
+import { Users, UserCheck, UserX, Shield, UserPlus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -110,6 +110,24 @@ export const UserManagement = () => {
       fetchUsers();
     } catch (error: any) {
       toast.error('Errore nella revoca: ' + error.message);
+    }
+  };
+
+  const deleteUser = async (userId: string, userName: string) => {
+    if (!confirm(`Sei sicuro di voler eliminare definitivamente l'utente "${userName}"? Questa azione non può essere annullata.`)) {
+      return;
+    }
+
+    try {
+      // Delete user from auth.users (this will cascade to profiles and user_roles)
+      const { error } = await supabase.auth.admin.deleteUser(userId);
+
+      if (error) throw error;
+
+      toast.success('Utente eliminato con successo');
+      fetchUsers();
+    } catch (error: any) {
+      toast.error('Errore nell\'eliminazione: ' + error.message);
     }
   };
 
@@ -233,6 +251,13 @@ export const UserManagement = () => {
                       >
                         <UserX className="w-4 h-4" />
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => deleteUser(user.user_id, user.full_name || user.email)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </>
                   ) : (
                     <div className="flex gap-2">
@@ -251,6 +276,13 @@ export const UserManagement = () => {
                       >
                         <UserCheck className="w-4 h-4 mr-1" />
                         Utente
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => deleteUser(user.user_id, user.full_name || user.email)}
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   )}

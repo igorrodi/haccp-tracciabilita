@@ -253,10 +253,7 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between pt-2 border-t">
-                  <Badge variant="secondary" className="text-xs">
-                    Creata il {new Date(category.created_at).toLocaleDateString('it-IT')}
-                  </Badge>
+                <div className="flex items-center justify-end pt-2 border-t">
                   <Button variant="ghost" size="sm" className="text-primary">
                     Vedi lotti <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
