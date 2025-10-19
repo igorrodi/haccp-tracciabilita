@@ -19,6 +19,10 @@ interface PrinterSettings {
   include_expiry_date: boolean;
   include_production_date: boolean;
   font_size: string;
+  printer_connection_type?: string;
+  printer_vendor_id?: number;
+  printer_product_id?: number;
+  printer_ip_address?: string;
 }
 
 export const generateLabelHTML = (lot: LotData, settings: PrinterSettings): string => {
@@ -127,10 +131,36 @@ export const generateLabelHTML = (lot: LotData, settings: PrinterSettings): stri
   `;
 };
 
-export const printLabel = async (lot: LotData, settings: PrinterSettings): Promise<void> => {
-  const labelHTML = generateLabelHTML(lot, settings);
-  
-  // Create a hidden iframe for printing
+const printViaUSB = async (labelHTML: string, settings: PrinterSettings): Promise<void> => {
+  if (!settings.printer_vendor_id || !settings.printer_product_id) {
+    throw new Error('Stampante USB non configurata');
+  }
+
+  try {
+    if (!navigator.usb) {
+      throw new Error('Web USB API non supportata');
+    }
+
+    const devices = await navigator.usb.getDevices();
+    const device = devices.find(
+      d => d.vendorId === settings.printer_vendor_id && d.productId === settings.printer_product_id
+    );
+
+    if (!device) {
+      throw new Error('Stampante USB non trovata. Ricollegare la stampante.');
+    }
+
+    // For now, fall back to browser print for USB
+    // Direct USB printing requires specific printer language (ESC/POS, ZPL, etc.)
+    console.log('USB printer detected, using browser print dialog');
+    await printViaBrowser(labelHTML);
+  } catch (error) {
+    console.error('USB printing error:', error);
+    throw new Error('Errore nella stampa USB');
+  }
+};
+
+const printViaBrowser = async (labelHTML: string): Promise<void> => {
   const printFrame = document.createElement('iframe');
   printFrame.style.display = 'none';
   document.body.appendChild(printFrame);
@@ -144,14 +174,26 @@ export const printLabel = async (lot: LotData, settings: PrinterSettings): Promi
   frameDoc.write(labelHTML);
   frameDoc.close();
   
-  // Wait for content to load
   await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // Print
   printFrame.contentWindow?.print();
   
-  // Clean up after printing
   setTimeout(() => {
     document.body.removeChild(printFrame);
   }, 1000);
+};
+
+export const printLabel = async (lot: LotData, settings: PrinterSettings): Promise<void> => {
+  const labelHTML = generateLabelHTML(lot, settings);
+  
+  // Choose printing method based on connection type
+  if (settings.printer_connection_type === 'usb') {
+    await printViaUSB(labelHTML, settings);
+  } else if (settings.printer_connection_type === 'network') {
+    // Network printing would require backend support
+    console.log('Network printing not yet implemented, using browser');
+    await printViaBrowser(labelHTML);
+  } else {
+    // Default: browser print dialog
+    await printViaBrowser(labelHTML);
+  }
 };

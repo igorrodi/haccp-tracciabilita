@@ -5,9 +5,10 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Printer, Save } from 'lucide-react';
+import { Printer, Save, Usb, Wifi } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { detectUSBPrinters, requestUSBPrinter, DetectedPrinter } from '@/lib/printerDetection';
 
 interface PrinterSettings {
   id?: string;
@@ -22,6 +23,11 @@ interface PrinterSettings {
   include_expiry_date: boolean;
   include_production_date: boolean;
   font_size: string;
+  printer_name?: string;
+  printer_connection_type?: string;
+  printer_ip_address?: string;
+  printer_vendor_id?: number;
+  printer_product_id?: number;
 }
 
 export const PrinterSettings = () => {
@@ -37,13 +43,45 @@ export const PrinterSettings = () => {
     include_expiry_date: true,
     include_production_date: true,
     font_size: 'medium',
+    printer_connection_type: 'browser',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [detectedPrinters, setDetectedPrinters] = useState<DetectedPrinter[]>([]);
 
   useEffect(() => {
     fetchSettings();
+    loadDetectedPrinters();
   }, []);
+
+  const loadDetectedPrinters = async () => {
+    try {
+      const printers = await detectUSBPrinters();
+      setDetectedPrinters(printers);
+    } catch (error) {
+      console.error('Error loading printers:', error);
+    }
+  };
+
+  const handleRequestPrinter = async () => {
+    try {
+      const printer = await requestUSBPrinter();
+      if (printer) {
+        setSettings(prev => ({
+          ...prev,
+          printer_name: printer.name,
+          printer_connection_type: 'usb',
+          printer_vendor_id: printer.vendorId,
+          printer_product_id: printer.productId,
+        }));
+        await loadDetectedPrinters();
+        toast.success('Stampante selezionata con successo');
+      }
+    } catch (error) {
+      toast.error('Errore nella selezione della stampante');
+      console.error(error);
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -169,12 +207,99 @@ export const PrinterSettings = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="thermal">Termica</SelectItem>
-                  <SelectItem value="inkjet">Inkjet</SelectItem>
-                  <SelectItem value="laser">Laser</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <SelectItem value="thermal">Termica</SelectItem>
+            <SelectItem value="inkjet">Inkjet</SelectItem>
+            <SelectItem value="laser">Laser</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-4 rounded-lg border p-4">
+        <div className="flex items-center justify-between">
+          <Label className="text-base font-semibold">Connessione Stampante</Label>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="connection-type">Tipo di Connessione</Label>
+          <Select
+            value={settings.printer_connection_type || 'browser'}
+            onValueChange={(value) => setSettings(prev => ({ ...prev, printer_connection_type: value }))}
+          >
+            <SelectTrigger id="connection-type">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="browser">
+                <div className="flex items-center gap-2">
+                  <Printer className="h-4 w-4" />
+                  <span>Browser (Dialogo Sistema)</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="usb">
+                <div className="flex items-center gap-2">
+                  <Usb className="h-4 w-4" />
+                  <span>USB Diretta</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="network">
+                <div className="flex items-center gap-2">
+                  <Wifi className="h-4 w-4" />
+                  <span>Rete (IP)</span>
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {settings.printer_connection_type === 'usb' && (
+          <div className="space-y-2">
+            <Label>Stampante USB</Label>
+            {settings.printer_name ? (
+              <div className="flex items-center justify-between rounded-lg border p-3 bg-muted">
+                <div className="flex items-center gap-2">
+                  <Usb className="h-4 w-4" />
+                  <span className="text-sm font-medium">{settings.printer_name}</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRequestPrinter}
+                >
+                  Cambia
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onClick={handleRequestPrinter}
+                variant="outline"
+                className="w-full"
+              >
+                <Usb className="mr-2 h-4 w-4" />
+                Seleziona Stampante USB
+              </Button>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Permette al browser di comunicare direttamente con la stampante USB
+            </p>
+          </div>
+        )}
+
+        {settings.printer_connection_type === 'network' && (
+          <div className="space-y-2">
+            <Label htmlFor="printer-ip">Indirizzo IP Stampante</Label>
+            <Input
+              id="printer-ip"
+              type="text"
+              placeholder="192.168.1.100"
+              value={settings.printer_ip_address || ''}
+              onChange={(e) => setSettings(prev => ({ ...prev, printer_ip_address: e.target.value }))}
+            />
+            <p className="text-xs text-muted-foreground">
+              Inserisci l'indirizzo IP della stampante di rete
+            </p>
+          </div>
+        )}
+      </div>
 
             {/* Label Dimensions */}
             <div className="grid grid-cols-2 gap-4">

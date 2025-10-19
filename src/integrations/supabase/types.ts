@@ -126,8 +126,13 @@ export type Database = {
           include_qr_code: boolean
           label_height: number
           label_width: number
+          printer_connection_type: string | null
           printer_enabled: boolean
+          printer_ip_address: string | null
+          printer_name: string | null
+          printer_product_id: number | null
           printer_type: string
+          printer_vendor_id: number | null
           updated_at: string
           user_id: string
         }
@@ -143,8 +148,13 @@ export type Database = {
           include_qr_code?: boolean
           label_height?: number
           label_width?: number
+          printer_connection_type?: string | null
           printer_enabled?: boolean
+          printer_ip_address?: string | null
+          printer_name?: string | null
+          printer_product_id?: number | null
           printer_type?: string
+          printer_vendor_id?: number | null
           updated_at?: string
           user_id: string
         }
@@ -160,8 +170,13 @@ export type Database = {
           include_qr_code?: boolean
           label_height?: number
           label_width?: number
+          printer_connection_type?: string | null
           printer_enabled?: boolean
+          printer_ip_address?: string | null
+          printer_name?: string | null
+          printer_product_id?: number | null
           printer_type?: string
+          printer_vendor_id?: number | null
           updated_at?: string
           user_id?: string
         }
