@@ -7,6 +7,8 @@ interface LotData {
   production_date: string;
   expiry_date?: string;
   product_name: string;
+  is_frozen?: boolean;
+  freezing_date?: string;
 }
 
 interface PrinterSettings {
@@ -18,6 +20,7 @@ interface PrinterSettings {
   include_lot_number: boolean;
   include_expiry_date: boolean;
   include_production_date: boolean;
+  include_freezing_date: boolean;
   font_size: string;
   printer_connection_type?: string;
   printer_vendor_id?: number;
@@ -101,6 +104,12 @@ export const generateLabelHTML = (lot: LotData, settings: PrinterSettings): stri
           ${settings.include_expiry_date && lot.expiry_date ? `
             <div class="row">
               <strong>Scadenza:</strong> ${format(new Date(lot.expiry_date), 'dd/MM/yyyy')}
+            </div>
+          ` : ''}
+          
+          ${settings.include_freezing_date && lot.is_frozen && lot.freezing_date ? `
+            <div class="row">
+              <strong>Congelato il:</strong> ${format(new Date(lot.freezing_date), 'dd/MM/yyyy')}
             </div>
           ` : ''}
         </div>

@@ -49,6 +49,7 @@ export type Database = {
           category_id: string | null
           created_at: string
           expiry_date: string | null
+          freezing_date: string | null
           id: string
           internal_lot_number: string | null
           is_frozen: boolean | null
@@ -66,6 +67,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           expiry_date?: string | null
+          freezing_date?: string | null
           id?: string
           internal_lot_number?: string | null
           is_frozen?: boolean | null
@@ -83,6 +85,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           expiry_date?: string | null
+          freezing_date?: string | null
           id?: string
           internal_lot_number?: string | null
           is_frozen?: boolean | null
@@ -120,6 +123,7 @@ export type Database = {
           id: string
           include_barcode: boolean
           include_expiry_date: boolean
+          include_freezing_date: boolean
           include_lot_number: boolean
           include_product_name: boolean
           include_production_date: boolean
@@ -142,6 +146,7 @@ export type Database = {
           id?: string
           include_barcode?: boolean
           include_expiry_date?: boolean
+          include_freezing_date?: boolean
           include_lot_number?: boolean
           include_product_name?: boolean
           include_production_date?: boolean
@@ -164,6 +169,7 @@ export type Database = {
           id?: string
           include_barcode?: boolean
           include_expiry_date?: boolean
+          include_freezing_date?: boolean
           include_lot_number?: boolean
           include_product_name?: boolean
           include_production_date?: boolean

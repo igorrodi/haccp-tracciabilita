@@ -258,6 +258,7 @@ export const LotForm = () => {
           expiry_date: validatedData.expiry_date || null,
           notes: validatedData.notes || null,
           is_frozen: isFrozen,
+          freezing_date: isFrozen && freezingDate ? freezingDate : null,
           label_image_url: labelImageUrl,
           reception_date: validatedData.reception_date || null,
           supplier_id: validatedData.supplier_id || null

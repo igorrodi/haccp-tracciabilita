@@ -22,6 +22,7 @@ interface PrinterSettings {
   include_lot_number: boolean;
   include_expiry_date: boolean;
   include_production_date: boolean;
+  include_freezing_date: boolean;
   font_size: string;
   printer_name?: string;
   printer_connection_type?: string;
@@ -42,6 +43,7 @@ export const PrinterSettings = () => {
     include_lot_number: true,
     include_expiry_date: true,
     include_production_date: true,
+    include_freezing_date: true,
     font_size: 'medium',
     printer_connection_type: 'browser',
   });
@@ -408,6 +410,19 @@ export const PrinterSettings = () => {
                     checked={settings.include_expiry_date}
                     onCheckedChange={(checked) =>
                       setSettings({ ...settings, include_expiry_date: checked })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="include_freezing_date" className="font-normal">
+                    Data congelamento
+                  </Label>
+                  <Switch
+                    id="include_freezing_date"
+                    checked={settings.include_freezing_date}
+                    onCheckedChange={(checked) =>
+                      setSettings({ ...settings, include_freezing_date: checked })
                     }
                   />
                 </div>

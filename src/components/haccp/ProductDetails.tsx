@@ -29,6 +29,7 @@ interface Lot {
   internal_lot_number?: string;
   notes?: string;
   is_frozen?: boolean;
+  freezing_date?: string;
   supplier_id?: string;
   reception_date?: string;
   created_at: string;
@@ -224,6 +225,8 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
           production_date: lot.production_date,
           expiry_date: lot.expiry_date,
           product_name: product.name,
+          is_frozen: lot.is_frozen,
+          freezing_date: lot.freezing_date,
         },
         printerSettings
       );
