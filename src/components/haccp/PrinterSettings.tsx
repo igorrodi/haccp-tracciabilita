@@ -95,6 +95,7 @@ export const PrinterSettings = () => {
       const { data, error } = await supabase
         .from('printer_settings')
         .select('*')
+        .eq('user_id', user.id)
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
