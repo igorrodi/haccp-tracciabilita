@@ -114,18 +114,20 @@ export const PrinterSettings = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Remove id from settings data to avoid conflicts
+      const { id, ...settingsWithoutId } = settings;
       const settingsData = {
-        ...settings,
+        ...settingsWithoutId,
         user_id: user.id,
       };
 
       let error;
-      if (settings.id) {
+      if (id) {
         // Update existing settings
         const result = await supabase
           .from('printer_settings')
           .update(settingsData)
-          .eq('id', settings.id);
+          .eq('id', id);
         error = result.error;
       } else {
         // Insert new settings
@@ -142,11 +144,13 @@ export const PrinterSettings = () => {
 
       if (error) {
         toast.error('Errore nel salvataggio delle impostazioni');
+        console.error('Save error:', error);
       } else {
         toast.success('Impostazioni stampante salvate con successo');
       }
     } catch (error) {
       toast.error('Errore nel salvataggio');
+      console.error('Save error:', error);
     } finally {
       setSaving(false);
     }
