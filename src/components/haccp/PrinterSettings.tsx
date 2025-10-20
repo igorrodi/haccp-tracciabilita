@@ -9,6 +9,7 @@ import { Printer, Save, Usb, Wifi } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { detectUSBPrinters, requestUSBPrinter, DetectedPrinter } from '@/lib/printerDetection';
+import { LabelPreview } from './LabelPreview';
 
 interface PrinterSettings {
   id?: string;
@@ -93,7 +94,6 @@ export const PrinterSettings = () => {
       const { data, error } = await supabase
         .from('printer_settings')
         .select('*')
-        .eq('user_id', user.id)
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
@@ -457,6 +457,16 @@ export const PrinterSettings = () => {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Label Preview */}
+            <div className="space-y-2">
+              <Label className="text-base font-semibold">Anteprima e Layout Etichetta</Label>
+              <LabelPreview 
+                width={settings.label_width}
+                height={settings.label_height}
+                onSave={(layout) => setSettings({ ...settings, custom_layout: layout })}
+              />
             </div>
 
             {/* Save Button */}

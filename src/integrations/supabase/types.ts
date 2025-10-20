@@ -119,6 +119,7 @@ export type Database = {
       printer_settings: {
         Row: {
           created_at: string
+          custom_layout: Json | null
           font_size: string
           id: string
           include_barcode: boolean
@@ -142,6 +143,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          custom_layout?: Json | null
           font_size?: string
           id?: string
           include_barcode?: boolean
@@ -165,6 +167,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          custom_layout?: Json | null
           font_size?: string
           id?: string
           include_barcode?: boolean

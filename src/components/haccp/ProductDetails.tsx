@@ -95,13 +95,9 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
 
   const checkPrinterSettings = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { data } = await supabase
         .from('printer_settings')
         .select('*')
-        .eq('user_id', user.id)
         .maybeSingle();
 
       if (data) {
