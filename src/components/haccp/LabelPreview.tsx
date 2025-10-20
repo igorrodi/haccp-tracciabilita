@@ -92,30 +92,33 @@ export const LabelPreview = ({ width, height, settings, onSettingsChange }: Labe
 
         <div>
           <Label className="text-base font-semibold mb-3 block">Anteprima Etichetta</Label>
-          <Card 
-            className="relative bg-white border-2"
-            style={{ 
-              width: `${width * 2}px`, 
-              height: `${height * 2}px`,
-              overflow: 'hidden'
-            }}
-          >
-            {fields.filter(f => f.enabled).map(field => (
-              <Draggable
-                key={field.id}
-                position={{ x: field.x, y: field.y }}
-                onStop={(e, data) => handleDrag(field.id, data)}
-                bounds="parent"
-              >
-                <div 
-                  className="absolute cursor-move p-1 hover:bg-primary/10 border border-dashed border-transparent hover:border-primary rounded"
-                  style={{ fontSize: `${field.fontSize}px` }}
+          <div className="w-full h-[400px] flex items-center justify-center bg-muted/30 rounded-lg p-4 border-2">
+            <Card 
+              className="relative bg-white border-2 origin-center"
+              style={{ 
+                width: `${width * 2}px`, 
+                height: `${height * 2}px`,
+                transform: `scale(${Math.min(1, (400 - 40) / Math.max(width * 2, height * 2))})`,
+                overflow: 'hidden'
+              }}
+            >
+              {fields.filter(f => f.enabled).map(field => (
+                <Draggable
+                  key={field.id}
+                  position={{ x: field.x, y: field.y }}
+                  onStop={(e, data) => handleDrag(field.id, data)}
+                  bounds="parent"
                 >
-                  {field.label}
-                </div>
-              </Draggable>
-            ))}
-          </Card>
+                  <div 
+                    className="absolute cursor-move p-1 hover:bg-primary/10 border border-dashed border-transparent hover:border-primary rounded"
+                    style={{ fontSize: `${field.fontSize}px` }}
+                  >
+                    {field.label}
+                  </div>
+                </Draggable>
+              ))}
+            </Card>
+          </div>
         </div>
       </div>
 
