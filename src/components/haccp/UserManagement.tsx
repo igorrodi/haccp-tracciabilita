@@ -227,27 +227,28 @@ export const UserManagement = () => {
             users.map((user) => (
               <div
                 key={user.user_id}
-                className="flex items-center justify-between p-4 bg-muted/50 rounded-xl"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-muted/50 rounded-xl"
               >
-                <div className="flex-1">
-                  <div className="font-medium">{user.full_name || 'Utente'}</div>
-                  <div className="text-sm text-muted-foreground">{user.email}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">{user.full_name || 'Utente'}</div>
+                  <div className="text-sm text-muted-foreground truncate">{user.email}</div>
                   {user.authorized_at && (
                     <div className="text-xs text-muted-foreground mt-1">
                       Autorizzato: {new Date(user.authorized_at).toLocaleDateString()}
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {user.role ? (
                     <>
-                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="whitespace-nowrap">
                         {user.role === 'admin' ? 'Amministratore' : 'Utente'}
                       </Badge>
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => revokeRole(user.user_id)}
+                        className="shrink-0"
                       >
                         <UserX className="w-4 h-4" />
                       </Button>
@@ -255,32 +256,36 @@ export const UserManagement = () => {
                         size="sm"
                         variant="destructive"
                         onClick={() => deleteUser(user.user_id, user.full_name || user.email)}
+                        className="shrink-0"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </>
                   ) : (
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button
                         size="sm"
                         variant="default"
                         onClick={() => authorizeUser(user.user_id, 'admin')}
+                        className="whitespace-nowrap"
                       >
-                        <UserCheck className="w-4 h-4 mr-1" />
-                        Amministratore
+                        <UserCheck className="w-4 h-4 sm:mr-1" />
+                        <span className="hidden sm:inline">Amministratore</span>
                       </Button>
                       <Button
                         size="sm"
                         variant="secondary"
                         onClick={() => authorizeUser(user.user_id, 'guest')}
+                        className="whitespace-nowrap"
                       >
-                        <UserCheck className="w-4 h-4 mr-1" />
-                        Utente
+                        <UserCheck className="w-4 h-4 sm:mr-1" />
+                        <span className="hidden sm:inline">Utente</span>
                       </Button>
                       <Button
                         size="sm"
                         variant="destructive"
                         onClick={() => deleteUser(user.user_id, user.full_name || user.email)}
+                        className="shrink-0"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
