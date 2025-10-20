@@ -8,13 +8,15 @@ import { PrinterSettings } from './PrinterSettings';
 export const SystemPanel = () => {
   return (
     <Tabs defaultValue="suppliers" className="w-full">
-      <TabsList className="grid w-full grid-cols-5">
-        <TabsTrigger value="suppliers">Fornitori</TabsTrigger>
-        <TabsTrigger value="users">Utenti</TabsTrigger>
-        <TabsTrigger value="allergens">Allergeni</TabsTrigger>
-        <TabsTrigger value="export">Esportazione</TabsTrigger>
-        <TabsTrigger value="printer">Stampante</TabsTrigger>
-      </TabsList>
+      <div className="w-full overflow-x-auto pb-2">
+        <TabsList className="inline-flex w-full min-w-max md:grid md:w-full md:grid-cols-5 gap-1">
+          <TabsTrigger value="suppliers" className="flex-shrink-0">Fornitori</TabsTrigger>
+          <TabsTrigger value="users" className="flex-shrink-0">Utenti</TabsTrigger>
+          <TabsTrigger value="allergens" className="flex-shrink-0">Allergeni</TabsTrigger>
+          <TabsTrigger value="export" className="flex-shrink-0">Esportazione</TabsTrigger>
+          <TabsTrigger value="printer" className="flex-shrink-0">Stampante</TabsTrigger>
+        </TabsList>
+      </div>
       <TabsContent value="suppliers">
         <SupplierManagement />
       </TabsContent>
