@@ -362,111 +362,14 @@ export const PrinterSettings = () => {
               </Select>
             </div>
 
-            {/* What to Include */}
-            <div className="space-y-4">
-              <Label>Informazioni da includere nell'etichetta</Label>
-              
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="include_product_name" className="font-normal">
-                    Nome prodotto
-                  </Label>
-                  <Switch
-                    id="include_product_name"
-                    checked={settings.include_product_name}
-                    onCheckedChange={(checked) =>
-                      setSettings({ ...settings, include_product_name: checked })
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="include_lot_number" className="font-normal">
-                    Numero lotto
-                  </Label>
-                  <Switch
-                    id="include_lot_number"
-                    checked={settings.include_lot_number}
-                    onCheckedChange={(checked) =>
-                      setSettings({ ...settings, include_lot_number: checked })
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="include_production_date" className="font-normal">
-                    Data produzione
-                  </Label>
-                  <Switch
-                    id="include_production_date"
-                    checked={settings.include_production_date}
-                    onCheckedChange={(checked) =>
-                      setSettings({ ...settings, include_production_date: checked })
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="include_expiry_date" className="font-normal">
-                    Data scadenza
-                  </Label>
-                  <Switch
-                    id="include_expiry_date"
-                    checked={settings.include_expiry_date}
-                    onCheckedChange={(checked) =>
-                      setSettings({ ...settings, include_expiry_date: checked })
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="include_freezing_date" className="font-normal">
-                    Data congelamento
-                  </Label>
-                  <Switch
-                    id="include_freezing_date"
-                    checked={settings.include_freezing_date}
-                    onCheckedChange={(checked) =>
-                      setSettings({ ...settings, include_freezing_date: checked })
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="include_qr_code" className="font-normal">
-                    Codice QR
-                  </Label>
-                  <Switch
-                    id="include_qr_code"
-                    checked={settings.include_qr_code}
-                    onCheckedChange={(checked) =>
-                      setSettings({ ...settings, include_qr_code: checked })
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="include_barcode" className="font-normal">
-                    Codice a barre
-                  </Label>
-                  <Switch
-                    id="include_barcode"
-                    checked={settings.include_barcode}
-                    onCheckedChange={(checked) =>
-                      setSettings({ ...settings, include_barcode: checked })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-
             {/* Label Preview */}
             <div className="space-y-2">
               <Label className="text-base font-semibold">Anteprima e Layout Etichetta</Label>
               <LabelPreview 
                 width={settings.label_width}
                 height={settings.label_height}
-                onSave={(layout) => setSettings({ ...settings, custom_layout: layout })}
+                settings={settings}
+                onSettingsChange={setSettings}
               />
             </div>
 
