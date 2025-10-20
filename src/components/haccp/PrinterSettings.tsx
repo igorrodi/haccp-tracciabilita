@@ -194,9 +194,42 @@ export const PrinterSettings = () => {
           <Switch
             id="printer_enabled"
             checked={settings.printer_enabled}
-            onCheckedChange={(checked) =>
-              setSettings({ ...settings, printer_enabled: checked })
-            }
+            onCheckedChange={async (checked) => {
+              const newSettings = { ...settings, printer_enabled: checked };
+              setSettings(newSettings);
+              
+              // Auto-save when toggling printer enable/disable
+              try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) return;
+
+                const { id, ...settingsWithoutId } = newSettings;
+                const settingsData = {
+                  ...settingsWithoutId,
+                  user_id: user.id,
+                };
+
+                if (id) {
+                  await supabase
+                    .from('printer_settings')
+                    .update({ printer_enabled: checked })
+                    .eq('id', id);
+                } else {
+                  const result = await supabase
+                    .from('printer_settings')
+                    .insert([settingsData])
+                    .select()
+                    .single();
+                  if (result.data) {
+                    setSettings(result.data);
+                  }
+                }
+                toast.success(checked ? 'Stampante abilitata' : 'Stampante disabilitata');
+              } catch (error) {
+                console.error('Error saving printer toggle:', error);
+                toast.error('Errore nel salvataggio');
+              }
+            }}
           />
         </div>
 
