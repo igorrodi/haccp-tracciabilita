@@ -30,6 +30,7 @@ interface PrinterSettings {
   printer_ip_address?: string;
   printer_vendor_id?: number;
   printer_product_id?: number;
+  custom_layout?: any;
 }
 
 export const PrinterSettings = () => {
