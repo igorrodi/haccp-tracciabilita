@@ -300,6 +300,9 @@ export const LotForm = () => {
       const prodDate = new Date(productionDate);
       prodDate.setDate(prodDate.getDate() + selectedCategoryData.shelf_life_days);
       setExpiryDate(prodDate.toISOString().split('T')[0]);
+    } else if (selectedCategory) {
+      // Se la categoria cambia e non ha shelf_life_days, resetta la data di scadenza
+      setExpiryDate("");
     }
   }, [selectedCategory, productionDate, selectedCategoryData]);
 
