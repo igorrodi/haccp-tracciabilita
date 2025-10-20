@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Image as ImageIcon, Edit, Trash2, X, ListOrdered, QrCode, FileText, Printer } from 'lucide-react';
+import { Image as ImageIcon, Edit, Trash2, X, ListOrdered, QrCode, FileText, Printer, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { QRCodeSVG } from 'qrcode.react';
 import { highlightAllergens } from '@/lib/allergens';
@@ -237,9 +237,14 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
     <>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <div>
-            <Button variant="ghost" onClick={onBack} className="mb-2">
-              ← Torna ai prodotti
+          <div className="w-full">
+            <Button 
+              variant="outline" 
+              onClick={onBack} 
+              className="mb-4 group hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all duration-300"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform duration-300" />
+              Torna ai prodotti
             </Button>
             <h3 className="text-2xl font-bold">{product.name}</h3>
           </div>
