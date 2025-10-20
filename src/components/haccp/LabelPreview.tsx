@@ -92,13 +92,12 @@ export const LabelPreview = ({ width, height, settings, onSettingsChange }: Labe
 
         <div>
           <Label className="text-base font-semibold mb-3 block">Anteprima Etichetta</Label>
-          <div className="w-full h-[400px] flex items-center justify-center bg-muted/30 rounded-lg p-4 border-2">
+          <div className="w-full h-[500px] flex items-center justify-center bg-muted/30 rounded-lg p-4 border-2">
             <Card 
-              className="relative bg-white border-2 origin-center"
+              className="relative bg-white border-2"
               style={{ 
-                width: `${width * 2}px`, 
-                height: `${height * 2}px`,
-                transform: `scale(${Math.min(1, (400 - 40) / Math.max(width * 2, height * 2))})`,
+                width: width > height ? '450px' : width === height ? '400px' : '300px',
+                height: width > height ? '300px' : width === height ? '400px' : '450px',
                 overflow: 'hidden'
               }}
             >
