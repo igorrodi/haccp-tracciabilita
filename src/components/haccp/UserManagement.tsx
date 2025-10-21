@@ -2,18 +2,10 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Users, UserCheck, UserX, Mail, UserPlus, Trash2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Users, UserCheck, UserX, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { z } from "zod";
-
-const inviteUserSchema = z.object({
-  email: z.string().email('Email non valida').max(255, 'Email troppo lunga'),
-  fullName: z.string().trim().min(2, 'Il nome deve avere almeno 2 caratteri').max(100, 'Nome troppo lungo')
-});
 
 interface UserWithRole {
   user_id: string;
@@ -26,8 +18,6 @@ interface UserWithRole {
 export const UserManagement = () => {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -136,52 +126,6 @@ export const UserManagement = () => {
     }
   };
 
-  const handleSendInvite = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setSending(true);
-
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      email: formData.get('email') as string,
-      fullName: formData.get('fullName') as string,
-      role: formData.get('role') as 'admin' | 'guest'
-    };
-
-    try {
-      const validatedData = inviteUserSchema.parse(data);
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Non autenticato');
-
-      const { data: inviteData, error: inviteError } = await supabase.functions.invoke('send-invite', {
-        body: {
-          email: validatedData.email,
-          fullName: validatedData.fullName,
-          role: data.role
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
-      });
-
-      if (inviteError) throw inviteError;
-      if (inviteData?.error) throw new Error(inviteData.error);
-
-      toast.success('Invito inviato con successo! L\'utente riceverà un\'email.');
-      setInviteDialogOpen(false);
-      (e.target as HTMLFormElement).reset();
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        toast.error(err.errors[0].message);
-      } else if (err instanceof Error) {
-        toast.error(err.message);
-      } else {
-        toast.error('Errore nell\'invio dell\'invito');
-      }
-    } finally {
-      setSending(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -194,22 +138,26 @@ export const UserManagement = () => {
   }
 
   return (
-    <>
-      <Card className="haccp-card">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              Gestione Utenti
-            </CardTitle>
-            <Button onClick={() => setInviteDialogOpen(true)} className="group">
-              <Mail className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
-              Invita Utente
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+    <Card className="haccp-card">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Users className="w-5 h-5" />
+          Gestione Utenti
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Alert className="mb-6 bg-primary/5 border-primary/20">
+          <AlertDescription>
+            <strong>🔐 Registrazione Self-Service</strong>
+            <p className="mt-2 text-sm">
+              Gli utenti possono registrarsi autonomamente dalla pagina di login. 
+              Una volta registrati, riceveranno un'email di conferma da Supabase. 
+              Dopo la conferma, appariranno qui e potrai assegnare loro i ruoli appropriati.
+            </p>
+          </AlertDescription>
+        </Alert>
+        
+        <div className="space-y-4">
           {users.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
               Nessun utente trovato
@@ -297,71 +245,5 @@ export const UserManagement = () => {
         </div>
       </CardContent>
     </Card>
-
-    <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Mail className="w-5 h-5" />
-            Invita Nuovo Utente
-          </DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSendInvite} className="space-y-4">
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-700">
-              📧 L'utente riceverà un'email con un link per registrarsi e accedere alla piattaforma.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="fullName">Nome e Cognome</Label>
-            <Input
-              id="fullName"
-              name="fullName"
-              type="text"
-              placeholder="Mario Rossi"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="utente@azienda.com"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="role">Ruolo</Label>
-            <select
-              id="role"
-              name="role"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              required
-            >
-              <option value="guest">Utente</option>
-              <option value="admin">Amministratore</option>
-            </select>
-            <p className="text-xs text-muted-foreground">
-              Amministratore: accesso completo • Utente: accesso base
-            </p>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setInviteDialogOpen(false)}
-            >
-              Annulla
-            </Button>
-            <Button type="submit" disabled={sending}>
-              {sending ? 'Invio...' : 'Invia Invito'}
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
-    </>
   );
 };
