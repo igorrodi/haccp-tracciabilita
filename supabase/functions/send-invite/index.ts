@@ -1,11 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { Resend } from "https://esm.sh/resend@4.0.0";
-import React from "https://esm.sh/react@18.3.1";
-import { renderAsync } from "https://esm.sh/@react-email/components@0.0.22";
-import { ConfirmationEmail } from "./_templates/confirmation-email.tsx";
-
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,10 +56,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Admin ${user.email} registering user ${email} with role ${role}`);
 
-    // Create user with admin API
+    // Create user with admin API - Supabase invia automaticamente l'email di conferma
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email: email,
-      email_confirm: false,
+      email_confirm: false, // Richiede conferma via email
       user_metadata: {
         full_name: fullName,
       },
@@ -80,7 +74,7 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Utente non creato");
     }
 
-    console.log(`User created: ${newUser.user.id}`);
+    console.log(`User created: ${newUser.user.id} - Confirmation email sent by Supabase`);
 
     // Assign role
     const { error: roleError } = await supabaseAdmin
@@ -93,45 +87,10 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (roleError) {
       console.error("Error assigning role:", roleError);
-      // Continue even if role assignment fails - can be done manually
+      throw new Error("Errore nell'assegnazione del ruolo");
     }
 
-    // Generate confirmation link
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'invite',
-      email: email,
-    });
-
-    if (linkError || !linkData) {
-      console.error("Error generating link:", linkError);
-      throw new Error("Errore nella generazione del link di conferma");
-    }
-
-    console.log("Confirmation link generated");
-
-    // Render email template
-    const html = await renderAsync(
-      React.createElement(ConfirmationEmail, {
-        fullName: fullName,
-        confirmationUrl: linkData.properties.action_link,
-        role: role,
-      })
-    );
-
-    // Send email
-    const { error: emailError } = await resend.emails.send({
-      from: "Sistema HACCP <onboarding@resend.dev>",
-      to: [email],
-      subject: "Conferma il tuo accesso al Sistema HACCP 🚀",
-      html: html,
-    });
-
-    if (emailError) {
-      console.error("Email error:", emailError);
-      throw new Error(`Errore nell'invio email: ${emailError.message}`);
-    }
-
-    console.log(`Confirmation email sent to ${email}`);
+    console.log(`Role ${role} assigned to user ${newUser.user.id}`);
 
     return new Response(
       JSON.stringify({ 
