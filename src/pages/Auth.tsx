@@ -5,19 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
-import { Shield, Mail, Lock, User } from 'lucide-react';
-
-const signupSchema = z.object({
-  email: z.string().email('Email non valida').max(255, 'Email troppo lunga'),
-  password: z.string()
-    .min(8, 'La password deve avere almeno 8 caratteri')
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'La password deve contenere almeno una lettera minuscola, una maiuscola e un numero'),
-  fullName: z.string().trim().min(2, 'Il nome deve avere almeno 2 caratteri').max(100, 'Nome troppo lungo'),
-  companyName: z.string().trim().min(2, 'Il nome azienda deve avere almeno 2 caratteri').max(100, 'Nome azienda troppo lungo')
-});
+import { Shield, Mail, Lock } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email('Email non valida'),
@@ -29,57 +20,6 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
-  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      email: formData.get('email') as string,
-      password: formData.get('password') as string,
-      fullName: formData.get('fullName') as string,
-      companyName: formData.get('companyName') as string
-    };
-
-    try {
-      const validatedData = signupSchema.parse(data);
-      
-      const redirectUrl = `${window.location.origin}/`;
-      
-      const { error } = await supabase.auth.signUp({
-        email: validatedData.email,
-        password: validatedData.password,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            full_name: validatedData.fullName,
-            company_name: validatedData.companyName
-          }
-        }
-      });
-
-      if (error) {
-        if (error.message.includes('User already registered')) {
-          setError('Email già registrata. Prova ad accedere.');
-        } else {
-          setError(error.message);
-        }
-      } else {
-        setSuccess('Registrazione completata! Controlla la tua email per verificare l\'account.');
-      }
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        setError(err.errors[0].message);
-      } else {
-        setError('Errore durante la registrazione');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -133,111 +73,42 @@ export default function Auth() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Sistema HACCP</CardTitle>
+            <CardTitle>Accesso al Sistema</CardTitle>
             <CardDescription>
-              Accedi o registrati per iniziare
+              Inserisci le tue credenziali per accedere
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="signin" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Accedi</TabsTrigger>
-                <TabsTrigger value="signup">Registrati</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="signin">
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-email">
-                      <Mail className="w-4 h-4 inline mr-2" />
-                      Email
-                    </Label>
-                    <Input
-                      id="signin-email"
-                      name="email"
-                      type="email"
-                      placeholder="esempio@azienda.com"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-password">
-                      <Lock className="w-4 h-4 inline mr-2" />
-                      Password
-                    </Label>
-                    <Input
-                      id="signin-password"
-                      name="password"
-                      type="password"
-                      required
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? 'Accesso in corso...' : 'Accedi'}
-                  </Button>
-                </form>
-              </TabsContent>
-
-              <TabsContent value="signup">
-                <form onSubmit={handleSignUp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-fullname">
-                      <User className="w-4 h-4 inline mr-2" />
-                      Nome Completo
-                    </Label>
-                    <Input
-                      id="signup-fullname"
-                      name="fullName"
-                      type="text"
-                      placeholder="Mario Rossi"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-company">
-                      <User className="w-4 h-4 inline mr-2" />
-                      Nome Azienda
-                    </Label>
-                    <Input
-                      id="signup-company"
-                      name="companyName"
-                      type="text"
-                      placeholder="La Mia Azienda"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">
-                      <Mail className="w-4 h-4 inline mr-2" />
-                      Email
-                    </Label>
-                    <Input
-                      id="signup-email"
-                      name="email"
-                      type="email"
-                      placeholder="esempio@azienda.com"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">
-                      <Lock className="w-4 h-4 inline mr-2" />
-                      Password
-                    </Label>
-                    <Input
-                      id="signup-password"
-                      name="password"
-                      type="password"
-                      placeholder="Minimo 8 caratteri"
-                      required
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? 'Registrazione in corso...' : 'Registrati'}
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="signin-email">
+                  <Mail className="w-4 h-4 inline mr-2" />
+                  Email
+                </Label>
+                <Input
+                  id="signin-email"
+                  name="email"
+                  type="email"
+                  placeholder="esempio@azienda.com"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="signin-password">
+                  <Lock className="w-4 h-4 inline mr-2" />
+                  Password
+                </Label>
+                <Input
+                  id="signin-password"
+                  name="password"
+                  type="password"
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Accesso in corso...' : 'Accedi'}
+              </Button>
+            </form>
 
             {error && (
               <Alert className="mt-4 border-destructive/50 text-destructive">

@@ -1,6 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@4.0.0";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import React from "https://esm.sh/react@18.3.1";
+import { renderAsync } from "https://esm.sh/@react-email/components@0.0.22";
+import { ConfirmationEmail } from "./_templates/confirmation-email.tsx";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -21,123 +24,134 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       {
         auth: {
           autoRefreshToken: false,
-          persistSession: false
-        }
+          persistSession: false,
+        },
       }
     );
 
-    // Verify admin authorization
-    const authHeader = req.headers.get('Authorization');
+    const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      throw new Error('Non autorizzato');
+      throw new Error("Autorizzazione mancante");
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
-    
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+
     if (userError || !user) {
-      throw new Error('Non autorizzato');
+      throw new Error("Non autorizzato");
     }
 
     // Check if user is admin
-    const { data: roleData, error: roleError } = await supabaseClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
+    const { data: roles } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
       .single();
 
-    if (roleError || roleData?.role !== 'admin') {
-      throw new Error('Solo gli amministratori possono inviare inviti');
+    if (!roles || roles.role !== 'admin') {
+      throw new Error("Solo gli amministratori possono registrare utenti");
     }
 
     const { email, fullName, role }: InviteRequest = await req.json();
 
-    if (!email || !fullName || !role) {
-      throw new Error('Dati mancanti');
-    }
+    console.log(`Admin ${user.email} registering user ${email} with role ${role}`);
 
-    // Check if user already exists
-    const { data: existingUser } = await supabaseClient
-      .from('profiles')
-      .select('email')
-      .eq('email', email)
-      .single();
-
-    if (existingUser) {
-      throw new Error('Un utente con questa email esiste già');
-    }
-
-    // Generate magic link for signup
-    const redirectUrl = `${Deno.env.get('SUPABASE_URL')}/auth/v1/verify?token={token}&type=signup&redirect_to=${encodeURIComponent(req.headers.get('origin') || 'http://localhost:5173')}`;
-
-    // Create a temporary token/link (we'll use a custom approach)
-    const inviteToken = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
-    // Store invite in a custom table (we'll need to create this)
-    // For now, we'll send a signup link
-    const appUrl = req.headers.get('origin') || 'http://localhost:5173';
-    const signupUrl = `${appUrl}/auth?invite=${inviteToken}&email=${encodeURIComponent(email)}&role=${role}`;
-
-    const emailResponse = await resend.emails.send({
-      from: "HACCP Chef <onboarding@resend.dev>",
-      to: [email],
-      subject: "Invito alla piattaforma HACCP 🎉",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2>Hey there! 👋</h2>
-          <p>Ciao <strong>${fullName}</strong>! Sono il tuo Chef e questo è il link per la nostra fantastica applicazione di tracciabilità HACCP, pensata per rendere il processo più semplice e gradevole! 🎉</p>
-          
-          <p>Sei stato invitato come <strong>${role === 'admin' ? 'Amministratore' : 'Utente'}</strong>.</p>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${signupUrl}" 
-               style="background-color: #4CAF50; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;">
-              Clicca qui per confermare il tuo accesso! 🚀
-            </a>
-          </div>
-          
-          <p style="color: #666; font-size: 14px;">
-            Oppure copia e incolla questo link nel tuo browser:<br>
-            <a href="${signupUrl}" style="color: #4CAF50; word-break: break-all;">${signupUrl}</a>
-          </p>
-          
-          <p style="margin-top: 30px;">Grazie per collaborare! 💖<br>Buon lavoro! 💪</p>
-          
-          <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
-          
-          <p style="color: #999; font-size: 12px;">
-            Questo invito scade tra 7 giorni. Se non hai richiesto questo invito, puoi ignorare questa email.
-          </p>
-        </div>
-      `,
+    // Create user with admin API
+    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email: email,
+      email_confirm: false,
+      user_metadata: {
+        full_name: fullName,
+      },
     });
 
-    console.log("Email sent successfully:", emailResponse);
+    if (createError) {
+      console.error("Error creating user:", createError);
+      throw new Error(`Errore nella creazione utente: ${createError.message}`);
+    }
+
+    if (!newUser.user) {
+      throw new Error("Utente non creato");
+    }
+
+    console.log(`User created: ${newUser.user.id}`);
+
+    // Assign role
+    const { error: roleError } = await supabaseAdmin
+      .from("user_roles")
+      .insert({
+        user_id: newUser.user.id,
+        role: role,
+        authorized_by: user.id,
+      });
+
+    if (roleError) {
+      console.error("Error assigning role:", roleError);
+      // Continue even if role assignment fails - can be done manually
+    }
+
+    // Generate confirmation link
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'invite',
+      email: email,
+    });
+
+    if (linkError || !linkData) {
+      console.error("Error generating link:", linkError);
+      throw new Error("Errore nella generazione del link di conferma");
+    }
+
+    console.log("Confirmation link generated");
+
+    // Render email template
+    const html = await renderAsync(
+      React.createElement(ConfirmationEmail, {
+        fullName: fullName,
+        confirmationUrl: linkData.properties.action_link,
+        role: role,
+      })
+    );
+
+    // Send email
+    const { error: emailError } = await resend.emails.send({
+      from: "Sistema HACCP <onboarding@resend.dev>",
+      to: [email],
+      subject: "Conferma il tuo accesso al Sistema HACCP 🚀",
+      html: html,
+    });
+
+    if (emailError) {
+      console.error("Email error:", emailError);
+      throw new Error(`Errore nell'invio email: ${emailError.message}`);
+    }
+
+    console.log(`Confirmation email sent to ${email}`);
 
     return new Response(
       JSON.stringify({ 
-        success: true, 
-        message: 'Invito inviato con successo',
-        emailResponse 
+        success: true,
+        message: "Utente registrato e email inviata"
       }),
       {
         status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        },
       }
     );
   } catch (error: any) {
-    console.error("Error in send-invite function:", error);
+    console.error("Error in send-invite:", error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Errore nell\'invio dell\'invito' }),
+      JSON.stringify({ error: error.message }),
       {
-        status: error.message === 'Non autorizzato' || error.message === 'Solo gli amministratori possono inviare inviti' ? 403 : 500,
+        status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       }
     );
