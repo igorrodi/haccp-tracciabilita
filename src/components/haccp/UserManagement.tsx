@@ -5,16 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Users, UserCheck, UserX, Shield, UserPlus, Trash2 } from "lucide-react";
+import { Users, UserCheck, UserX, Mail, UserPlus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { z } from "zod";
 
-const createUserSchema = z.object({
+const inviteUserSchema = z.object({
   email: z.string().email('Email non valida').max(255, 'Email troppo lunga'),
-  password: z.string()
-    .min(8, 'La password deve avere almeno 8 caratteri')
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'La password deve contenere almeno una lettera minuscola, una maiuscola e un numero'),
   fullName: z.string().trim().min(2, 'Il nome deve avere almeno 2 caratteri').max(100, 'Nome troppo lungo')
 });
 
@@ -29,8 +26,8 @@ interface UserWithRole {
 export const UserManagement = () => {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -119,10 +116,18 @@ export const UserManagement = () => {
     }
 
     try {
-      // Delete user from auth.users (this will cascade to profiles and user_roles)
-      const { error } = await supabase.auth.admin.deleteUser(userId);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Non autenticato');
+
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: { userId },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       toast.success('Utente eliminato con successo');
       fetchUsers();
@@ -131,53 +136,39 @@ export const UserManagement = () => {
     }
   };
 
-  const handleCreateUser = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSendInvite = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setCreating(true);
+    setSending(true);
 
     const formData = new FormData(e.currentTarget);
     const data = {
       email: formData.get('email') as string,
-      password: formData.get('password') as string,
       fullName: formData.get('fullName') as string,
       role: formData.get('role') as 'admin' | 'guest'
     };
 
     try {
-      const validatedData = createUserSchema.parse(data);
+      const validatedData = inviteUserSchema.parse(data);
       
-      // Create user using Supabase admin API
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: validatedData.email,
-        password: validatedData.password,
-        options: {
-          data: {
-            full_name: validatedData.fullName
-          },
-          emailRedirectTo: `${window.location.origin}/`
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Non autenticato');
+
+      const { data: inviteData, error: inviteError } = await supabase.functions.invoke('send-invite', {
+        body: {
+          email: validatedData.email,
+          fullName: validatedData.fullName,
+          role: data.role
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
         }
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Errore nella creazione utente');
+      if (inviteError) throw inviteError;
+      if (inviteData?.error) throw new Error(inviteData.error);
 
-      // Assign role to the new user
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser) throw new Error('Non autenticato');
-
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: authData.user.id,
-          role: data.role,
-          authorized_by: currentUser.id
-        });
-
-      if (roleError) throw roleError;
-
-      toast.success('Utente creato con successo');
-      setCreateDialogOpen(false);
-      fetchUsers();
+      toast.success('Invito inviato con successo! L\'utente riceverà un\'email.');
+      setInviteDialogOpen(false);
       (e.target as HTMLFormElement).reset();
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -185,10 +176,10 @@ export const UserManagement = () => {
       } else if (err instanceof Error) {
         toast.error(err.message);
       } else {
-        toast.error('Errore nella creazione utente');
+        toast.error('Errore nell\'invio dell\'invito');
       }
     } finally {
-      setCreating(false);
+      setSending(false);
     }
   };
 
@@ -211,9 +202,9 @@ export const UserManagement = () => {
               <Users className="w-5 h-5" />
               Gestione Utenti
             </CardTitle>
-            <Button onClick={() => setCreateDialogOpen(true)}>
-              <UserPlus className="w-4 h-4 mr-2" />
-              Crea Utente
+            <Button onClick={() => setInviteDialogOpen(true)} className="group">
+              <Mail className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
+              Invita Utente
             </Button>
           </div>
         </CardHeader>
@@ -307,12 +298,20 @@ export const UserManagement = () => {
       </CardContent>
     </Card>
 
-    <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+    <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Crea Nuovo Utente</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Mail className="w-5 h-5" />
+            Invita Nuovo Utente
+          </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleCreateUser} className="space-y-4">
+        <form onSubmit={handleSendInvite} className="space-y-4">
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-700">
+              📧 L'utente riceverà un'email con un link per registrarsi e accedere alla piattaforma.
+            </p>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="fullName">Nome e Cognome</Label>
             <Input
@@ -324,22 +323,12 @@ export const UserManagement = () => {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="email">Email (Username)</Label>
+            <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               name="email"
               type="email"
               placeholder="utente@azienda.com"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              placeholder="Almeno 8 caratteri, maiuscole e numeri"
               required
             />
           </div>
@@ -354,17 +343,20 @@ export const UserManagement = () => {
               <option value="guest">Utente</option>
               <option value="admin">Amministratore</option>
             </select>
+            <p className="text-xs text-muted-foreground">
+              Amministratore: accesso completo • Utente: accesso base
+            </p>
           </div>
           <div className="flex justify-end gap-2">
             <Button
               type="button"
               variant="outline"
-              onClick={() => setCreateDialogOpen(false)}
+              onClick={() => setInviteDialogOpen(false)}
             >
               Annulla
             </Button>
-            <Button type="submit" disabled={creating}>
-              {creating ? 'Creazione...' : 'Crea Utente'}
+            <Button type="submit" disabled={sending}>
+              {sending ? 'Invio...' : 'Invia Invito'}
             </Button>
           </div>
         </form>
