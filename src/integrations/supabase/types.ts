@@ -348,10 +348,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      generate_internal_lot_number: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      generate_internal_lot_number: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -359,10 +356,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_authorized_user: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
+      is_authorized_user: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "guest"
