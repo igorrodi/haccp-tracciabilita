@@ -40,7 +40,7 @@ ssh pi@[IP_DEL_RASPBERRY]
 ### 2. Scarica lo script
 
 ```bash
-curl -O https://raw.githubusercontent.com/TUO-USERNAME/TUO-REPO/main/scripts/install-raspberry-pi-complete.sh
+curl -O https://raw.githubusercontent.com/igorrodi/haccp-tracciabilita/main/scripts/install-raspberry-pi-complete.sh
 ```
 
 ### 3. Rendi lo script eseguibile
@@ -60,7 +60,7 @@ chmod +x install-raspberry-pi-complete.sh
 Lo script ti chiederà:
 
 - **Nome dominio locale** (es. `haccp-app` → diventerà `haccp-app.local`)
-- **URL repository GitHub** (es. `https://github.com/username/haccp-app.git`)
+- **URL repository GitHub** (default: `https://github.com/igorrodi/haccp-tracciabilita.git`)
 - **Branch GitHub** (default: `main`)
 - **Configurazione backup Mega** (opzionale)
   - Email Mega
@@ -520,8 +520,8 @@ sudo rm /etc/nginx/sites-available/haccp-app
 
 ## 📞 Supporto
 
-- **Repository**: [GitHub](https://github.com/TUO-USERNAME/TUO-REPO)
-- **Issues**: [GitHub Issues](https://github.com/TUO-USERNAME/TUO-REPO/issues)
+- **Repository**: [GitHub](https://github.com/igorrodi/haccp-tracciabilita)
+- **Issues**: [GitHub Issues](https://github.com/igorrodi/haccp-tracciabilita/issues)
 
 ---
 
