@@ -4,11 +4,22 @@ Questa directory contiene gli script per installare e deployare l'applicazione H
 
 ## 📋 Contenuto
 
+### ⭐ Installazione Locale Completa (PRODUZIONE)
+- **`install-raspberry-pi-local.sh`**: **RACCOMANDATO PER INSTALLAZIONI IN LOCALE**
+  - Supabase locale self-hosted per ARM64
+  - Dominio locale `.local` con mDNS
+  - HTTPS con certificati self-signed
+  - OCR automatico (Tesseract)
+  - PWA installabile
+  - Backup automatici
+  - **📖 [Guida completa dettagliata](./INSTALL_LOCAL.md)**
+- **`setup-github.sh`**: Configurazione GitHub per aggiornamenti automatici
+
 ### 🍓 Raspberry Pi 5 con Ubuntu Server
-- **`install-raspberry-pi.sh`**: Script completo per installazione su Raspberry Pi 5
+- **`install-raspberry-pi.sh`**: Installazione base con Supabase Cloud esterno
 
 ### 🐳 Installazione Docker 
-- **`docker/build-and-run.sh`**: **RACCOMANDATO** - Script tutto-in-uno per build e deploy automatico
+- **`docker/build-and-run.sh`**: Script tutto-in-uno per build e deploy automatico
 - **`docker/`**: Directory con tutti i file per deployment Docker avanzato
   - `Dockerfile`: Immagine Docker ottimizzata per produzione
   - `Dockerfile.dev`: Immagine Docker per sviluppo con hot reload
@@ -18,7 +29,50 @@ Questa directory contiene gli script per installare e deployare l'applicazione H
 
 ## 🛠️ Utilizzo
 
-### 🚀 Installazione Docker Semplificata (RACCOMANDATO)
+### ⭐ Installazione Locale Completa (PRODUZIONE)
+
+**Per installazione in locale con Supabase, dominio .local e HTTPS:**
+
+```bash
+# 1. Scarica lo script
+wget https://raw.githubusercontent.com/your-repo/haccp-app/main/scripts/install-raspberry-pi-local.sh
+chmod +x install-raspberry-pi-local.sh
+
+# 2. Opzionale: Configura GitHub per aggiornamenti automatici
+export GITHUB_REPO="https://github.com/TUO_USERNAME/haccp-app.git"
+
+# 3. Esegui l'installazione
+./install-raspberry-pi-local.sh
+
+# 4. Dopo l'installazione, configura GitHub (se non fatto prima)
+chmod +x scripts/setup-github.sh
+./scripts/setup-github.sh
+```
+
+**Cosa installa:**
+- ✅ Supabase locale self-hosted (PostgreSQL, Auth, Storage)
+- ✅ Dominio locale `haccp-app.local` accessibile da tutti i dispositivi
+- ✅ HTTPS con certificati self-signed
+- ✅ OCR (Tesseract) per riconoscimento automatico lotti
+- ✅ ImageMagick per ritaglio foto
+- ✅ PWA installabile per uso offline
+- ✅ Backup automatici ogni notte alle 2:00
+- ✅ Script di gestione (update, backup, monitor)
+
+**Accesso all'app:**
+- `https://haccp-app.local` (da qualsiasi dispositivo in rete)
+- `http://localhost:8000` (Supabase Studio)
+
+**Comandi di gestione:**
+```bash
+sudo update-haccp    # Aggiorna da GitHub
+sudo backup-haccp    # Backup completo
+sudo monitor-haccp   # Stato servizi
+```
+
+📖 **[Leggi la guida completa](./INSTALL_LOCAL.md)** per dettagli su configurazione, troubleshooting e ottimizzazioni.
+
+### 🚀 Installazione Docker Semplificata
 
 **Un solo comando per tutto:**
 
