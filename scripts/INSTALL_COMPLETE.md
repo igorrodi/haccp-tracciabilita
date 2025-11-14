@@ -5,6 +5,7 @@
 Questo script configura **TUTTO** in modo automatico sul Raspberry Pi:
 
 ✅ HACCP App da GitHub  
+✅ **Supabase locale completo** (database, auth, storage, realtime)  
 ✅ HTTPS con certificati SSL  
 ✅ Dominio locale `.local` (mDNS)  
 ✅ OCR (riconoscimento testo)  
@@ -17,6 +18,8 @@ Questo script configura **TUTTO** in modo automatico sul Raspberry Pi:
 ## 📋 Prerequisiti
 
 - **Raspberry Pi 5** con Raspberry Pi OS Lite (64-bit)
+- **Almeno 4GB RAM** (per Supabase)
+- **16GB storage minimo** disponibili
 - Connessione internet
 - Accesso SSH
 - Account GitHub con il repository HACCP App
@@ -80,6 +83,20 @@ Dopo l'installazione, l'app sarà accessibile:
 https://haccp-app.local
 ```
 
+### Supabase Studio (gestione database):
+
+```
+http://haccp-app.local:54323
+```
+
+oppure
+
+```
+http://[IP_DEL_RASPBERRY]:54323
+```
+
+> 💡 **Credenziali Supabase Studio**: Lascia vuote entrambe (email e password)
+
 ### Da browser (se .local non funziona):
 
 ```
@@ -89,6 +106,48 @@ https://[IP_DEL_RASPBERRY]
 > ⚠️ **Nota certificato SSL**  
 > Il certificato è self-signed, il browser mostrerà un avviso di sicurezza.  
 > Clicca "Avanzate" → "Procedi comunque" per accedere.
+
+---
+
+## 🗄️ Supabase Locale
+
+### Cosa è incluso?
+
+Il setup installa un'istanza completa di Supabase sul Raspberry Pi:
+
+- **PostgreSQL** - Database principale
+- **PostgREST** - API REST automatica
+- **GoTrue** - Autenticazione e gestione utenti
+- **Storage** - File storage
+- **Realtime** - Subscriptions in tempo reale
+- **Studio** - Interface web di amministrazione
+
+### Accesso ai servizi
+
+| Servizio | URL | Porta |
+|----------|-----|-------|
+| API Gateway | `http://[IP]:8000` | 8000 |
+| Studio UI | `http://[IP]:54323` | 54323 |
+| PostgreSQL | `postgresql://postgres:[PASSWORD]@[IP]:5432/postgres` | 5432 |
+
+### Credenziali predefinite
+
+**ANON KEY** (per frontend):
+```
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+```
+
+**SERVICE_ROLE KEY** (per backend):
+```
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+```
+
+**Database Password**:
+```
+your-super-secret-and-long-postgres-password
+```
+
+> ⚠️ **IMPORTANTE**: Cambia queste credenziali in produzione!
 
 ---
 
@@ -130,6 +189,36 @@ Mostra:
 - Spazio disco
 - Ultimo aggiornamento
 
+### Gestione Supabase
+
+```bash
+# Avviare Supabase
+cd ~/supabase-local
+docker compose up -d
+
+# Fermare Supabase
+cd ~/supabase-local
+docker compose down
+
+# Riavviare Supabase
+cd ~/supabase-local
+docker compose restart
+
+# Vedere log Supabase
+cd ~/supabase-local
+docker compose logs -f
+
+# Vedere solo log del database
+cd ~/supabase-local
+docker compose logs -f db
+
+# Backup database
+pg_dump -h localhost -U postgres -d postgres > backup.sql
+
+# Restore database
+psql -h localhost -U postgres -d postgres < backup.sql
+```
+
 ### Altri comandi utili
 
 ```bash
@@ -153,6 +242,59 @@ avahi-browse -t _http._tcp
 1. Apri l'app nel browser: `https://haccp-app.local`
 2. Nel menu del browser, cerca "Installa app" o "Aggiungi a Home"
 3. L'app verrà installata come applicazione nativa
+
+---
+
+## 🗄️ Setup Database Iniziale
+
+Dopo l'installazione, devi configurare il database:
+
+### 1. Accedi a Supabase Studio
+
+```
+http://[IP_RASPBERRY]:54323
+```
+
+Lascia vuote le credenziali (premi semplicemente "Sign in")
+
+### 2. Applica le Migrations
+
+Nella cartella `supabase/migrations` del progetto trovi tutte le migrations SQL.
+
+**Opzione A - Dalla Studio UI:**
+1. Vai su SQL Editor
+2. Copia il contenuto di ogni migration
+3. Esegui in ordine cronologico
+
+**Opzione B - Da terminale:**
+```bash
+cd /opt/haccp-app
+
+# Installa Supabase CLI
+npm install -g supabase
+
+# Collega al progetto locale
+supabase link --project-ref local
+
+# Applica tutte le migrations
+supabase db push
+```
+
+### 3. Crea Primo Utente Admin
+
+1. Apri l'app: `https://haccp-app.local`
+2. Registra un nuovo account
+3. In Supabase Studio, vai su Authentication → Users
+4. Trova il tuo utente, copia l'ID
+5. In SQL Editor, esegui:
+
+```sql
+-- Inserisci ruolo admin
+INSERT INTO public.user_roles (user_id, role, authorized_by)
+VALUES ('TUO-USER-ID', 'admin', 'TUO-USER-ID');
+```
+
+6. Ricarica l'app - ora sei admin!
 
 ---
 
@@ -205,6 +347,63 @@ Porte aperte:
 ---
 
 ## 🐛 Troubleshooting
+
+### Supabase non si avvia
+
+**Verifica status containers:**
+
+```bash
+cd ~/supabase-local
+docker compose ps
+```
+
+**Visualizza log per errori:**
+
+```bash
+cd ~/supabase-local
+docker compose logs
+```
+
+**Problemi comuni:**
+- **Memoria insufficiente**: Raspberry Pi ha meno di 4GB RAM
+- **Porta occupata**: Altra app usa porta 8000 o 5432
+- **Permessi Docker**: Utente non nel gruppo `docker`
+
+**Soluzioni:**
+
+```bash
+# Aggiungi utente a docker group
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Libera porte
+sudo lsof -i :8000
+sudo lsof -i :5432
+sudo kill -9 [PID]
+
+# Ricrea containers
+cd ~/supabase-local
+docker compose down -v
+docker compose up -d
+```
+
+### L'app non si connette a Supabase
+
+**Verifica configurazione client:**
+
+```bash
+cat /opt/haccp-app/src/integrations/supabase/client.ts
+```
+
+Deve contenere la logica per `http://localhost:8000` o `http://[hostname]:8000`
+
+**Test connessione:**
+
+```bash
+curl http://localhost:8000/rest/v1/
+```
+
+Dovrebbe rispondere con informazioni sull'API.
 
 ### Il dominio .local non funziona
 
@@ -268,17 +467,37 @@ sudo systemctl reload nginx
 
 ### Requisiti minimi
 
-- **RAM**: 2GB (4GB raccomandati)
-- **Storage**: 8GB liberi
-- **CPU**: Raspberry Pi 5 (o Pi 4)
+- **RAM**: 4GB (8GB raccomandati per Supabase)
+- **Storage**: 16GB liberi (database può crescere)
+- **CPU**: Raspberry Pi 5 (Pi 4 funziona ma più lento)
+- **Rete**: 100Mbps+ per accesso remoto fluido
 
-### Ottimizzazioni
+### Monitoraggio risorse
 
-Lo script configura automaticamente:
-- Gzip compression in Nginx
-- Cache statica per asset
-- Headers di sicurezza
-- HTTP/2
+```bash
+# Uso RAM
+free -h
+
+# Uso disco
+df -h
+
+# Uso CPU
+htop
+
+# Container Docker
+docker stats
+```
+
+### Ottimizzazioni Supabase
+
+Se Supabase è lento, puoi ridurre i servizi:
+
+```bash
+cd ~/supabase-local
+nano docker-compose.yml
+```
+
+Commenta servizi non necessari (es: `studio` se usi solo l'API)
 
 ---
 
@@ -314,8 +533,28 @@ Per un ambiente di produzione, considera:
 
 1. **Certificati Let's Encrypt** invece di self-signed
 2. **Dominio reale** invece di `.local`
-3. **Database esterno** per backup e scalabilità
+3. **Backup regolari** del database Supabase
 4. **Monitoring** (Prometheus, Grafana)
+5. **Cambia credenziali** di default di Supabase
+
+### Sicurezza Supabase
+
+**Cambia password database:**
+
+```bash
+cd ~/supabase-local
+nano docker-compose.yml
+```
+
+Modifica `POSTGRES_PASSWORD` e riavvia.
+
+**Cambia JWT secrets:**
+
+Nel `docker-compose.yml`, cambia:
+- `GOTRUE_JWT_SECRET`
+- `PGRST_JWT_SECRET`
+
+Poi rigenera le chiavi ANON e SERVICE_ROLE con il nuovo secret.
 
 ### Sviluppo
 
