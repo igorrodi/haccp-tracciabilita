@@ -126,11 +126,11 @@ export const RecentLotsList = () => {
     const expiryDate = lot.expiry_date ? format(new Date(lot.expiry_date), 'dd/MM/yyyy') : 'N/A';
     const internalLot = lot.internal_lot_number || 'N/A';
     
-    const textToCopy = `Nome prodotto: ${categoryName}
-Data produzione: ${productionDate}
-Data scadenza: ${expiryDate}
-Lotto originale: ${lot.lot_number}
-Lotto interno: ${internalLot}`;
+    const textToCopy = `${categoryName}
+Prod: ${productionDate}
+Scad: ${expiryDate}
+Lotto org: ${lot.lot_number}
+Lotto int: ${internalLot}`;
     
     navigator.clipboard.writeText(textToCopy).then(() => {
       toast.success('Informazioni copiate negli appunti');

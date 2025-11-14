@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Image as ImageIcon, Edit, Trash2, X, ListOrdered, QrCode, FileText, Printer, ArrowLeft } from 'lucide-react';
+import { Image as ImageIcon, Edit, Trash2, X, ListOrdered, QrCode, FileText, Printer, ArrowLeft, Copy } from 'lucide-react';
 import { format } from 'date-fns';
 import { QRCodeSVG } from 'qrcode.react';
 import { highlightAllergens } from '@/lib/allergens';
@@ -207,6 +207,24 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
     }
   };
 
+  const copyLotInfo = (lot: Lot) => {
+    const productionDate = format(new Date(lot.production_date), 'dd/MM/yyyy');
+    const expiryDate = lot.expiry_date ? format(new Date(lot.expiry_date), 'dd/MM/yyyy') : 'N/A';
+    const internalLot = lot.internal_lot_number || 'N/A';
+    
+    const textToCopy = `${product.name}
+Prod: ${productionDate}
+Scad: ${expiryDate}
+Lotto org: ${lot.lot_number}
+Lotto int: ${internalLot}`;
+    
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      toast.success('Informazioni copiate negli appunti');
+    }).catch(() => {
+      toast.error('Errore nella copia');
+    });
+  };
+
   const handlePrintLabel = async (lot: Lot) => {
     if (!printerSettings) {
       toast.error('Configurazione stampante non trovata');
@@ -381,6 +399,14 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => copyLotInfo(lot)}
+                              title="Copia informazioni lotto"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
