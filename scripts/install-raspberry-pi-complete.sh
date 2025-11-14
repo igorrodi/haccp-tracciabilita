@@ -64,11 +64,8 @@ read -p "Nome dominio locale [haccp-app]: " DOMAIN_NAME
 DOMAIN_NAME=${DOMAIN_NAME:-haccp-app}
 
 # Repository GitHub
-read -p "URL repository GitHub: " GITHUB_REPO
-if [ -z "$GITHUB_REPO" ]; then
-    print_error "URL repository obbligatorio!"
-    exit 1
-fi
+read -p "URL repository GitHub [https://github.com/igorrodi/haccp-tracciabilita.git]: " GITHUB_REPO
+GITHUB_REPO=${GITHUB_REPO:-https://github.com/igorrodi/haccp-tracciabilita.git}
 
 read -p "Branch GitHub [main]: " GITHUB_BRANCH
 GITHUB_BRANCH=${GITHUB_BRANCH:-main}
