@@ -2,8 +2,18 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// Use local Supabase instance
-const SUPABASE_URL = "http://localhost:8000";
+// Use local Supabase instance - detect if accessing via localhost or remote IP
+const getSupabaseUrl = () => {
+  const hostname = window.location.hostname;
+  // If accessing via localhost, use localhost
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return "http://localhost:8000";
+  }
+  // If accessing via remote IP or .local domain, use that IP/hostname
+  return `http://${hostname}:8000`;
+};
+
+const SUPABASE_URL = getSupabaseUrl();
 // Default Supabase local ANON key
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
 
