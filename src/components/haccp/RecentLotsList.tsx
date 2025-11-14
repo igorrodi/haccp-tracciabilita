@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Package, Search } from 'lucide-react';
+import { Package, Search, Copy } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface Lot {
   id: string;
@@ -119,6 +120,25 @@ export const RecentLotsList = () => {
     }
   };
 
+  const copyLotInfo = (lot: Lot) => {
+    const categoryName = categories[lot.category_id] || 'Prodotto sconosciuto';
+    const productionDate = format(new Date(lot.production_date), 'dd/MM/yyyy');
+    const expiryDate = lot.expiry_date ? format(new Date(lot.expiry_date), 'dd/MM/yyyy') : 'N/A';
+    const internalLot = lot.internal_lot_number || 'N/A';
+    
+    const textToCopy = `Nome prodotto: ${categoryName}
+Data produzione: ${productionDate}
+Data scadenza: ${expiryDate}
+Lotto originale: ${lot.lot_number}
+Lotto interno: ${internalLot}`;
+    
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      toast.success('Informazioni copiate negli appunti');
+    }).catch(() => {
+      toast.error('Errore nella copia');
+    });
+  };
+
   const filteredLots = lots.filter(lot => {
     const searchLower = searchQuery.toLowerCase();
     const internalLotMatch = lot.internal_lot_number?.toLowerCase().includes(searchLower);
@@ -198,9 +218,19 @@ export const RecentLotsList = () => {
                       </div>
                     )}
                   </div>
-                  <Badge variant="secondary" className="text-xs">
-                    {format(new Date(lot.production_date), 'dd/MM/yyyy')}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => copyLotInfo(lot)}
+                      title="Copia informazioni lotto"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                    <Badge variant="secondary" className="text-xs">
+                      {format(new Date(lot.production_date), 'dd/MM/yyyy')}
+                    </Badge>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
