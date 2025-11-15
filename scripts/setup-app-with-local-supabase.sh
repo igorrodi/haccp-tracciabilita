@@ -53,37 +53,26 @@ print_status "Codice scaricato!"
 echo ""
 print_info "FASE 2: Creazione tabelle nel database locale..."
 
-# Verifica che Supabase CLI sia installato
-if ! command -v supabase &> /dev/null; then
-    print_info "Installazione Supabase CLI..."
-    brew install supabase/tap/supabase 2>/dev/null || {
-        curl -sL https://github.com/supabase/cli/releases/download/v1.123.4/supabase_1.123.4_linux_amd64.deb -o /tmp/supabase.deb
-        sudo dpkg -i /tmp/supabase.deb
-        rm /tmp/supabase.deb
-    }
-fi
-
-# Link al progetto Supabase locale
-if [ ! -f "$APP_DIR/.supabase/config.toml" ]; then
-    print_error "File config.toml non trovato!"
-    print_info "Inizializzo Supabase..."
-    cd "$APP_DIR"
-    supabase init
+# Verifica che PostgreSQL client sia installato
+if ! command -v psql &> /dev/null; then
+    print_info "Installazione PostgreSQL client..."
+    sudo apt-get update
+    sudo apt-get install -y postgresql-client
 fi
 
 # Applica tutte le migrazioni
 print_info "Applico migrazioni database..."
 cd "$APP_DIR"
 
-# Link al DB locale
-export SUPABASE_DB_URL="postgresql://postgres:postgres@localhost:5432/postgres"
-
 # Applica migrazioni
 if [ -d "supabase/migrations" ]; then
     for migration in supabase/migrations/*.sql; do
         if [ -f "$migration" ]; then
             print_info "Applico: $(basename $migration)"
-            PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -f "$migration" || print_error "Errore in $(basename $migration)"
+            PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -f "$migration" 2>&1 | grep -v "NOTICE:" || {
+                print_error "Errore in $(basename $migration)"
+                print_info "Continuo con le altre migrazioni..."
+            }
         fi
     done
     print_status "Migrazioni applicate!"
