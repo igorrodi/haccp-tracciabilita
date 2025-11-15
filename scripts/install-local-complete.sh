@@ -101,9 +101,15 @@ print_status "Tutti i prerequisiti sono installati!"
 echo ""
 print_info "FASE 2: Download codice da GitHub..."
 
-git clone https://github.com/igorrodi/haccp-tracciabilita.git "$APP_DIR"
-cd "$APP_DIR"
+# Prova prima con SSH, poi con HTTPS se SSH fallisce
+if git clone git@github.com:igorrodi/haccp-tracciabilita.git "$APP_DIR" 2>/dev/null; then
+    print_status "Clonato con SSH!"
+else
+    print_info "SSH non disponibile, provo con HTTPS..."
+    git clone https://github.com/igorrodi/haccp-tracciabilita.git "$APP_DIR"
+fi
 
+cd "$APP_DIR"
 print_status "Codice scaricato!"
 
 # ============================================================================
