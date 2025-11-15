@@ -5,11 +5,19 @@ import type { Database } from './types';
 // Use local Supabase instance - detect if accessing via localhost or remote IP
 const getSupabaseUrl = () => {
   const hostname = window.location.hostname;
-  // If accessing via localhost, use localhost
+  const protocol = window.location.protocol;
+  
+  // If accessing via localhost, use localhost with HTTP
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return "http://localhost:8000";
   }
-  // If accessing via remote IP or .local domain, use that IP/hostname
+  
+  // If accessing via HTTPS (reverse proxy), use /supabase proxy path
+  if (protocol === 'https:') {
+    return `${protocol}//${hostname}/supabase`;
+  }
+  
+  // Otherwise use hostname with port 8000
   return `http://${hostname}:8000`;
 };
 
