@@ -34,14 +34,21 @@ SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1k
 echo ""
 print_info "FASE 0: Pulizia ambiente esistente..."
 
-# Ferma e rimuove TUTTI i container Docker
-print_info "Rimozione container Docker esistenti..."
-docker stop $(docker ps -aq) 2>/dev/null || true
-docker rm $(docker ps -aq) 2>/dev/null || true
+# Ferma compose esistenti
+print_info "Arresto container Docker esistenti..."
+cd "$APP_DIR/scripts/docker" 2>/dev/null && docker compose down 2>/dev/null || true
+cd ~
 
-# Rimuove volumi Docker (per partire da zero)
-print_info "Rimozione volumi Docker..."
-docker volume prune -f 2>/dev/null || true
+# Ferma e rimuove container specifici
+docker stop haccp-app haccp-db haccp-studio 2>/dev/null || true
+docker rm haccp-app haccp-db haccp-studio 2>/dev/null || true
+
+# Libera le porte
+print_info "Verifica porte in uso..."
+sudo fuser -k 80/tcp 2>/dev/null || true
+sudo fuser -k 3000/tcp 2>/dev/null || true
+sudo fuser -k 8000/tcp 2>/dev/null || true
+sudo fuser -k 54323/tcp 2>/dev/null || true
 
 # Rimuove directory app esistente
 if [ -d "$APP_DIR" ]; then
@@ -237,6 +244,10 @@ print_info "FASE 7: Avvio applicazione..."
 # Build immagine Docker dell'app
 print_info "Build immagine Docker app..."
 docker build -t haccp-app:latest .
+
+# Rimuovi container esistente se presente
+docker stop haccp-app 2>/dev/null || true
+docker rm haccp-app 2>/dev/null || true
 
 # Avvia container app
 print_info "Avvio container app..."
