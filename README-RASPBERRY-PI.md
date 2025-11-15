@@ -14,6 +14,8 @@ Questo comando installerà automaticamente:
 - ✅ Docker e Docker Compose
 - ✅ Node.js 20
 - ✅ PostgreSQL client
+- ✅ Nginx con HTTPS (certificati self-signed)
+- ✅ Dominio locale `.local` via mDNS (Avahi)
 - ✅ Applicazione HACCP
 - ✅ Stack Supabase completo (Database + Studio + API Gateway)
 - ✅ Tutte le migrazioni database
@@ -41,12 +43,27 @@ Dopo l'installazione, avrai questi container in esecuzione:
 Dopo l'installazione, puoi accedere ai servizi:
 
 **Applicazione HACCP:**
-- Locale: http://localhost:3000
-- Rete locale: http://[IP-RASPBERRY-PI]:3000
+- **HTTPS (consigliato):** https://[hostname].local (es: https://raspberrypi.local)
+- **IP diretto:** https://[IP-RASPBERRY-PI]
+- **HTTP locale:** http://localhost
 
 **Supabase Studio (Gestione Database):**
-- Locale: http://localhost:54323
-- Rete locale: http://[IP-RASPBERRY-PI]:54323
+- **HTTPS:** https://[hostname].local/studio
+- **HTTP:** http://localhost:54323
+
+### 🔒 Note HTTPS e Certificati
+
+- Il certificato SSL è **self-signed** (auto-firmato) per uso locale
+- Alla prima connessione, il browser mostrerà un avviso di sicurezza
+- È normale e sicuro - clicca "Avanzate" → "Procedi comunque"
+- Il certificato è valido 10 anni
+
+### 🌐 Dominio `.local` (mDNS)
+
+- Accessibile da qualsiasi dispositivo sulla stessa rete locale
+- Funziona su macOS, Linux, iOS, Android (se supporta mDNS/Bonjour)
+- Su Windows potrebbe essere necessario installare **Bonjour Print Services**
+- Esempio: `https://raspberrypi.local`
 
 ---
 
@@ -149,7 +166,11 @@ docker logs -f haccp-db
 # Log Supabase Studio
 docker logs -f haccp-studio
 
-# Log tutti i servizi
+# Log Nginx
+sudo tail -f /var/log/nginx/haccp-error.log
+sudo tail -f /var/log/nginx/haccp-access.log
+
+# Log tutti i servizi Docker
 cd ~/haccp-app/scripts/docker
 docker compose logs -f
 ```
@@ -160,7 +181,13 @@ docker compose logs -f
 # Riavvia solo l'app
 docker restart haccp-app
 
-# Riavvia tutti i servizi
+# Riavvia Nginx
+sudo systemctl restart nginx
+
+# Test configurazione Nginx
+sudo nginx -t
+
+# Riavvia tutti i servizi Docker
 cd ~/haccp-app/scripts/docker
 docker compose restart
 

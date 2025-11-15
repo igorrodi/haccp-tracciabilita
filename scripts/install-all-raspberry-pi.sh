@@ -70,7 +70,7 @@ print_status "Ambiente pulito!"
 # STEP 2: Installa prerequisiti
 # ============================================================================
 
-print_header "STEP 2/6: Installazione prerequisiti"
+print_header "STEP 2/7: Installazione prerequisiti"
 
 # Docker
 if ! command -v docker &> /dev/null; then
@@ -105,13 +105,36 @@ if ! command -v psql &> /dev/null; then
     print_status "PostgreSQL client installato!"
 fi
 
+# Nginx
+if ! command -v nginx &> /dev/null; then
+    print_info "Installazione Nginx..."
+    sudo apt-get install -y nginx
+    print_status "Nginx installato!"
+fi
+
+# Avahi (mDNS per dominio .local)
+if ! systemctl is-active --quiet avahi-daemon; then
+    print_info "Installazione Avahi (mDNS)..."
+    sudo apt-get install -y avahi-daemon avahi-utils
+    sudo systemctl enable avahi-daemon
+    sudo systemctl start avahi-daemon
+    print_status "Avahi installato!"
+fi
+
+# OpenSSL per certificati
+if ! command -v openssl &> /dev/null; then
+    print_info "Installazione OpenSSL..."
+    sudo apt-get install -y openssl
+    print_status "OpenSSL installato!"
+fi
+
 print_status "Tutti i prerequisiti installati!"
 
 # ============================================================================
 # STEP 3: Clone repository e setup completo
 # ============================================================================
 
-print_header "STEP 3/6: Download e setup applicazione"
+print_header "STEP 3/7: Download e setup applicazione"
 
 # Clone con SSH o HTTPS
 if git clone git@github.com:igorrodi/haccp-tracciabilita.git "$APP_DIR" 2>/dev/null; then
@@ -137,7 +160,120 @@ print_status "Build completata!"
 # STEP 4: Avvio stack Docker completo
 # ============================================================================
 
-print_header "STEP 4/6: Avvio stack Supabase + App"
+print_header "STEP 4/7: Configurazione HTTPS e dominio locale"
+
+HOSTNAME=$(hostname)
+DOMAIN="${HOSTNAME}.local"
+SSL_DIR="/etc/ssl/haccp"
+NGINX_CONF="/etc/nginx/sites-available/haccp-app"
+
+# Crea directory per certificati
+print_info "Creazione certificati SSL self-signed..."
+sudo mkdir -p "$SSL_DIR"
+
+# Genera certificati SSL self-signed (validi 10 anni)
+sudo openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    -keyout "$SSL_DIR/privkey.pem" \
+    -out "$SSL_DIR/fullchain.pem" \
+    -subj "/C=IT/ST=Italy/L=Local/O=HACCP/CN=$DOMAIN" \
+    -addext "subjectAltName=DNS:$DOMAIN,DNS:$HOSTNAME,DNS:localhost,IP:127.0.0.1,IP:$(hostname -I | awk '{print $1}')" 2>/dev/null
+
+sudo chmod 600 "$SSL_DIR/privkey.pem"
+sudo chmod 644 "$SSL_DIR/fullchain.pem"
+print_status "Certificati SSL creati!"
+
+# Configura nginx
+print_info "Configurazione Nginx..."
+sudo tee "$NGINX_CONF" > /dev/null <<'EOF'
+# Redirect HTTP to HTTPS
+server {
+    listen 80;
+    listen [::]:80;
+    server_name _;
+    return 301 https://$host$request_uri;
+}
+
+# HTTPS server
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name _;
+
+    ssl_certificate /etc/ssl/haccp/fullchain.pem;
+    ssl_certificate_key /etc/ssl/haccp/privkey.pem;
+    
+    # SSL configuration
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    # Security headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # Proxy to Docker app
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Supabase Studio
+    location /studio {
+        proxy_pass http://localhost:54323;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+EOF
+
+# Abilita configurazione nginx
+sudo ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+
+# Test e riavvia nginx
+sudo nginx -t
+sudo systemctl enable nginx
+sudo systemctl restart nginx
+print_status "Nginx configurato con HTTPS!"
+
+# Configura Avahi per dominio .local
+print_info "Configurazione dominio $DOMAIN..."
+sudo tee /etc/avahi/services/haccp.service > /dev/null <<EOF
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name replace-wildcards="yes">HACCP App su %h</name>
+  <service>
+    <type>_http._tcp</type>
+    <port>80</port>
+  </service>
+  <service>
+    <type>_https._tcp</type>
+    <port>443</port>
+  </service>
+</service-group>
+EOF
+
+sudo systemctl restart avahi-daemon
+print_status "Dominio locale configurato: https://$DOMAIN"
+
+# ============================================================================
+# STEP 5/7: Avvio stack Supabase + App
+# ============================================================================
+
+print_header "STEP 5/7: Avvio stack Supabase + App"
 
 cd "$APP_DIR/scripts/docker"
 
@@ -173,7 +309,7 @@ fi
 # STEP 5: Migrazioni database
 # ============================================================================
 
-print_header "STEP 5/6: Applicazione migrazioni database"
+print_header "STEP 6/7: Applicazione migrazioni database"
 
 cd "$APP_DIR"
 
@@ -197,7 +333,7 @@ print_status "Migrazioni applicate!"
 # STEP 6: Setup backup e aggiornamenti automatici
 # ============================================================================
 
-print_header "STEP 6/6: Configurazione backup e aggiornamenti"
+print_header "STEP 7/7: Configurazione backup e aggiornamenti"
 
 # Rendi eseguibili gli script
 chmod +x "$APP_DIR/scripts"/*.sh
@@ -254,15 +390,19 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 print_info "🌐 ACCEDI ALL'APPLICAZIONE:"
 echo ""
-echo "  Locale:      http://localhost:3000"
-echo "  Rete locale: http://$(hostname -I | awk '{print $1}'):3000"
+echo "  HTTPS (consigliato): https://$(hostname).local"
+echo "  HTTP locale:         http://localhost"
+echo "  IP diretto:          https://$(hostname -I | awk '{print $1}')"
+echo ""
+print_info "⚠️  IMPORTANTE: Il certificato SSL è self-signed."
+echo "     Alla prima connessione, accetta l'eccezione di sicurezza nel browser."
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 print_info "🗄️  SUPABASE STUDIO (Gestione Database):"
 echo ""
-echo "  Locale:      http://localhost:54323"
-echo "  Rete locale: http://$(hostname -I | awk '{print $1}'):54323"
+echo "  HTTPS: https://$(hostname).local/studio"
+echo "  HTTP:  http://localhost:54323"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
