@@ -80,6 +80,17 @@ if ! command -v docker &> /dev/null; then
     sudo usermod -aG docker $USER
     rm get-docker.sh
     print_status "Docker installato!"
+    
+    # Ri-esegui lo script con i permessi Docker corretti
+    print_info "Riavvio script con permessi Docker..."
+    exec sg docker -c "$0 $*"
+fi
+
+# Verifica permessi Docker
+if ! docker ps &> /dev/null; then
+    print_error "Permessi Docker non corretti. Esegui: newgrp docker"
+    print_info "Oppure riavvia il sistema e rilancia lo script."
+    exit 1
 fi
 
 # Node.js 20
