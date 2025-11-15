@@ -20,11 +20,13 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccess('');
 
     const formData = new FormData(e.currentTarget);
     const data = {
@@ -60,6 +62,51 @@ export default function Auth() {
     }
   };
 
+  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      email: formData.get('email') as string,
+      password: formData.get('password') as string
+    };
+
+    try {
+      const validatedData = loginSchema.parse(data);
+      
+      const redirectUrl = `${window.location.origin}/`;
+      
+      const { error } = await supabase.auth.signUp({
+        email: validatedData.email,
+        password: validatedData.password,
+        options: {
+          emailRedirectTo: redirectUrl
+        }
+      });
+
+      if (error) {
+        if (error.message.includes('User already registered')) {
+          setError('Utente già registrato. Usa il login.');
+        } else {
+          setError(error.message);
+        }
+      } else {
+        setSuccess('Registrazione completata! Controlla la tua email per confermare l\'account.');
+      }
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        setError(err.errors[0].message);
+      } else {
+        setError('Errore durante la registrazione');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -73,13 +120,15 @@ export default function Auth() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Accesso al Sistema</CardTitle>
+            <CardTitle>{isSignUp ? 'Registrazione' : 'Accesso al Sistema'}</CardTitle>
             <CardDescription>
-              Inserisci le tue credenziali per accedere
+              {isSignUp 
+                ? 'Crea un nuovo account per accedere al sistema' 
+                : 'Inserisci le tue credenziali per accedere'}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSignIn} className="space-y-4">
+            <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="signin-email">
                   <Mail className="w-4 h-4 inline mr-2" />
@@ -106,9 +155,27 @@ export default function Auth() {
                 />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Accesso in corso...' : 'Accedi'}
+                {loading 
+                  ? (isSignUp ? 'Registrazione in corso...' : 'Accesso in corso...') 
+                  : (isSignUp ? 'Registrati' : 'Accedi')}
               </Button>
             </form>
+
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setError('');
+                  setSuccess('');
+                }}
+                className="text-sm text-primary hover:underline"
+              >
+                {isSignUp 
+                  ? 'Hai già un account? Accedi' 
+                  : 'Non hai un account? Registrati'}
+              </button>
+            </div>
 
             {error && (
               <Alert className="mt-4 border-destructive/50 text-destructive">
