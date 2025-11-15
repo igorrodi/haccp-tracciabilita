@@ -1,56 +1,105 @@
-version: '3.8'
-
 services:
+  # PostgreSQL Database
+  db:
+    image: supabase/postgres:15.1.0.117
+    container_name: haccp-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - haccp-network
+
+  # Supabase Studio
+  studio:
+    image: supabase/studio:20231123-64a766a
+    container_name: haccp-studio
+    ports:
+      - "54323:3000"
+    environment:
+      SUPABASE_URL: http://kong:8000
+      STUDIO_PG_META_URL: http://meta:8080
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+      SUPABASE_SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+    depends_on:
+      - db
+    restart: unless-stopped
+    networks:
+      - haccp-network
+
+  # Kong Gateway
+  kong:
+    image: kong:2.8.1
+    container_name: haccp-kong
+    ports:
+      - "8000:8000"
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl
+    volumes:
+      - ./kong.yml:/var/lib/kong/kong.yml:ro
+    depends_on:
+      - db
+    restart: unless-stopped
+    networks:
+      - haccp-network
+
+  # Meta (for Studio)
+  meta:
+    image: supabase/postgres-meta:v0.68.0
+    container_name: haccp-meta
+    ports:
+      - "8080:8080"
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: db
+      PG_META_DB_NAME: postgres
+      PG_META_DB_USER: postgres
+      PG_META_DB_PASSWORD: postgres
+    depends_on:
+      - db
+    restart: unless-stopped
+    networks:
+      - haccp-network
+
+  # HACCP App
   haccp-app:
     build:
       context: ../../
       dockerfile: scripts/docker/Dockerfile
     container_name: haccp-app
     ports:
-      - "80:80"
-      - "443:443"  # Per HTTPS futuro
+      - "3000:80"
     environment:
       - NODE_ENV=production
-    volumes:
-      # Volume per certificati SSL (opzionale)
-      - ./ssl:/etc/nginx/ssl:ro
-      # Volume per log persistenti
-      - ./logs:/var/log/nginx
     restart: unless-stopped
+    depends_on:
+      - kong
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-    labels:
-      - "com.docker.compose.project=haccp"
-      - "description=HACCP Management Application"
-    
-  # Servizio opzionale per reverse proxy con SSL
-  nginx-proxy:
-    image: nginxproxy/nginx-proxy:alpine
-    container_name: haccp-proxy
-    ports:
-      - "8080:80"
-    volumes:
-      - /var/run/docker.sock:/tmp/docker.sock:ro
-      - ./proxy-config:/etc/nginx/conf.d
-    environment:
-      - DEFAULT_HOST=haccp-app:80
-    depends_on:
-      - haccp-app
-    restart: unless-stopped
-    profiles:
-      - proxy
+    networks:
+      - haccp-network
 
 networks:
-  default:
+  haccp-network:
     name: haccp-network
     driver: bridge
 
 volumes:
-  logs:
-    driver: local
-  ssl:
+  db-data:
     driver: local
