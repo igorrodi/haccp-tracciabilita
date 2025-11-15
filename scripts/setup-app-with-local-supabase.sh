@@ -228,14 +228,15 @@ server {
 }
 EOF
 
+# Ferma e rimuovi container esistenti
+print_info "Rimozione container esistenti..."
+docker stop haccp-app 2>/dev/null || true
+docker rm haccp-app 2>/dev/null || true
+
 # Build immagine Docker
 print_info "Build immagine Docker..."
 cd "$APP_DIR"
 docker build -t haccp-app:latest .
-
-# Ferma container esistente se presente
-docker stop haccp-app 2>/dev/null || true
-docker rm haccp-app 2>/dev/null || true
 
 # Avvia nuovo container
 print_info "Avvio container..."
