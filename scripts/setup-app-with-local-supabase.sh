@@ -20,7 +20,7 @@ echo "╚═══════════════════════�
 echo ""
 
 # Configurazione
-GITHUB_REPO="https://github.com/igorrodi/haccp-tracciabilita.git"
+GITHUB_REPO="git@github.com:igorrodi/haccp-tracciabilita.git"
 GITHUB_BRANCH="main"
 APP_DIR="$HOME/haccp-app"
 SUPABASE_URL="http://localhost:8000"
