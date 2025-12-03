@@ -14,16 +14,352 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      allergens: {
+        Row: {
+          category_name: string
+          common_examples: string | null
+          created_at: string | null
+          id: string
+          number: number
+          official_ingredients: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          category_name: string
+          common_examples?: string | null
+          created_at?: string | null
+          id?: string
+          number: number
+          official_ingredients?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          category_name?: string
+          common_examples?: string | null
+          created_at?: string | null
+          id?: string
+          number?: number
+          official_ingredients?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      haccp_lots: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          expiry_date: string | null
+          freezing_date: string | null
+          id: string
+          internal_lot_number: string | null
+          is_frozen: boolean | null
+          label_image_url: string | null
+          lot_number: string
+          notes: string | null
+          production_date: string
+          reception_date: string | null
+          status: string | null
+          supplier_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          expiry_date?: string | null
+          freezing_date?: string | null
+          id?: string
+          internal_lot_number?: string | null
+          is_frozen?: boolean | null
+          label_image_url?: string | null
+          lot_number: string
+          notes?: string | null
+          production_date: string
+          reception_date?: string | null
+          status?: string | null
+          supplier_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          expiry_date?: string | null
+          freezing_date?: string | null
+          id?: string
+          internal_lot_number?: string | null
+          is_frozen?: boolean | null
+          label_image_url?: string | null
+          lot_number?: string
+          notes?: string | null
+          production_date?: string
+          reception_date?: string | null
+          status?: string | null
+          supplier_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "haccp_lots_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "haccp_lots_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      printer_settings: {
+        Row: {
+          created_at: string
+          custom_layout: Json | null
+          font_size: string
+          id: string
+          include_barcode: boolean
+          include_expiry_date: boolean
+          include_freezing_date: boolean
+          include_lot_number: boolean
+          include_product_name: boolean
+          include_production_date: boolean
+          include_qr_code: boolean
+          label_height: number
+          label_width: number
+          printer_connection_type: string | null
+          printer_enabled: boolean
+          printer_ip_address: string | null
+          printer_name: string | null
+          printer_product_id: number | null
+          printer_type: string
+          printer_vendor_id: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          custom_layout?: Json | null
+          font_size?: string
+          id?: string
+          include_barcode?: boolean
+          include_expiry_date?: boolean
+          include_freezing_date?: boolean
+          include_lot_number?: boolean
+          include_product_name?: boolean
+          include_production_date?: boolean
+          include_qr_code?: boolean
+          label_height?: number
+          label_width?: number
+          printer_connection_type?: string | null
+          printer_enabled?: boolean
+          printer_ip_address?: string | null
+          printer_name?: string | null
+          printer_product_id?: number | null
+          printer_type?: string
+          printer_vendor_id?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          custom_layout?: Json | null
+          font_size?: string
+          id?: string
+          include_barcode?: boolean
+          include_expiry_date?: boolean
+          include_freezing_date?: boolean
+          include_lot_number?: boolean
+          include_product_name?: boolean
+          include_production_date?: boolean
+          include_qr_code?: boolean
+          label_height?: number
+          label_width?: number
+          printer_connection_type?: string | null
+          printer_enabled?: boolean
+          printer_ip_address?: string | null
+          printer_name?: string | null
+          printer_product_id?: number | null
+          printer_type?: string
+          printer_vendor_id?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      product_categories: {
+        Row: {
+          created_at: string
+          id: string
+          ingredients: string | null
+          name: string
+          preparation_procedure: string | null
+          shelf_life_days: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ingredients?: string | null
+          name: string
+          preparation_procedure?: string | null
+          shelf_life_days?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ingredients?: string | null
+          name?: string
+          preparation_procedure?: string | null
+          shelf_life_days?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      product_images: {
+        Row: {
+          category_id: string
+          created_at: string
+          id: string
+          image_url: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          id?: string
+          image_url: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          id?: string
+          image_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_images_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          company_name: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          role: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          role?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          role?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      suppliers: {
+        Row: {
+          contact_info: string | null
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          contact_info?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          contact_info?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          authorized_at: string | null
+          authorized_by: string | null
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          authorized_at?: string | null
+          authorized_by?: string | null
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          authorized_at?: string | null
+          authorized_by?: string | null
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_internal_lot_number: { Args: never; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_authorized_user: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "guest"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +486,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "guest"],
+    },
   },
 } as const
