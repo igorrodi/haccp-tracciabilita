@@ -115,6 +115,9 @@ rm -rf haccp-app-build
 git clone https://github.com/igorrodi/haccp-tracciabilita.git haccp-app-build
 cd haccp-app-build
 
+# Copia schema PocketBase
+cp scripts/pocketbase/pb_schema.json "$INSTALL_DIR/"
+
 # Modifica main.tsx per usare PocketBase
 print_info "Configurazione per PocketBase..."
 cat > src/main.tsx << 'EOF'
