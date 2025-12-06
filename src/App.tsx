@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from '@supabase/supabase-js';
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import FirstTimeSetup from "./pages/FirstTimeSetup";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -19,7 +20,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
@@ -28,7 +28,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -60,13 +59,13 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          <Route path="/setup" element={<FirstTimeSetup />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/" element={
             <ProtectedRoute>
               <Index />
             </ProtectedRoute>
           } />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
