@@ -1,10 +1,14 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SuppliersPocketBase } from './SuppliersPocketBase';
+import { UserManagementPocketBase } from './UserManagementPocketBase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ExternalLink, Database, Settings } from 'lucide-react';
+import { ExternalLink, Database, Settings, Users, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { isAdmin } from '@/lib/pocketbase';
 
 export const SystemPanelPocketBase = () => {
+  const admin = isAdmin();
+
   const openPocketBaseAdmin = () => {
     const hostname = window.location.hostname;
     const protocol = window.location.protocol;
@@ -12,7 +16,7 @@ export const SystemPanelPocketBase = () => {
     
     if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
       if (protocol === 'https:') {
-        adminUrl = `${protocol}//${hostname}/_/`;
+        adminUrl = `${protocol}//${hostname}/api/_/`;
       } else {
         adminUrl = `http://${hostname}:8090/_/`;
       }
@@ -24,8 +28,9 @@ export const SystemPanelPocketBase = () => {
   return (
     <Tabs defaultValue="suppliers" className="w-full">
       <div className="w-full overflow-x-auto pb-2">
-        <TabsList className="inline-flex w-full min-w-max md:grid md:w-full md:grid-cols-3 gap-1">
+        <TabsList className="inline-flex w-full min-w-max md:grid md:w-full md:grid-cols-4 gap-1">
           <TabsTrigger value="suppliers" className="flex-shrink-0">Fornitori</TabsTrigger>
+          {admin && <TabsTrigger value="users" className="flex-shrink-0">Utenti</TabsTrigger>}
           <TabsTrigger value="database" className="flex-shrink-0">Database</TabsTrigger>
           <TabsTrigger value="info" className="flex-shrink-0">Info</TabsTrigger>
         </TabsList>
@@ -34,6 +39,12 @@ export const SystemPanelPocketBase = () => {
       <TabsContent value="suppliers">
         <SuppliersPocketBase />
       </TabsContent>
+
+      {admin && (
+        <TabsContent value="users">
+          <UserManagementPocketBase />
+        </TabsContent>
+      )}
       
       <TabsContent value="database">
         <Card>
@@ -43,7 +54,7 @@ export const SystemPanelPocketBase = () => {
               Gestione Database
             </CardTitle>
             <CardDescription>
-              Accedi al pannello admin di PocketBase per gestire collezioni e dati
+              Accedi al pannello admin di PocketBase
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -53,19 +64,27 @@ export const SystemPanelPocketBase = () => {
             </Button>
             
             <div className="p-4 bg-muted rounded-lg space-y-3">
-              <h4 className="font-medium">Collezioni richieste:</h4>
+              <h4 className="font-medium">Collezioni disponibili:</h4>
               <ul className="text-sm text-muted-foreground space-y-2">
                 <li className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-primary rounded-full" />
-                  <strong>products</strong> - name, shelf_life_days, ingredients, preparation_procedure, user_id
+                  <strong>products</strong> - Prodotti/Categorie
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-primary rounded-full" />
-                  <strong>lots</strong> - lot_number, product_id, production_date, expiry_date, is_frozen, freezing_date, supplier_id, notes, user_id
+                  <strong>lots</strong> - Lotti di produzione
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-primary rounded-full" />
-                  <strong>suppliers</strong> - name, contact_info, notes, user_id
+                  <strong>suppliers</strong> - Fornitori
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-primary rounded-full" />
+                  <strong>allergens</strong> - Allergeni
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-primary rounded-full" />
+                  <strong>printer_settings</strong> - Impostazioni stampante
                 </li>
               </ul>
             </div>
@@ -85,21 +104,29 @@ export const SystemPanelPocketBase = () => {
             <div className="grid gap-4">
               <div className="p-4 bg-muted rounded-lg">
                 <h4 className="font-medium mb-2">Versione</h4>
-                <p className="text-sm text-muted-foreground">HACCP Tracker - PocketBase Edition</p>
+                <p className="text-sm text-muted-foreground">HACCP Tracker v2.0 - PocketBase Edition</p>
               </div>
               
               <div className="p-4 bg-muted rounded-lg">
                 <h4 className="font-medium mb-2">Backend</h4>
-                <p className="text-sm text-muted-foreground">PocketBase (SQLite)</p>
+                <p className="text-sm text-muted-foreground">PocketBase (SQLite) - Ottimizzato per Raspberry Pi</p>
               </div>
               
               <div className="p-4 bg-muted rounded-lg">
                 <h4 className="font-medium mb-2">Comandi Utili</h4>
                 <div className="space-y-2 font-mono text-xs">
-                  <p className="p-2 bg-background rounded">haccp-status</p>
-                  <p className="p-2 bg-background rounded">haccp-backup</p>
-                  <p className="p-2 bg-background rounded">haccp-update</p>
+                  <p className="p-2 bg-background rounded">haccp-status   # Stato sistema</p>
+                  <p className="p-2 bg-background rounded">haccp-backup   # Backup manuale</p>
+                  <p className="p-2 bg-background rounded">haccp-update   # Aggiorna app</p>
                 </div>
+              </div>
+
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <h4 className="font-medium text-green-800 mb-2">✅ Sistema Locale</h4>
+                <p className="text-sm text-green-700">
+                  Tutti i dati sono salvati localmente sul Raspberry Pi.
+                  Nessuna dipendenza da servizi cloud esterni.
+                </p>
               </div>
             </div>
           </CardContent>

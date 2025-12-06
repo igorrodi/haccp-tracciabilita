@@ -5,17 +5,14 @@ const getPocketBaseUrl = () => {
   const hostname = window.location.hostname;
   const protocol = window.location.protocol;
   
-  // If accessing via localhost, use localhost
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return "http://localhost:8090";
   }
   
-  // If accessing via HTTPS (reverse proxy), use /api path
   if (protocol === 'https:') {
     return `${protocol}//${hostname}/api`;
   }
   
-  // Otherwise use hostname with PocketBase port
   return `http://${hostname}:8090`;
 };
 
@@ -24,9 +21,25 @@ export const pb = new PocketBase(getPocketBaseUrl());
 // Disable auto-cancellation for better UX
 pb.autoCancellation(false);
 
+// Types
+export interface PBUser {
+  id: string;
+  email: string;
+  name?: string;
+  role?: 'admin' | 'user';
+  created: string;
+  updated: string;
+}
+
 // Auth helpers
 export const isAuthenticated = () => pb.authStore.isValid;
-export const currentUser = () => pb.authStore.model;
+export const currentUser = () => pb.authStore.model as unknown as PBUser | null;
+
+// Check if user is admin
+export const isAdmin = () => {
+  const user = pb.authStore.model;
+  return (user as any)?.role === 'admin';
+};
 
 // Login with email/password
 export const login = async (email: string, password: string) => {
@@ -34,18 +47,31 @@ export const login = async (email: string, password: string) => {
     const authData = await pb.collection('users').authWithPassword(email, password);
     return { data: authData, error: null };
   } catch (error: any) {
-    return { data: null, error: error.message || 'Errore di login' };
+    let errorMessage = 'Errore di login';
+    if (error.message?.includes('Failed to authenticate')) {
+      errorMessage = 'Email o password non corretti';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    return { data: null, error: errorMessage };
   }
 };
 
 // Register new user
-export const register = async (email: string, password: string, passwordConfirm: string) => {
+export const register = async (
+  email: string, 
+  password: string, 
+  passwordConfirm: string,
+  name?: string,
+  role: 'admin' | 'user' = 'user'
+) => {
   try {
-    // Create user
     const user = await pb.collection('users').create({
       email,
       password,
       passwordConfirm,
+      name: name || '',
+      role,
       emailVisibility: true,
     });
     
@@ -76,4 +102,49 @@ export const onAuthChange = (callback: (isValid: boolean, model: any) => void) =
   return pb.authStore.onChange((token, model) => {
     callback(pb.authStore.isValid, model);
   });
+};
+
+// Check if this is first time setup (no admin exists)
+export const checkFirstTimeSetup = async (): Promise<boolean> => {
+  try {
+    const admins = await pb.collection('users').getList(1, 1, {
+      filter: 'role = "admin"'
+    });
+    return admins.totalItems === 0;
+  } catch (error) {
+    // If users collection doesn't exist, it's first time
+    return true;
+  }
+};
+
+// Get all users (admin only)
+export const getAllUsers = async () => {
+  try {
+    const users = await pb.collection('users').getFullList<PBUser>({
+      sort: '-created',
+    });
+    return { data: users, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
+};
+
+// Update user role (admin only)
+export const updateUserRole = async (userId: string, role: 'admin' | 'user') => {
+  try {
+    const user = await pb.collection('users').update(userId, { role });
+    return { data: user, error: null };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
+};
+
+// Delete user (admin only)
+export const deleteUser = async (userId: string) => {
+  try {
+    await pb.collection('users').delete(userId);
+    return { error: null };
+  } catch (error: any) {
+    return { error: error.message };
+  }
 };
