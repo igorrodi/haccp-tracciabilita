@@ -1,14 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-
 import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
-import { Shield, Mail, Lock } from 'lucide-react';
+import { Shield, Mail, Lock, Loader2 } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email('Email non valida'),
@@ -18,9 +17,42 @@ const loginSchema = z.object({
 export default function Auth() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
+  const [hasAdmin, setHasAdmin] = useState(true);
+
+  useEffect(() => {
+    checkSetupAndAuth();
+  }, []);
+
+  const checkSetupAndAuth = async () => {
+    try {
+      // Verifica se c'è già un admin
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('id')
+        .eq('role', 'admin')
+        .limit(1);
+
+      if (!roles || roles.length === 0) {
+        setHasAdmin(false);
+        navigate('/setup');
+        return;
+      }
+
+      // Verifica se l'utente è già autenticato
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate('/');
+      }
+    } catch (err) {
+      console.error('Error checking setup:', err);
+    } finally {
+      setChecking(false);
+    }
+  };
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -94,7 +126,7 @@ export default function Auth() {
           setError(error.message);
         }
       } else {
-        setSuccess('Registrazione completata! Controlla la tua email per confermare l\'account.');
+        setSuccess('Registrazione completata! Contatta un amministratore per l\'autorizzazione.');
       }
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -106,6 +138,21 @@ export default function Auth() {
       setLoading(false);
     }
   };
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Verifica configurazione...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasAdmin) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted flex items-center justify-center p-4">
@@ -188,15 +235,6 @@ export default function Auth() {
                 <AlertDescription>{success}</AlertDescription>
               </Alert>
             )}
-
-            <div className="text-center mt-6">
-              <Link 
-                to="/" 
-                className="text-sm text-muted-foreground hover:text-primary"
-              >
-                ← Torna alla home
-              </Link>
-            </div>
           </CardContent>
         </Card>
       </div>
