@@ -3,149 +3,124 @@
     "name": "products",
     "type": "base",
     "schema": [
-      {
-        "name": "name",
-        "type": "text",
-        "required": true
-      },
-      {
-        "name": "shelf_life_days",
-        "type": "number"
-      },
-      {
-        "name": "ingredients",
-        "type": "text"
-      },
-      {
-        "name": "preparation_procedure",
-        "type": "text"
-      },
-      {
-        "name": "user_id",
-        "type": "relation",
-        "options": {
-          "collectionId": "_pb_users_auth_",
-          "cascadeDelete": false,
-          "maxSelect": 1
-        }
-      }
+      { "name": "name", "type": "text", "required": true },
+      { "name": "shelf_life_days", "type": "number" },
+      { "name": "ingredients", "type": "text" },
+      { "name": "preparation_procedure", "type": "text" },
+      { "name": "user_id", "type": "relation", "options": { "collectionId": "_pb_users_auth_", "cascadeDelete": false, "maxSelect": 1 } }
     ],
     "listRule": "@request.auth.id != ''",
     "viewRule": "@request.auth.id != ''",
-    "createRule": "@request.auth.id != ''",
-    "updateRule": "@request.auth.id != ''",
-    "deleteRule": "@request.auth.id != ''"
+    "createRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "updateRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
+  },
+  {
+    "name": "product_images",
+    "type": "base",
+    "schema": [
+      { "name": "product_id", "type": "relation", "required": true, "options": { "collectionId": "products", "cascadeDelete": true, "maxSelect": 1 } },
+      { "name": "image", "type": "file", "required": true, "options": { "maxSelect": 1, "maxSize": 5242880, "mimeTypes": ["image/jpeg", "image/png", "image/webp"] } }
+    ],
+    "listRule": "@request.auth.id != ''",
+    "viewRule": "@request.auth.id != ''",
+    "createRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "updateRule": "",
+    "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
   },
   {
     "name": "suppliers",
     "type": "base",
     "schema": [
-      {
-        "name": "name",
-        "type": "text",
-        "required": true
-      },
-      {
-        "name": "contact_info",
-        "type": "text"
-      },
-      {
-        "name": "notes",
-        "type": "text"
-      },
-      {
-        "name": "user_id",
-        "type": "relation",
-        "options": {
-          "collectionId": "_pb_users_auth_",
-          "cascadeDelete": false,
-          "maxSelect": 1
-        }
-      }
+      { "name": "name", "type": "text", "required": true },
+      { "name": "contact_info", "type": "text" },
+      { "name": "notes", "type": "text" },
+      { "name": "user_id", "type": "relation", "options": { "collectionId": "_pb_users_auth_", "cascadeDelete": false, "maxSelect": 1 } }
     ],
     "listRule": "@request.auth.id != ''",
     "viewRule": "@request.auth.id != ''",
-    "createRule": "@request.auth.id != ''",
-    "updateRule": "@request.auth.id != ''",
-    "deleteRule": "@request.auth.id != ''"
+    "createRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "updateRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
   },
   {
     "name": "lots",
     "type": "base",
     "schema": [
-      {
-        "name": "lot_number",
-        "type": "text",
-        "required": true
-      },
-      {
-        "name": "internal_lot_number",
-        "type": "text"
-      },
-      {
-        "name": "product_id",
-        "type": "relation",
-        "options": {
-          "collectionId": "products",
-          "cascadeDelete": false,
-          "maxSelect": 1
-        }
-      },
-      {
-        "name": "supplier_id",
-        "type": "relation",
-        "options": {
-          "collectionId": "suppliers",
-          "cascadeDelete": false,
-          "maxSelect": 1
-        }
-      },
-      {
-        "name": "production_date",
-        "type": "date",
-        "required": true
-      },
-      {
-        "name": "expiry_date",
-        "type": "date"
-      },
-      {
-        "name": "freezing_date",
-        "type": "date"
-      },
-      {
-        "name": "reception_date",
-        "type": "date"
-      },
-      {
-        "name": "is_frozen",
-        "type": "bool"
-      },
-      {
-        "name": "status",
-        "type": "select",
-        "options": {
-          "values": ["active", "used", "expired", "discarded"]
-        }
-      },
-      {
-        "name": "notes",
-        "type": "text"
-      },
-      {
-        "name": "user_id",
-        "type": "relation",
-        "options": {
-          "collectionId": "_pb_users_auth_",
-          "cascadeDelete": false,
-          "maxSelect": 1
-        }
-      }
+      { "name": "lot_number", "type": "text", "required": true },
+      { "name": "internal_lot_number", "type": "text" },
+      { "name": "product_id", "type": "relation", "options": { "collectionId": "products", "cascadeDelete": false, "maxSelect": 1 } },
+      { "name": "supplier_id", "type": "relation", "options": { "collectionId": "suppliers", "cascadeDelete": false, "maxSelect": 1 } },
+      { "name": "production_date", "type": "date", "required": true },
+      { "name": "expiry_date", "type": "date" },
+      { "name": "freezing_date", "type": "date" },
+      { "name": "reception_date", "type": "date" },
+      { "name": "is_frozen", "type": "bool" },
+      { "name": "status", "type": "select", "options": { "values": ["active", "used", "expired", "discarded"] } },
+      { "name": "notes", "type": "text" },
+      { "name": "label_image", "type": "file", "options": { "maxSelect": 1, "maxSize": 5242880, "mimeTypes": ["image/jpeg", "image/png", "image/webp"] } },
+      { "name": "user_id", "type": "relation", "options": { "collectionId": "_pb_users_auth_", "cascadeDelete": false, "maxSelect": 1 } }
     ],
     "listRule": "@request.auth.id != ''",
     "viewRule": "@request.auth.id != ''",
     "createRule": "@request.auth.id != ''",
     "updateRule": "@request.auth.id != ''",
-    "deleteRule": "@request.auth.id != ''"
+    "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
+  },
+  {
+    "name": "allergens",
+    "type": "base",
+    "schema": [
+      { "name": "number", "type": "number", "required": true },
+      { "name": "category_name", "type": "text", "required": true },
+      { "name": "official_ingredients", "type": "text" },
+      { "name": "common_examples", "type": "text" }
+    ],
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "updateRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
+  },
+  {
+    "name": "printer_settings",
+    "type": "base",
+    "schema": [
+      { "name": "user_id", "type": "relation", "required": true, "options": { "collectionId": "_pb_users_auth_", "cascadeDelete": true, "maxSelect": 1 } },
+      { "name": "printer_enabled", "type": "bool" },
+      { "name": "printer_name", "type": "text" },
+      { "name": "printer_type", "type": "select", "options": { "values": ["thermal", "inkjet", "laser"] } },
+      { "name": "printer_connection_type", "type": "select", "options": { "values": ["browser", "usb", "network"] } },
+      { "name": "printer_ip_address", "type": "text" },
+      { "name": "label_width", "type": "number" },
+      { "name": "label_height", "type": "number" },
+      { "name": "font_size", "type": "select", "options": { "values": ["small", "medium", "large"] } },
+      { "name": "include_qr_code", "type": "bool" },
+      { "name": "include_barcode", "type": "bool" },
+      { "name": "include_product_name", "type": "bool" },
+      { "name": "include_lot_number", "type": "bool" },
+      { "name": "include_expiry_date", "type": "bool" },
+      { "name": "include_production_date", "type": "bool" },
+      { "name": "include_freezing_date", "type": "bool" },
+      { "name": "custom_layout", "type": "json" }
+    ],
+    "listRule": "@request.auth.id != ''",
+    "viewRule": "@request.auth.id != ''",
+    "createRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "updateRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "deleteRule": ""
+  },
+  {
+    "name": "app_settings",
+    "type": "base",
+    "schema": [
+      { "name": "key", "type": "text", "required": true },
+      { "name": "value", "type": "text" }
+    ],
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "updateRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "deleteRule": ""
   }
 ]
