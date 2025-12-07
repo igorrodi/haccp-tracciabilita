@@ -11,9 +11,12 @@ import { Shield, User, Mail, Lock, CheckCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const adminSchema = z.object({
-  fullName: z.string().min(2, 'Nome deve avere almeno 2 caratteri'),
-  email: z.string().email('Email non valida'),
-  password: z.string().min(8, 'Password deve avere almeno 8 caratteri'),
+  fullName: z.string().min(2, 'Nome deve avere almeno 2 caratteri').max(100, 'Nome troppo lungo'),
+  email: z.string().email('Email non valida').toLowerCase(),
+  password: z.string()
+    .min(8, 'Password deve avere almeno 8 caratteri')
+    .regex(/[a-zA-Z]/, 'Password deve contenere almeno una lettera')
+    .regex(/[0-9]/, 'Password deve contenere almeno un numero'),
   confirmPassword: z.string()
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Le password non coincidono",
