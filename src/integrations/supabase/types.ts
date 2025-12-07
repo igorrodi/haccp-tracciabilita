@@ -357,6 +357,7 @@ export type Database = {
         Returns: boolean
       }
       is_authorized_user: { Args: { _user_id: string }; Returns: boolean }
+      is_first_admin_setup: { Args: never; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "guest"
