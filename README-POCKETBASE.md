@@ -1,160 +1,127 @@
-# HACCP App - Versione PocketBase (Standalone)
+# Tracker HACCP - Versione PocketBase (Raspberry Pi 5)
 
-Versione leggera dell'applicazione HACCP che utilizza **PocketBase** invece di Supabase.  
-Ideale per Raspberry Pi 5 e installazioni locali con risorse limitate.
+Sistema di tracciabilità HACCP leggero e standalone per Raspberry Pi 5.
 
-## 🎯 Vantaggi rispetto a Supabase
-
-| Caratteristica | Supabase | PocketBase |
-|---------------|----------|------------|
-| RAM richiesta | ~1GB | ~50MB |
-| Spazio disco | ~2GB | ~30MB |
-| Complessità | Docker + 5 servizi | Single binary |
-| Dipendenze | Docker, PostgreSQL | Nessuna |
-| Avvio | 2-3 minuti | <1 secondo |
-
-## 📦 Requisiti
-
-- Raspberry Pi 5 (4GB+ RAM consigliato) o qualsiasi Linux ARM64
-- Ubuntu Server 24.04 o Raspberry Pi OS (64-bit)
-- Connessione internet per installazione
-
-## 🚀 Installazione Automatica
+## 🚀 Installazione con un Solo Comando
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/igorrodi/haccp-tracciabilita/main/scripts/pocketbase/install-pocketbase-rpi.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/igorrodi/haccp-tracciabilita/main/scripts/install-haccp-pocketbase.sh | sudo bash
 ```
 
-## 🔧 Cosa viene installato
+**Questo è tutto!** Lo script configura automaticamente:
 
-1. **PocketBase** - Database SQLite con API REST e auth integrata
-2. **Nginx** - Web server per servire l'app React
-3. **Certificato SSL** - Self-signed per HTTPS locale
-4. **mDNS (Avahi)** - Accesso via `haccp-app.local`
+- ✅ PocketBase backend (~15MB RAM)
+- ✅ Applicazione React frontend
+- ✅ HTTPS con certificato SSL
+- ✅ Dominio locale `trackerhaccp.local`
+- ✅ Primo accesso guidato
+- ✅ Backup automatici giornalieri
+- ✅ Script di aggiornamento
 
 ## 📱 Accesso
 
-Dopo l'installazione:
+Dopo l'installazione, apri nel browser:
 
-- **App**: `https://haccp-app.local` o `https://[IP-Raspberry]`
-- **Admin PocketBase**: `https://haccp-app.local/_/`
+- **App**: `https://trackerhaccp.local`
+- **Via IP**: `https://[IP-Raspberry]`
+- **Admin PocketBase**: `https://trackerhaccp.local/_/`
 
-### Primo accesso
+### Primo Accesso
 
-1. Vai su `https://haccp-app.local/_/` 
-2. Crea l'account admin di PocketBase
-3. Torna all'app e registra il primo utente
+1. Accetta il certificato SSL self-signed
+2. Segui la procedura guidata per creare l'account admin
+3. Inizia ad usare l'app!
+
+## 📊 Vantaggi rispetto a Supabase
+
+| Caratteristica | Supabase | PocketBase |
+|---------------|----------|------------|
+| RAM richiesta | ~1GB | ~15MB |
+| Spazio disco | ~2GB | ~30MB |
+| Complessità | Docker + 5 servizi | Single binary |
+| Avvio | 2-3 minuti | <1 secondo |
+| Dipendenze | Docker, PostgreSQL | Nessuna |
 
 ## 📋 Comandi Utili
 
 ```bash
-# Verifica stato servizi
-haccp-status
+# Stato sistema
+trackerhaccp-status
 
-# Aggiorna l'applicazione
-haccp-update
+# Aggiorna da GitHub
+trackerhaccp-update
 
 # Backup manuale
-haccp-backup
+trackerhaccp-backup
+
+# Ripristina backup
+trackerhaccp-restore /var/backups/trackerhaccp/trackerhaccp-backup-XXXXXXXX.tar.gz
+
+# Logs PocketBase
+sudo journalctl -u trackerhaccp -f
 
 # Restart servizi
-sudo systemctl restart pocketbase
+sudo systemctl restart trackerhaccp
 sudo systemctl restart nginx
-
-# Logs
-sudo journalctl -u pocketbase -f
-sudo journalctl -u nginx -f
 ```
 
 ## 📂 Struttura Directory
 
 ```
-/opt/haccp-app/
-├── pocketbase          # Binary PocketBase
-├── pb_data/            # Database e file
-│   ├── data.db         # SQLite database
-│   └── storage/        # File uploads
+/opt/trackerhaccp/
+├── bin/pocketbase      # Binary PocketBase
 └── www/                # Build React app
 
-/var/backups/haccp/     # Backup automatici
+/var/lib/trackerhaccp/
+└── pb_data/            # Database SQLite e storage
+
+/var/backups/trackerhaccp/  # Backup automatici (ultimi 7 giorni)
 ```
 
-## 🔐 Backup e Restore
+## 🔐 Backup
 
-### Backup Automatico
+### Automatico
 - Eseguito ogni giorno alle 2:00
 - Ultimi 7 backup mantenuti
-- Directory: `/var/backups/haccp/`
+- Directory: `/var/backups/trackerhaccp/`
 
-### Restore
+### Manuale
 ```bash
-# Stop servizio
-sudo systemctl stop pocketbase
-
-# Restore
-tar -xzf /var/backups/haccp/haccp_backup_XXXXXXXX_XXXXXX.tar.gz -C /opt/haccp-app/
-
-# Restart
-sudo systemctl start pocketbase
+trackerhaccp-backup
 ```
 
-## ⚙️ Configurazione Avanzata
-
-### Cambiare porta PocketBase
+### Ripristino
 ```bash
-sudo nano /etc/systemd/system/pocketbase.service
-# Modifica --http=127.0.0.1:8090
-sudo systemctl daemon-reload
-sudo systemctl restart pocketbase
+trackerhaccp-restore /var/backups/trackerhaccp/trackerhaccp-backup-20241207-020000.tar.gz
 ```
-
-### Aggiungere collezioni PocketBase
-
-1. Accedi a `https://haccp-app.local/_/`
-2. Vai su "Collections"
-3. Crea le collezioni necessarie:
-   - `products` (prodotti)
-   - `lots` (lotti)
-   - `suppliers` (fornitori)
-   - `categories` (categorie)
 
 ## 🔄 Aggiornamento
 
 ```bash
-haccp-update
+trackerhaccp-update
 ```
 
-Oppure manualmente:
-```bash
-cd /tmp
-git clone https://github.com/igorrodi/haccp-tracciabilita.git
-cd haccp-tracciabilita
-npm ci && npm run build
-sudo cp -r dist/* /opt/haccp-app/www/
-```
+Lo script esegue automaticamente:
+1. Backup dei dati
+2. Download nuova versione da GitHub
+3. Rebuild dell'app React
+4. Deploy della nuova versione
 
 ## 🐛 Troubleshooting
 
 ### App non carica
 ```bash
-# Verifica servizi
-haccp-status
-
-# Verifica logs
-sudo journalctl -u pocketbase --since "10 minutes ago"
-sudo journalctl -u nginx --since "10 minutes ago"
+trackerhaccp-status
+sudo journalctl -u trackerhaccp --since "10 minutes ago"
 ```
 
 ### Errore 502 Bad Gateway
 ```bash
-# PocketBase non risponde
-sudo systemctl restart pocketbase
+sudo systemctl restart trackerhaccp
+sudo systemctl restart nginx
 ```
 
-### Certificato SSL non valido
-Il certificato è self-signed. Accetta l'eccezione nel browser.
-
-### haccp-app.local non raggiungibile
+### trackerhaccp.local non raggiungibile
 ```bash
 # Verifica Avahi
 sudo systemctl status avahi-daemon
@@ -163,12 +130,21 @@ sudo systemctl status avahi-daemon
 hostname -I
 ```
 
+### Certificato SSL non valido
+Il certificato è self-signed. Accetta l'eccezione di sicurezza nel browser.
+
 ## 📊 Risorse Utilizzate
 
 Dopo l'installazione:
 - **CPU**: ~1% a riposo
-- **RAM**: ~50-100MB
+- **RAM**: ~15-50MB
 - **Disco**: ~100MB (senza dati)
+
+## 📋 Requisiti
+
+- Raspberry Pi 5 (4GB+ RAM consigliato)
+- Raspberry Pi OS (64-bit) o Ubuntu Server 24.04
+- Connessione internet per installazione
 
 ## 🔗 Link Utili
 
