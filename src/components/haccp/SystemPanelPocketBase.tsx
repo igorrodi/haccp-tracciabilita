@@ -1,8 +1,10 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SuppliersPocketBase } from './SuppliersPocketBase';
 import { UserManagementPocketBase } from './UserManagementPocketBase';
+import { CloudBackupSettings } from './CloudBackupSettings';
+import { DataExportPocketBase } from './DataExportPocketBase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ExternalLink, Database, Settings, Users, Printer } from 'lucide-react';
+import { ExternalLink, Database, Settings, Cloud, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isAdmin } from '@/lib/pocketbase';
 
@@ -28,9 +30,17 @@ export const SystemPanelPocketBase = () => {
   return (
     <Tabs defaultValue="suppliers" className="w-full">
       <div className="w-full overflow-x-auto pb-2">
-        <TabsList className="inline-flex w-full min-w-max md:grid md:w-full md:grid-cols-4 gap-1">
+        <TabsList className="inline-flex w-full min-w-max md:grid md:w-full md:grid-cols-6 gap-1">
           <TabsTrigger value="suppliers" className="flex-shrink-0">Fornitori</TabsTrigger>
           {admin && <TabsTrigger value="users" className="flex-shrink-0">Utenti</TabsTrigger>}
+          <TabsTrigger value="export" className="flex-shrink-0 flex items-center gap-1">
+            <FileSpreadsheet className="w-3 h-3" />
+            Export
+          </TabsTrigger>
+          <TabsTrigger value="backup" className="flex-shrink-0 flex items-center gap-1">
+            <Cloud className="w-3 h-3" />
+            Cloud
+          </TabsTrigger>
           <TabsTrigger value="database" className="flex-shrink-0">Database</TabsTrigger>
           <TabsTrigger value="info" className="flex-shrink-0">Info</TabsTrigger>
         </TabsList>
@@ -45,6 +55,15 @@ export const SystemPanelPocketBase = () => {
           <UserManagementPocketBase />
         </TabsContent>
       )}
+
+      <TabsContent value="export">
+        <DataExportPocketBase />
+      </TabsContent>
+
+      <TabsContent value="backup">
+        <CloudBackupSettings />
+      </TabsContent>
+
       
       <TabsContent value="database">
         <Card>
