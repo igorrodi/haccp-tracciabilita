@@ -68,19 +68,38 @@ export const UserManagementPocketBase = () => {
     const email = formData.get('email') as string;
     const name = formData.get('name') as string;
     const role = formData.get('role') as 'admin' | 'user';
-    const password = Math.random().toString(36).slice(-12) + 'A1!';
+    
+    // Generate readable temporary password
+    const tempPassword = generateTempPassword();
 
-    const { error } = await register(email, password, password, name, role);
+    const { error } = await register(email, tempPassword, tempPassword, name, role);
 
     if (error) {
       toast.error(error);
     } else {
-      toast.success(`Utente ${email} creato con password temporanea`);
+      // Show password in toast so admin can share it
+      toast.success(
+        <div className="space-y-2">
+          <p><strong>Utente creato!</strong></p>
+          <p>Email: {email}</p>
+          <p>Password temporanea: <code className="bg-muted px-1 rounded">{tempPassword}</code></p>
+          <p className="text-xs text-muted-foreground">Comunica la password all'utente</p>
+        </div>,
+        { duration: 15000 }
+      );
       setInviteDialogOpen(false);
       fetchUsers();
     }
 
     setSending(false);
+  };
+
+  // Generate a readable temporary password
+  const generateTempPassword = () => {
+    const words = ['Haccp', 'Food', 'Safe', 'Track', 'Lotto', 'Chef'];
+    const word = words[Math.floor(Math.random() * words.length)];
+    const num = Math.floor(Math.random() * 900) + 100;
+    return `${word}${num}!`;
   };
 
   if (loading) {
