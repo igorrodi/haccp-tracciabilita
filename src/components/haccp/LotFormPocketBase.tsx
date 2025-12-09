@@ -6,9 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Plus, Package } from 'lucide-react';
-import { useProducts, useSuppliers, useLots, PBProduct, PBSupplier } from '@/hooks/usePocketBase';
+import { Loader2, Plus, Package, ScanBarcode } from 'lucide-react';
+import { useProducts, useSuppliers, useLots } from '@/hooks/usePocketBase';
 import { format } from 'date-fns';
+import { BarcodeScanner } from './BarcodeScanner';
 
 export const LotFormPocketBase = () => {
   const { data: products, loading: productsLoading } = useProducts();
@@ -26,6 +27,12 @@ export const LotFormPocketBase = () => {
     notes: '',
   });
   const [submitting, setSubmitting] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+
+  const handleBarcodeScan = (barcode: string) => {
+    setFormData(prev => ({ ...prev, lot_number: barcode }));
+    setShowScanner(false);
+  };
 
   // Auto-calculate expiry date based on product shelf life
   useEffect(() => {
@@ -84,16 +91,37 @@ export const LotFormPocketBase = () => {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {showScanner && (
+          <div className="mb-4">
+            <BarcodeScanner
+              onScan={handleBarcodeScan}
+              onClose={() => setShowScanner(false)}
+            />
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="lot_number">Numero Lotto *</Label>
-            <Input
-              id="lot_number"
-              value={formData.lot_number}
-              onChange={(e) => setFormData(prev => ({ ...prev, lot_number: e.target.value }))}
-              placeholder="Es: LOT-2024-001"
-              required
-            />
+            <div className="flex gap-2">
+              <Input
+                id="lot_number"
+                value={formData.lot_number}
+                onChange={(e) => setFormData(prev => ({ ...prev, lot_number: e.target.value }))}
+                placeholder="Es: LOT-2024-001"
+                required
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setShowScanner(!showScanner)}
+                title="Scansiona codice a barre"
+              >
+                <ScanBarcode className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-2">
