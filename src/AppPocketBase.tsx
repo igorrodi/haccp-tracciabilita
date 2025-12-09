@@ -8,6 +8,7 @@ import { pb, isAuthenticated, onAuthChange } from "@/lib/pocketbase";
 import IndexPocketBase from "./pages/IndexPocketBase";
 import AuthPocketBase from "./pages/AuthPocketBase";
 import NotFound from "./pages/NotFound";
+import { InstallPWA } from "./components/haccp/InstallPWA";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +48,7 @@ const AppPocketBase = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <InstallPWA />
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<AuthPocketBase />} />
