@@ -1,535 +1,156 @@
-import { useState, useEffect } from "react";
-import { Camera, Upload, Package, Loader2, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Switch } from "@/components/ui/switch";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { z } from 'zod';
-import { createWorker } from 'tesseract.js';
-import { ImageCropper } from "./ImageCropper";
-
-const lotSchema = z.object({
-  category_id: z.string().uuid('Seleziona una categoria'),
-  lot_number: z.string().trim().min(1, 'Numero lotto richiesto'),
-  production_date: z.string().min(1, 'Data produzione richiesta'),
-  expiry_date: z.string().transform(val => val || undefined).optional(),
-  notes: z.string().transform(val => val?.trim() || undefined).optional(),
-  reception_date: z.string().transform(val => val || undefined).optional(),
-  supplier_id: z.string().transform(val => val || undefined).optional()
-});
-
-interface Category {
-  id: string;
-  name: string;
-  description?: string;
-  preparation_procedure?: string;
-  shelf_life_days?: number;
-}
-
-interface Supplier {
-  id: string;
-  name: string;
-}
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, Plus, Package, ScanBarcode } from 'lucide-react';
+import { useProducts, useSuppliers, useLots } from '@/hooks/usePocketBase';
+import { format } from 'date-fns';
+import { BarcodeScanner } from './BarcodeScanner';
 
 export const LotForm = () => {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedSupplier, setSelectedSupplier] = useState("");
-  const [receptionDate, setReceptionDate] = useState("");
-  const [selectedImages, setSelectedImages] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [ocrLoading, setOcrLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [categoriesLoading, setCategoriesLoading] = useState(true);
-  const [lotNumbers, setLotNumbers] = useState<string[]>(['']);
-  const [isFrozen, setIsFrozen] = useState(false);
-  const [freezingDate, setFreezingDate] = useState("");
-  const [cropperOpen, setCropperOpen] = useState(false);
-  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
-  const [pendingImageIndex, setPendingImageIndex] = useState<number | null>(null);
-  const [productionDate, setProductionDate] = useState("");
-  const [expiryDate, setExpiryDate] = useState("");
+  const { data: products, loading: productsLoading } = useProducts();
+  const { data: suppliers, loading: suppliersLoading } = useSuppliers();
+  const { create: createLot } = useLots();
 
-  // Imposta data produzione corrente al mount
-  useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    setProductionDate(today);
-  }, []);
+  const [formData, setFormData] = useState({
+    lot_number: '',
+    product_id: '',
+    supplier_id: '',
+    production_date: format(new Date(), 'yyyy-MM-dd'),
+    expiry_date: '',
+    is_frozen: false,
+    freezing_date: '',
+    notes: '',
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
-  // Fetch categories and suppliers
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from('product_categories')
-        .select('*')
-        .order('name');
-
-      const { data: suppliersData, error: suppliersError } = await supabase
-        .from('suppliers')
-        .select('id, name')
-        .order('name');
-
-        if (categoriesError) {
-          toast.error('Errore nel caricamento delle categorie');
-        } else {
-          setCategories(categoriesData || []);
-        }
-
-        if (suppliersError) {
-          toast.error('Errore nel caricamento dei fornitori');
-        } else {
-          setSuppliers(suppliersData || []);
-        }
-      } catch (error) {
-        toast.error('Errore nel caricamento dei dati');
-      } finally {
-        setCategoriesLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  const performOCR = async (file: File, imageIndex: number) => {
-    setOcrLoading(true);
-    try {
-      const worker = await createWorker('ita');
-      const { data: { text } } = await worker.recognize(file);
-      await worker.terminate();
-
-      // Extract lot number patterns (e.g., L.503586, LOT 123456, etc.)
-      const lotPatterns = [
-        /L\.\s*\d+/i,
-        /LOT\s*\d+/i,
-        /LOTTO\s*\d+/i,
-        /\b\d{6,}\b/
-      ];
-
-      for (const pattern of lotPatterns) {
-        const match = text.match(pattern);
-        if (match) {
-          const extractedLot = match[0].replace(/\s+/g, '');
-          setLotNumbers(prev => {
-            const updated = [...prev];
-            updated[imageIndex] = extractedLot;
-            return updated;
-          });
-          toast.success(`Numero lotto rilevato: ${extractedLot}`);
-          break;
-        }
-      }
-    } catch (error) {
-      console.error('OCR error:', error);
-      toast.error('Errore durante il riconoscimento testo');
-    } finally {
-      setOcrLoading(false);
-    }
+  const handleBarcodeScan = (barcode: string) => {
+    setFormData(prev => ({ ...prev, lot_number: barcode }));
+    setShowScanner(false);
   };
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    if (files.length === 0) return;
+  // Auto-calculate expiry date based on product shelf life
+  useEffect(() => {
+    if (formData.product_id && formData.production_date) {
+      const product = products.find(p => p.id === formData.product_id);
+      if (product?.shelf_life_days) {
+        const prodDate = new Date(formData.production_date);
+        prodDate.setDate(prodDate.getDate() + product.shelf_life_days);
+        setFormData(prev => ({
+          ...prev,
+          expiry_date: format(prodDate, 'yyyy-MM-dd'),
+        }));
+      }
+    }
+  }, [formData.product_id, formData.production_date, products]);
 
-    // Process each file with cropper
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const reader = new FileReader();
-      
-      reader.onload = (e) => {
-        const imageUrl = e.target?.result as string;
-        setImageToCrop(imageUrl);
-        setPendingImageIndex(selectedImages.length + i);
-        setCropperOpen(true);
-      };
-      
-      reader.readAsDataURL(file);
-      
-      // Wait for cropping to complete before processing next image
-      await new Promise<void>(resolve => {
-        const checkCropper = setInterval(() => {
-          if (!cropperOpen) {
-            clearInterval(checkCropper);
-            resolve();
-          }
-        }, 100);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    const lotData = {
+      ...formData,
+      expiry_date: formData.expiry_date || null,
+      freezing_date: formData.is_frozen ? formData.freezing_date || formData.production_date : null,
+      supplier_id: formData.supplier_id || null,
+      product_id: formData.product_id || null,
+    };
+
+    const { error } = await createLot(lotData);
+    
+    if (!error) {
+      // Reset form
+      setFormData({
+        lot_number: '',
+        product_id: '',
+        supplier_id: '',
+        production_date: format(new Date(), 'yyyy-MM-dd'),
+        expiry_date: '',
+        is_frozen: false,
+        freezing_date: '',
+        notes: '',
       });
     }
+
+    setSubmitting(false);
   };
 
-  const handleCropComplete = async (croppedBlob: Blob) => {
-    const croppedFile = new File([croppedBlob], `cropped_${Date.now()}.jpg`, { type: 'image/jpeg' });
-    const currentIndex = selectedImages.length;
-    
-    setSelectedImages(prev => [...prev, croppedFile]);
-    
-    const preview = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target?.result as string);
-      reader.readAsDataURL(croppedFile);
-    });
-    
-    setImagePreviews(prev => [...prev, preview]);
-    setLotNumbers(prev => [...prev, '']);
-    
-    setCropperOpen(false);
-    setImageToCrop(null);
-    setPendingImageIndex(null);
-    
-    toast.success('Immagine aggiunta');
-    
-    // Perform OCR on the cropped image
-    await performOCR(croppedFile, currentIndex);
-  };
-
-  const handleCropCancel = () => {
-    setCropperOpen(false);
-    setImageToCrop(null);
-    setPendingImageIndex(null);
-  };
-
-  const removeImage = (index: number) => {
-    setSelectedImages(prev => prev.filter((_, i) => i !== index));
-    setImagePreviews(prev => prev.filter((_, i) => i !== index));
-    setLotNumbers(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    const formData = new FormData(e.currentTarget);
-    const primaryLotNumber = lotNumbers[0] || (formData.get('lot_number_0') as string);
-    
-    const data = {
-      category_id: selectedCategory,
-      lot_number: primaryLotNumber,
-      production_date: formData.get('production_date') as string,
-      expiry_date: (formData.get('expiry_date') as string) || '',
-      notes: (formData.get('notes') as string) || '',
-      reception_date: (formData.get('reception_date') as string) || '',
-      supplier_id: selectedSupplier || ''
-    };
-
-    try {
-      const validatedData = lotSchema.parse(data);
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Utente non autenticato');
-
-      // Upload images to storage if present
-      let labelImageUrl: string | null = null;
-      if (selectedImages.length > 0) {
-        const firstImage = selectedImages[0];
-        const fileName = `${user.id}/${Date.now()}_${firstImage.name}`;
-        
-        const { error: uploadError, data: uploadData } = await supabase.storage
-          .from('label-images')
-          .upload(fileName, firstImage);
-
-        if (uploadError) {
-          console.error('Upload error:', uploadError);
-        } else {
-          const { data: { publicUrl } } = supabase.storage
-            .from('label-images')
-            .getPublicUrl(fileName);
-          labelImageUrl = publicUrl;
-        }
-      }
-
-      const { error } = await supabase
-        .from('haccp_lots')
-        .insert([{
-          user_id: user.id,
-          category_id: validatedData.category_id,
-          lot_number: validatedData.lot_number,
-          production_date: validatedData.production_date,
-          expiry_date: validatedData.expiry_date || null,
-          notes: validatedData.notes || null,
-          is_frozen: isFrozen,
-          freezing_date: isFrozen && freezingDate ? freezingDate : null,
-          label_image_url: labelImageUrl,
-          reception_date: validatedData.reception_date || null,
-          supplier_id: validatedData.supplier_id || null
-        }]);
-
-      if (error) {
-        setError(error.message);
-      } else {
-        toast.success('Lotto salvato con successo!');
-        (e.target as HTMLFormElement).reset();
-        setSelectedCategory("");
-        setSelectedSupplier("");
-        setReceptionDate("");
-        setSelectedImages([]);
-        setImagePreviews([]);
-        setLotNumbers(['']);
-        setIsFrozen(false);
-        setFreezingDate("");
-        const today = new Date().toISOString().split('T')[0];
-        setProductionDate(today);
-        setExpiryDate("");
-      }
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        setError(err.errors[0].message);
-      } else {
-        setError('Errore durante il salvataggio del lotto');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const selectedCategoryData = categories.find(cat => cat.id === selectedCategory);
-
-  // Ricalcola automaticamente la scadenza quando cambia la categoria o la data di produzione
-  useEffect(() => {
-    if (productionDate && selectedCategoryData?.shelf_life_days) {
-      const prodDate = new Date(productionDate);
-      prodDate.setDate(prodDate.getDate() + selectedCategoryData.shelf_life_days);
-      setExpiryDate(prodDate.toISOString().split('T')[0]);
-    } else if (selectedCategory) {
-      // Se la categoria cambia e non ha shelf_life_days, resetta la data di scadenza
-      setExpiryDate("");
-    }
-  }, [selectedCategory, productionDate, selectedCategoryData]);
-
-  const handleProductionDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setProductionDate(e.target.value);
-  };
+  const isLoading = productsLoading || suppliersLoading;
 
   return (
-    <Card className="haccp-card">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Camera className="w-5 h-5" />
-          Inserisci nuovo lotto
+          <Package className="w-5 h-5" />
+          Nuovo Lotto
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {showScanner && (
+          <div className="mb-4">
+            <BarcodeScanner
+              onScan={handleBarcodeScan}
+              onClose={() => setShowScanner(false)}
+            />
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Prodotto */}
           <div className="space-y-2">
-            <Label htmlFor="category">Prodotto *</Label>
-            {categoriesLoading ? (
-              <div className="h-10 bg-muted animate-pulse rounded-xl"></div>
-            ) : categories.length === 0 ? (
-              <Alert>
-                <Package className="w-4 h-4" />
-                <AlertDescription>
-                  Nessun prodotto disponibile. Vai alla sezione "Prodotti" per aggiungere dei prodotti.
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="Seleziona prodotto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-
-          {/* Data produzione */}
-          <div className="space-y-2">
-            <Label htmlFor="production_date">Data produzione *</Label>
-            <Input
-              id="production_date"
-              name="production_date"
-              type="date"
-              className="rounded-xl"
-              value={productionDate}
-              onChange={handleProductionDateChange}
-              required
-            />
-          </div>
-          
-          {/* Data scadenza */}
-          <div className="space-y-2">
-            <Label htmlFor="expiry_date">
-              Data scadenza
-              {selectedCategoryData?.shelf_life_days && (
-                <span className="text-xs text-muted-foreground ml-1">
-                  (auto: +{selectedCategoryData.shelf_life_days}gg)
-                </span>
-              )}
-            </Label>
-            <Input
-              id="expiry_date"
-              name="expiry_date"
-              type="date"
-              className="rounded-xl"
-              value={expiryDate}
-              onChange={(e) => setExpiryDate(e.target.value)}
-            />
-          </div>
-
-          {/* Toggle congelamento */}
-          <div className="flex items-center justify-between space-x-2 p-4 rounded-xl border bg-card">
-            <div className="space-y-0.5">
-              <Label htmlFor="is_frozen">Prodotto congelato</Label>
-              <p className="text-sm text-muted-foreground">Il prodotto verrà conservato a -18°</p>
-            </div>
-            <Switch
-              id="is_frozen"
-              checked={isFrozen}
-              onCheckedChange={setIsFrozen}
-            />
-          </div>
-
-          {/* Data Congelamento - visibile solo se congelato */}
-          {isFrozen && (
-            <div className="space-y-2">
-              <Label htmlFor="freezing_date">Data congelamento</Label>
+            <Label htmlFor="lot_number">Numero Lotto *</Label>
+            <div className="flex gap-2">
               <Input
-                id="freezing_date"
-                name="freezing_date"
-                type="date"
-                className="rounded-xl"
-                value={freezingDate}
-                onChange={(e) => setFreezingDate(e.target.value)}
-              />
-            </div>
-          )}
-
-          {/* Caricamento foto */}
-          <div className="space-y-2">
-            <Label>Caricamento foto</Label>
-            <div className="camera-upload-area">
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                multiple
-                onChange={handleImageUpload}
-                className="hidden"
-                id="image-upload"
-              />
-              <label htmlFor="image-upload" className="cursor-pointer">
-                <div className="flex flex-col items-center gap-2">
-                  <Upload className="w-8 h-8 text-muted-foreground" />
-                  <div className="text-center">
-                    <p className="font-medium">Scatta o carica foto</p>
-                    <p className="text-sm text-muted-foreground">
-                      Il numero lotto verrà riconosciuto automaticamente
-                    </p>
-                  </div>
-                </div>
-              </label>
-            </div>
-            
-            {imagePreviews.length > 0 && (
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                {imagePreviews.map((preview, index) => (
-                  <div key={index} className="relative group">
-                    <img
-                      src={preview}
-                      alt={`Foto ${index + 1}`}
-                      className="w-full h-32 object-cover rounded-xl border"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(index)}
-                      className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Lotti originali - appare dopo caricamento foto */}
-          {imagePreviews.length > 0 && (
-            <div className="space-y-3">
-              <Label>Lotto originale {selectedImages.length > 1 ? 'per ogni etichetta' : ''} *</Label>
-              {selectedImages.map((_, index) => (
-                <div key={index} className="space-y-2">
-                  <Label htmlFor={`lot_number_${index}`} className="text-sm text-muted-foreground">
-                    Foto {index + 1}
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id={`lot_number_${index}`}
-                      name={`lot_number_${index}`}
-                      type="text"
-                      placeholder="Es. L.503586"
-                      className="rounded-xl"
-                      value={lotNumbers[index] || ''}
-                      onChange={(e) => {
-                        const updated = [...lotNumbers];
-                        updated[index] = e.target.value;
-                        setLotNumbers(updated);
-                      }}
-                      required
-                    />
-                    {ocrLoading && index === selectedImages.length - 1 && (
-                      <Loader2 className="absolute right-3 top-3 w-4 h-4 animate-spin text-muted-foreground" />
-                    )}
-                  </div>
-                </div>
-              ))}
-              {ocrLoading && (
-                <p className="text-xs text-muted-foreground">Riconoscimento testo in corso...</p>
-              )}
-            </div>
-          )}
-
-          {/* Lotto originale - campo manuale se nessuna foto */}
-          {imagePreviews.length === 0 && (
-            <div className="space-y-2">
-              <Label htmlFor="lot_number_0">Lotto originale *</Label>
-              <Input
-                id="lot_number_0"
-                name="lot_number_0"
-                type="text"
-                placeholder="Es. L.503586"
-                className="rounded-xl"
-                value={lotNumbers[0] || ''}
-                onChange={(e) => setLotNumbers([e.target.value])}
+                id="lot_number"
+                value={formData.lot_number}
+                onChange={(e) => setFormData(prev => ({ ...prev, lot_number: e.target.value }))}
+                placeholder="Es: LOT-2024-001"
                 required
+                className="flex-1"
               />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setShowScanner(!showScanner)}
+                title="Scansiona codice a barre"
+              >
+                <ScanBarcode className="h-4 w-4" />
+              </Button>
             </div>
-          )}
-
-          {/* Data ricezione merce */}
-          <div className="space-y-2">
-            <Label htmlFor="reception_date">Data ricezione merce</Label>
-            <Input
-              id="reception_date"
-              name="reception_date"
-              type="date"
-              className="rounded-xl"
-              value={receptionDate}
-              onChange={(e) => setReceptionDate(e.target.value)}
-            />
           </div>
 
-          {/* Fornitore */}
           <div className="space-y-2">
-            <Label htmlFor="supplier">Fornitore</Label>
-            <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
-              <SelectTrigger className="rounded-xl">
-                <SelectValue placeholder="Seleziona fornitore" />
+            <Label htmlFor="product_id">Prodotto</Label>
+            <Select
+              value={formData.product_id}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, product_id: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={isLoading ? "Caricamento..." : "Seleziona prodotto"} />
+              </SelectTrigger>
+              <SelectContent>
+                {products.map((product) => (
+                  <SelectItem key={product.id} value={product.id}>
+                    {product.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="supplier_id">Fornitore</Label>
+            <Select
+              value={formData.supplier_id}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, supplier_id: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={isLoading ? "Caricamento..." : "Seleziona fornitore"} />
               </SelectTrigger>
               <SelectContent>
                 {suppliers.map((supplier) => (
@@ -539,37 +160,77 @@ export const LotForm = () => {
                 ))}
               </SelectContent>
             </Select>
-            {suppliers.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                Nessun fornitore disponibile. Vai al pannello Sistema per aggiungere fornitori.
-              </p>
-            )}
           </div>
 
-          {error && (
-            <Alert className="border-destructive/50 text-destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="production_date">Data Produzione *</Label>
+              <Input
+                id="production_date"
+                type="date"
+                value={formData.production_date}
+                onChange={(e) => setFormData(prev => ({ ...prev, production_date: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="expiry_date">Data Scadenza</Label>
+              <Input
+                id="expiry_date"
+                type="date"
+                value={formData.expiry_date}
+                onChange={(e) => setFormData(prev => ({ ...prev, expiry_date: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+            <Label htmlFor="is_frozen" className="cursor-pointer">Prodotto Congelato</Label>
+            <Switch
+              id="is_frozen"
+              checked={formData.is_frozen}
+              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_frozen: checked }))}
+            />
+          </div>
+
+          {formData.is_frozen && (
+            <div className="space-y-2">
+              <Label htmlFor="freezing_date">Data Congelamento</Label>
+              <Input
+                id="freezing_date"
+                type="date"
+                value={formData.freezing_date}
+                onChange={(e) => setFormData(prev => ({ ...prev, freezing_date: e.target.value }))}
+              />
+            </div>
           )}
 
-          <Button 
-            type="submit" 
-            className="w-full haccp-btn-primary" 
-            disabled={loading || categories.length === 0}
-          >
-            {loading ? 'Salvataggio in corso...' : 'Salva lotto'}
+          <div className="space-y-2">
+            <Label htmlFor="notes">Note</Label>
+            <Textarea
+              id="notes"
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              placeholder="Note aggiuntive..."
+              rows={3}
+            />
+          </div>
+
+          <Button type="submit" className="w-full" disabled={submitting || !formData.lot_number}>
+            {submitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creazione...
+              </>
+            ) : (
+              <>
+                <Plus className="mr-2 h-4 w-4" />
+                Crea Lotto
+              </>
+            )}
           </Button>
         </form>
       </CardContent>
-
-      {imageToCrop && (
-        <ImageCropper
-          image={imageToCrop}
-          isOpen={cropperOpen}
-          onCropComplete={handleCropComplete}
-          onCancel={handleCropCancel}
-        />
-      )}
     </Card>
   );
 };

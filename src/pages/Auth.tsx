@@ -1,243 +1,190 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { supabase } from '@/integrations/supabase/client';
-import { z } from 'zod';
-import { Shield, Mail, Lock, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { pb, login, register, isAuthenticated } from '@/lib/pocketbase';
+import { Loader2, Mail, Lock, User } from 'lucide-react';
 
-const loginSchema = z.object({
-  email: z.string().email('Email non valida'),
-  password: z.string().min(1, 'Password richiesta')
-});
-
-export default function Auth() {
-  const navigate = useNavigate();
+const AuthPocketBase = () => {
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [hasAdmin, setHasAdmin] = useState(true);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
-    checkSetupAndAuth();
-  }, []);
-
-  const checkSetupAndAuth = async () => {
-    try {
-      // Verifica se c'è già un admin
-      const { data: roles } = await supabase
-        .from('user_roles')
-        .select('id')
-        .eq('role', 'admin')
-        .limit(1);
-
-      if (!roles || roles.length === 0) {
-        setHasAdmin(false);
-        navigate('/setup');
-        return;
-      }
-
-      // Verifica se l'utente è già autenticato
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        navigate('/');
-      }
-    } catch (err) {
-      console.error('Error checking setup:', err);
-    } finally {
-      setChecking(false);
+    // Redirect if already authenticated
+    if (isAuthenticated()) {
+      navigate('/', { replace: true });
     }
-  };
+  }, [navigate]);
 
-  const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-    setSuccess('');
-
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      email: formData.get('email') as string,
-      password: formData.get('password') as string
-    };
 
     try {
-      const validatedData = loginSchema.parse(data);
-      
-      const { error } = await supabase.auth.signInWithPassword({
-        email: validatedData.email,
-        password: validatedData.password
-      });
-
-      if (error) {
-        if (error.message.includes('Invalid login credentials')) {
-          setError('Email o password non corretti');
+      if (isLogin) {
+        const { error } = await login(email, password);
+        if (error) {
+          toast({
+            title: 'Errore di accesso',
+            description: error,
+            variant: 'destructive',
+          });
         } else {
-          setError(error.message);
+          toast({
+            title: 'Accesso effettuato',
+            description: 'Benvenuto!',
+          });
+          navigate('/', { replace: true });
         }
       } else {
-        navigate('/');
-      }
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        setError(err.errors[0].message);
-      } else {
-        setError('Errore durante l\'accesso');
+        if (password !== confirmPassword) {
+          toast({
+            title: 'Errore',
+            description: 'Le password non corrispondono',
+            variant: 'destructive',
+          });
+          setLoading(false);
+          return;
+        }
+
+        if (password.length < 8) {
+          toast({
+            title: 'Errore',
+            description: 'La password deve essere di almeno 8 caratteri',
+            variant: 'destructive',
+          });
+          setLoading(false);
+          return;
+        }
+
+        const { error } = await register(email, password, confirmPassword);
+        if (error) {
+          toast({
+            title: 'Errore di registrazione',
+            description: error,
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Registrazione completata',
+            description: 'Account creato con successo!',
+          });
+          navigate('/', { replace: true });
+        }
       }
     } finally {
       setLoading(false);
     }
   };
-
-  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    const formData = new FormData(e.currentTarget);
-    const data = {
-      email: formData.get('email') as string,
-      password: formData.get('password') as string
-    };
-
-    try {
-      const validatedData = loginSchema.parse(data);
-      
-      const redirectUrl = `${window.location.origin}/`;
-      
-      const { error } = await supabase.auth.signUp({
-        email: validatedData.email,
-        password: validatedData.password,
-        options: {
-          emailRedirectTo: redirectUrl
-        }
-      });
-
-      if (error) {
-        if (error.message.includes('User already registered')) {
-          setError('Utente già registrato. Usa il login.');
-        } else {
-          setError(error.message);
-        }
-      } else {
-        setSuccess('Registrazione completata! Contatta un amministratore per l\'autorizzazione.');
-      }
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        setError(err.errors[0].message);
-      } else {
-        setError('Errore durante la registrazione');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (checking) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Verifica configurazione...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!hasAdmin) {
-    return null;
-  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-full mb-4">
-            <Shield className="w-8 h-8 text-primary" />
-          </div>
-          <h1 className="text-3xl font-bold">Sistema HACCP</h1>
-          <p className="text-muted-foreground mt-2">Accesso sicuro al sistema di gestione</p>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{isSignUp ? 'Registrazione' : 'Accesso al Sistema'}</CardTitle>
-            <CardDescription>
-              {isSignUp 
-                ? 'Crea un nuovo account per accedere al sistema' 
-                : 'Inserisci le tue credenziali per accedere'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="signin-email">
-                  <Mail className="w-4 h-4 inline mr-2" />
-                  Email
-                </Label>
+    <div className="min-h-screen haccp-gradient flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold text-center">
+            🥗 HACCP Tracciabilità
+          </CardTitle>
+          <CardDescription className="text-center">
+            {isLogin ? 'Accedi al sistema' : 'Crea un nuovo account'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  id="signin-email"
-                  name="email"
+                  id="email"
                   type="email"
-                  placeholder="esempio@azienda.com"
+                  placeholder="email@esempio.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10"
                   required
+                  disabled={loading}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="signin-password">
-                  <Lock className="w-4 h-4 inline mr-2" />
-                  Password
-                </Label>
-                <Input
-                  id="signin-password"
-                  name="password"
-                  type="password"
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading 
-                  ? (isSignUp ? 'Registrazione in corso...' : 'Accesso in corso...') 
-                  : (isSignUp ? 'Registrati' : 'Accedi')}
-              </Button>
-            </form>
+            </div>
 
-            <div className="mt-4 text-center">
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10"
+                  required
+                  disabled={loading}
+                  minLength={8}
+                />
+              </div>
+            </div>
+
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Conferma Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="pl-10"
+                    required
+                    disabled={loading}
+                    minLength={8}
+                  />
+                </div>
+              </div>
+            )}
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {isLogin ? 'Accesso in corso...' : 'Registrazione...'}
+                </>
+              ) : (
+                <>{isLogin ? 'Accedi' : 'Registrati'}</>
+              )}
+            </Button>
+
+            <div className="text-center">
               <button
                 type="button"
                 onClick={() => {
-                  setIsSignUp(!isSignUp);
-                  setError('');
-                  setSuccess('');
+                  setIsLogin(!isLogin);
+                  setPassword('');
+                  setConfirmPassword('');
                 }}
                 className="text-sm text-primary hover:underline"
+                disabled={loading}
               >
-                {isSignUp 
-                  ? 'Hai già un account? Accedi' 
-                  : 'Non hai un account? Registrati'}
+                {isLogin
+                  ? 'Non hai un account? Registrati'
+                  : 'Hai già un account? Accedi'}
               </button>
             </div>
-
-            {error && (
-              <Alert className="mt-4 border-destructive/50 text-destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            {success && (
-              <Alert className="mt-4 border-green-500/50 text-green-700">
-                <AlertDescription>{success}</AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
-}
+};
+
+export default AuthPocketBase;
