@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { Shield, LogOut, User, Home, Package, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { supabase } from "@/integrations/supabase/client";
+import { pb, logout, currentUser } from "@/lib/pocketbase";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,48 +19,25 @@ interface HeaderProps {
 }
 
 export const Header = ({ activeTab, onTabChange }: HeaderProps) => {
-  const [userProfile, setUserProfile] = useState<{ full_name?: string; company_name?: string } | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [userEmail, setUserEmail] = useState<string>("");
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, company_name')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        
-        setUserProfile(profile);
-
-        // Check if user is admin
-        const { data: roleData } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .eq('role', 'admin')
-          .maybeSingle();
-        
-        setIsAdmin(!!roleData);
-      }
-    };
-
-    fetchUserProfile();
+    const user = currentUser();
+    if (user) {
+      setUserEmail(user.email || "");
+    }
   }, []);
 
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error("Errore durante il logout");
-    } else {
-      toast.success("Logout effettuato con successo");
-    }
+  const handleLogout = () => {
+    logout();
+    toast.success("Logout effettuato con successo");
+    navigate("/auth", { replace: true });
   };
 
-  const getInitials = (name?: string) => {
-    if (!name) return "U";
-    return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+  const getInitials = (email?: string) => {
+    if (!email) return "U";
+    return email.slice(0, 2).toUpperCase();
   };
 
   return (
@@ -71,9 +49,7 @@ export const Header = ({ activeTab, onTabChange }: HeaderProps) => {
           </div>
           <div>
             <h1 className="text-xl font-semibold text-foreground">HACCP Tracker</h1>
-            {userProfile?.company_name && (
-              <p className="text-sm text-muted-foreground">{userProfile.company_name}</p>
-            )}
+            <p className="text-sm text-muted-foreground">Versione Locale</p>
           </div>
         </div>
         
@@ -96,6 +72,14 @@ export const Header = ({ activeTab, onTabChange }: HeaderProps) => {
             >
               <Package className="w-4 h-4" />
             </Button>
+            <Button
+              variant={activeTab === "system" ? "default" : "ghost"}
+              size="icon"
+              className="rounded-xl"
+              onClick={() => onTabChange("system")}
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
           </nav>
 
           {/* Desktop: Full text */}
@@ -116,16 +100,14 @@ export const Header = ({ activeTab, onTabChange }: HeaderProps) => {
               <Package className="w-4 h-4 mr-2" />
               Prodotti
             </Button>
-            {isAdmin && (
-              <Button
-                variant={activeTab === "system" ? "default" : "ghost"}
-                className="rounded-xl"
-                onClick={() => onTabChange("system")}
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Sistema
-              </Button>
-            )}
+            <Button
+              variant={activeTab === "system" ? "default" : "ghost"}
+              className="rounded-xl"
+              onClick={() => onTabChange("system")}
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Sistema
+            </Button>
           </nav>
 
           {/* Account Menu */}
@@ -134,29 +116,27 @@ export const Header = ({ activeTab, onTabChange }: HeaderProps) => {
               <Button variant="ghost" size="icon" className="rounded-xl ml-2">
                 <Avatar className="w-8 h-8">
                   <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                    {getInitials(userProfile?.full_name)}
+                    {getInitials(userEmail)}
                   </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              {userProfile?.full_name && (
+              {userEmail && (
                 <>
-                  <div className="px-2 py-1.5 text-sm font-medium">
-                    {userProfile.full_name}
+                  <div className="px-2 py-1.5 text-sm font-medium truncate">
+                    {userEmail}
                   </div>
                   <DropdownMenuSeparator />
                 </>
               )}
-              {isAdmin && (
-                <DropdownMenuItem 
-                  className="md:hidden"
-                  onClick={() => onTabChange("system")}
-                >
-                  <Settings className="w-4 h-4 mr-2" />
-                  Sistema
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem 
+                className="md:hidden"
+                onClick={() => onTabChange("system")}
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Sistema
+              </DropdownMenuItem>
               <DropdownMenuItem 
                 className="text-destructive focus:text-destructive"
                 onClick={handleLogout}

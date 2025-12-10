@@ -5,8 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useProducts, PBProduct } from '@/hooks/usePocketBase';
-import { Plus, Package, Pencil, Trash2, X, Check, Loader2 } from 'lucide-react';
+import { useSuppliers, PBSupplier } from '@/hooks/usePocketBase';
+import { Plus, Truck, Pencil, Trash2, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -26,26 +26,20 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-export const ProductsListPocketBase = () => {
-  const { data: products, loading, error, create, update, remove } = useProducts();
+export const Suppliers = () => {
+  const { data: suppliers, loading, error, create, update, remove } = useSuppliers();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
-    shelf_life_days: '',
-    ingredients: '',
-    preparation_procedure: '',
+    contact_info: '',
+    notes: '',
   });
 
   const resetForm = () => {
-    setFormData({
-      name: '',
-      shelf_life_days: '',
-      ingredients: '',
-      preparation_procedure: '',
-    });
+    setFormData({ name: '', contact_info: '', notes: '' });
     setEditingId(null);
   };
 
@@ -53,17 +47,16 @@ export const ProductsListPocketBase = () => {
     e.preventDefault();
     setSubmitting(true);
 
-    const productData = {
+    const supplierData = {
       name: formData.name,
-      shelf_life_days: formData.shelf_life_days ? parseInt(formData.shelf_life_days) : null,
-      ingredients: formData.ingredients || null,
-      preparation_procedure: formData.preparation_procedure || null,
+      contact_info: formData.contact_info || null,
+      notes: formData.notes || null,
     };
 
     if (editingId) {
-      await update(editingId, productData);
+      await update(editingId, supplierData);
     } else {
-      await create(productData);
+      await create(supplierData);
     }
 
     resetForm();
@@ -71,14 +64,13 @@ export const ProductsListPocketBase = () => {
     setSubmitting(false);
   };
 
-  const handleEdit = (product: PBProduct) => {
+  const handleEdit = (supplier: PBSupplier) => {
     setFormData({
-      name: product.name,
-      shelf_life_days: product.shelf_life_days?.toString() || '',
-      ingredients: product.ingredients || '',
-      preparation_procedure: product.preparation_procedure || '',
+      name: supplier.name,
+      contact_info: supplier.contact_info || '',
+      notes: supplier.notes || '',
     });
-    setEditingId(product.id);
+    setEditingId(supplier.id);
     setDialogOpen(true);
   };
 
@@ -91,13 +83,13 @@ export const ProductsListPocketBase = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Package className="w-5 h-5" />
-            Prodotti
+            <Truck className="w-5 h-5" />
+            Fornitori
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 w-full" />
+            <Skeleton key={i} className="h-16 w-full" />
           ))}
         </CardContent>
       </Card>
@@ -107,21 +99,16 @@ export const ProductsListPocketBase = () => {
   if (error) {
     return (
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Package className="w-5 h-5" />
-            Prodotti
+            <Truck className="w-5 h-5" />
+            Fornitori
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Collezione "products" non trovata nel database PocketBase.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Accedi al pannello admin per creare la collezione.
-            </p>
-          </div>
+          <p className="text-sm text-muted-foreground text-center py-8">
+            Collezione "suppliers" non trovata. Creala nel pannello admin PocketBase.
+          </p>
         </CardContent>
       </Card>
     );
@@ -131,8 +118,8 @@ export const ProductsListPocketBase = () => {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2">
-          <Package className="w-5 h-5" />
-          Prodotti ({products.length})
+          <Truck className="w-5 h-5" />
+          Fornitori ({suppliers.length})
         </CardTitle>
         <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
@@ -143,47 +130,35 @@ export const ProductsListPocketBase = () => {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editingId ? 'Modifica Prodotto' : 'Nuovo Prodotto'}</DialogTitle>
+              <DialogTitle>{editingId ? 'Modifica Fornitore' : 'Nuovo Fornitore'}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Nome Prodotto *</Label>
+                <Label htmlFor="name">Nome Fornitore *</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Es: Lasagna alla bolognese"
+                  placeholder="Es: Azienda Agricola Rossi"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="shelf_life_days">Durata (giorni)</Label>
+                <Label htmlFor="contact_info">Contatti</Label>
                 <Input
-                  id="shelf_life_days"
-                  type="number"
-                  value={formData.shelf_life_days}
-                  onChange={(e) => setFormData(prev => ({ ...prev, shelf_life_days: e.target.value }))}
-                  placeholder="Es: 5"
-                  min="1"
+                  id="contact_info"
+                  value={formData.contact_info}
+                  onChange={(e) => setFormData(prev => ({ ...prev, contact_info: e.target.value }))}
+                  placeholder="Tel, email, indirizzo..."
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ingredients">Ingredienti</Label>
+                <Label htmlFor="notes">Note</Label>
                 <Textarea
-                  id="ingredients"
-                  value={formData.ingredients}
-                  onChange={(e) => setFormData(prev => ({ ...prev, ingredients: e.target.value }))}
-                  placeholder="Lista ingredienti..."
-                  rows={3}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="preparation_procedure">Procedura</Label>
-                <Textarea
-                  id="preparation_procedure"
-                  value={formData.preparation_procedure}
-                  onChange={(e) => setFormData(prev => ({ ...prev, preparation_procedure: e.target.value }))}
-                  placeholder="Procedura di preparazione..."
+                  id="notes"
+                  value={formData.notes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Note aggiuntive..."
                   rows={3}
                 />
               </div>
@@ -200,33 +175,26 @@ export const ProductsListPocketBase = () => {
         </Dialog>
       </CardHeader>
       <CardContent>
-        {products.length === 0 ? (
+        {suppliers.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">
-            Nessun prodotto. Clicca "Nuovo" per aggiungerne uno.
+            Nessun fornitore. Clicca "Nuovo" per aggiungerne uno.
           </p>
         ) : (
           <div className="space-y-3">
-            {products.map((product) => (
+            {suppliers.map((supplier) => (
               <div
-                key={product.id}
+                key={supplier.id}
                 className="p-4 bg-muted/50 rounded-lg border border-border hover:border-primary/50 transition-colors"
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-medium">{product.name}</h3>
-                    {product.shelf_life_days && (
-                      <p className="text-sm text-muted-foreground">
-                        Durata: {product.shelf_life_days} giorni
-                      </p>
-                    )}
-                    {product.ingredients && (
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                        {product.ingredients}
-                      </p>
+                    <h3 className="font-medium">{supplier.name}</h3>
+                    {supplier.contact_info && (
+                      <p className="text-sm text-muted-foreground">{supplier.contact_info}</p>
                     )}
                   </div>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(product)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(supplier)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <AlertDialog>
@@ -237,14 +205,14 @@ export const ProductsListPocketBase = () => {
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Elimina prodotto?</AlertDialogTitle>
+                          <AlertDialogTitle>Elimina fornitore?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Stai per eliminare "{product.name}". Questa azione non può essere annullata.
+                            Stai per eliminare "{supplier.name}". Questa azione non può essere annullata.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Annulla</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDelete(product.id)}>
+                          <AlertDialogAction onClick={() => handleDelete(supplier.id)}>
                             Elimina
                           </AlertDialogAction>
                         </AlertDialogFooter>

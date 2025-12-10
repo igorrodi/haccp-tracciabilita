@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Header } from "@/components/haccp/Header";
 import { LotForm } from "@/components/haccp/LotForm";
-import { ProductsList } from "@/components/haccp/ProductsList";
 import { RecentLotsList } from "@/components/haccp/RecentLotsList";
+import { ProductsList } from "@/components/haccp/ProductsList";
 import { SystemPanel } from "@/components/haccp/SystemPanel";
 
 const Index = () => {
