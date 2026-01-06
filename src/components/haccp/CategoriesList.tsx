@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
+import { pb, currentUser, isAdmin } from '@/lib/pocketbase';
 import { toast } from 'sonner';
 import { Package, Trash2, FileText, Clock, Edit, ChevronRight } from 'lucide-react';
 import { EditCategoryDialog } from './EditCategoryDialog';
@@ -15,7 +15,7 @@ interface Category {
   ingredients?: string;
   preparation_procedure?: string;
   shelf_life_days?: number;
-  created_at: string;
+  created: string;
 }
 
 interface CategoriesListProps {
@@ -34,42 +34,38 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Category | null>(null);
   const [ingredientHighlights, setIngredientHighlights] = useState<Record<string, IngredientHighlight[]>>({});
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [userIsAdmin, setUserIsAdmin] = useState(false);
 
   const fetchCategories = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = currentUser();
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('product_categories')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const data = await pb.collection('products').getFullList<Category>({
+        sort: '-created',
+      });
 
-      if (error) {
-        toast.error('Errore nel caricamento delle categorie');
-      } else {
-        setCategories(data || []);
-        
-        // Pre-process ingredients highlighting
-        const highlights: Record<string, IngredientHighlight[]> = {};
-        for (const category of data || []) {
-          if (category.ingredients) {
-            const ingredients = category.ingredients.split('\n').filter(line => line.trim());
-            const categoryHighlights: IngredientHighlight[] = [];
-            
-            for (const ingredient of ingredients) {
-              const cleanIngredient = ingredient.trim().replace(/^[•\-\*]\s*/, '');
-              const parts = await highlightAllergens(cleanIngredient);
-              categoryHighlights.push({ ingredient: cleanIngredient, parts });
-            }
-            
-            highlights[category.id] = categoryHighlights;
+      setCategories(data || []);
+      
+      // Pre-process ingredients highlighting
+      const highlights: Record<string, IngredientHighlight[]> = {};
+      for (const category of data || []) {
+        if (category.ingredients) {
+          const ingredients = category.ingredients.split('\n').filter(line => line.trim());
+          const categoryHighlights: IngredientHighlight[] = [];
+          
+          for (const ingredient of ingredients) {
+            const cleanIngredient = ingredient.trim().replace(/^[•\-\*]\s*/, '');
+            const parts = await highlightAllergens(cleanIngredient);
+            categoryHighlights.push({ ingredient: cleanIngredient, parts });
           }
+          
+          highlights[category.id] = categoryHighlights;
         }
-        setIngredientHighlights(highlights);
       }
+      setIngredientHighlights(highlights);
     } catch (error) {
+      console.error('Error fetching categories:', error);
       toast.error('Errore nel caricamento delle categorie');
     } finally {
       setLoading(false);
@@ -77,23 +73,9 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
   };
 
   useEffect(() => {
-    checkAdminStatus();
+    setUserIsAdmin(isAdmin());
     fetchCategories();
   }, [refreshTrigger]);
-
-  const checkAdminStatus = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'admin')
-      .maybeSingle();
-
-    setIsAdmin(!!data);
-  };
 
   const handleEdit = (category: Category) => {
     setEditingCategory(category);
@@ -106,17 +88,9 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
     }
 
     try {
-      const { error } = await supabase
-        .from('product_categories')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        toast.error('Errore durante l\'eliminazione');
-      } else {
-        toast.success('Categoria eliminata con successo');
-        fetchCategories();
-      }
+      await pb.collection('products').delete(id);
+      toast.success('Categoria eliminata con successo');
+      fetchCategories();
     } catch (error) {
       toast.error('Errore durante l\'eliminazione');
     }
@@ -187,7 +161,7 @@ export const CategoriesList = ({ refreshTrigger }: CategoriesListProps) => {
                     <Package className="w-5 h-5 text-primary" />
                     {category.name}
                   </CardTitle>
-                  {isAdmin && (
+                  {userIsAdmin && (
                     <div className="flex gap-2">
                       <Button
                         variant="ghost"

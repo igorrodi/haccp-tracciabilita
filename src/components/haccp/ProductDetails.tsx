@@ -4,9 +4,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { supabase } from '@/integrations/supabase/client';
+import { pb, currentUser, isAdmin as checkIsAdmin } from '@/lib/pocketbase';
 import { toast } from 'sonner';
-import { Image as ImageIcon, Edit, Trash2, X, ListOrdered, QrCode, FileText, Printer, ArrowLeft, Copy } from 'lucide-react';
+import { Image as ImageIcon, Trash2, ListOrdered, QrCode, FileText, Printer, ArrowLeft, Copy } from 'lucide-react';
 import { format } from 'date-fns';
 import { QRCodeSVG } from 'qrcode.react';
 import { highlightAllergens } from '@/lib/allergens';
@@ -32,14 +32,8 @@ interface Lot {
   freezing_date?: string;
   supplier_id?: string;
   reception_date?: string;
-  created_at: string;
+  created: string;
   user_id: string;
-}
-
-interface Profile {
-  user_id: string;
-  full_name?: string;
-  email?: string;
 }
 
 interface Supplier {
@@ -61,47 +55,32 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [highlightedIngredients, setHighlightedIngredients] = useState<Array<{ text: string; isAllergen: boolean }>>([]);
   const [suppliers, setSuppliers] = useState<Record<string, string>>({});
-  const [profiles, setProfiles] = useState<Record<string, Profile>>({});
+  const [users, setUsers] = useState<Record<string, any>>({});
   const [isAdmin, setIsAdmin] = useState(false);
   const [printerEnabled, setPrinterEnabled] = useState(false);
   const [printerSettings, setPrinterSettings] = useState<any>(null);
 
   useEffect(() => {
     fetchLots();
-    checkAdminStatus();
+    setIsAdmin(checkIsAdmin());
     checkPrinterSettings();
     if (product.ingredients) {
       highlightAllergens(product.ingredients).then(setHighlightedIngredients);
     }
   }, [product.id, product.ingredients]);
 
-  const checkAdminStatus = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('role', 'admin')
-        .maybeSingle();
-
-      setIsAdmin(!!data);
-    } catch (error) {
-      console.error('Error checking admin status:', error);
-    }
-  };
-
   const checkPrinterSettings = async () => {
     try {
-      const { data } = await supabase
-        .from('printer_settings')
-        .select('*')
-        .maybeSingle();
+      const user = currentUser();
+      if (!user) return;
+
+      const data = await pb.collection('printer_settings').getFirstListItem(
+        `user_id = "${user.id}"`,
+        { requestKey: null }
+      ).catch(() => null);
 
       if (data) {
-        setPrinterEnabled(data.printer_enabled);
+        setPrinterEnabled((data as any).printer_enabled);
         setPrinterSettings(data);
       }
     } catch (error) {
@@ -111,51 +90,46 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
 
   const fetchLots = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = currentUser();
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('haccp_lots')
-        .select('*')
-        .eq('category_id', product.id)
-        .order('created_at', { ascending: false });
+      const data = await pb.collection('lots').getFullList<Lot>({
+        filter: `product_id = "${product.id}"`,
+        sort: '-created',
+      });
 
-      if (error) {
-        toast.error('Errore nel caricamento dei lotti');
-      } else {
-        setLots(data || []);
-        
-        // Fetch suppliers for these lots
-        const supplierIds = [...new Set(data?.map(lot => lot.supplier_id).filter(Boolean))];
-        if (supplierIds.length > 0) {
-          const { data: suppliersData } = await supabase
-            .from('suppliers')
-            .select('id, name')
-            .in('id', supplierIds);
+      setLots(data || []);
+      
+      // Fetch suppliers for these lots
+      const supplierIds = [...new Set(data?.map(lot => lot.supplier_id).filter(Boolean))];
+      if (supplierIds.length > 0) {
+        const suppliersData = await pb.collection('suppliers').getFullList<Supplier>({
+          filter: supplierIds.map(id => `id = "${id}"`).join(' || '),
+        });
 
-          const suppliersMap: Record<string, string> = {};
-          suppliersData?.forEach((sup: Supplier) => {
-            suppliersMap[sup.id] = sup.name;
-          });
-          setSuppliers(suppliersMap);
+        const suppliersMap: Record<string, string> = {};
+        suppliersData?.forEach((sup) => {
+          suppliersMap[sup.id] = sup.name;
+        });
+        setSuppliers(suppliersMap);
+      }
+
+      // Fetch user info for these lots
+      const userIds = [...new Set(data?.map(lot => lot.user_id).filter(Boolean))];
+      if (userIds.length > 0) {
+        const usersMap: Record<string, any> = {};
+        for (const userId of userIds) {
+          try {
+            const userData = await pb.collection('users').getOne(userId);
+            usersMap[userId] = userData;
+          } catch (e) {
+            // User might not exist
+          }
         }
-
-        // Fetch user profiles for these lots
-        const userIds = [...new Set(data?.map(lot => lot.user_id).filter(Boolean))];
-        if (userIds.length > 0) {
-          const { data: profilesData } = await supabase
-            .from('profiles')
-            .select('user_id, full_name, email')
-            .in('user_id', userIds);
-
-          const profilesMap: Record<string, Profile> = {};
-          profilesData?.forEach((profile: Profile) => {
-            profilesMap[profile.user_id] = profile;
-          });
-          setProfiles(profilesMap);
-        }
+        setUsers(usersMap);
       }
     } catch (error) {
+      console.error('Error fetching lots:', error);
       toast.error('Errore nel caricamento dei lotti');
     } finally {
       setLoading(false);
@@ -191,17 +165,9 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
     }
 
     try {
-      const { error } = await supabase
-        .from('haccp_lots')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        toast.error('Errore durante l\'eliminazione');
-      } else {
-        toast.success('Lotto eliminato con successo');
-        fetchLots();
-      }
+      await pb.collection('lots').delete(id);
+      toast.success('Lotto eliminato con successo');
+      fetchLots();
     } catch (error) {
       toast.error('Errore durante l\'eliminazione');
     }
@@ -364,14 +330,14 @@ Lotto int: ${internalLot}`;
                           )}
                         </TableCell>
                         <TableCell>
-                          {profiles[lot.user_id] ? (
+                          {users[lot.user_id] ? (
                             <div 
                               className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary"
-                              title={profiles[lot.user_id].full_name || profiles[lot.user_id].email}
+                              title={users[lot.user_id].name || users[lot.user_id].email}
                             >
-                              {(profiles[lot.user_id].full_name || profiles[lot.user_id].email || 'U')
+                              {(users[lot.user_id].name || users[lot.user_id].email || 'U')
                                 .split(' ')
-                                .map(n => n[0])
+                                .map((n: string) => n[0])
                                 .join('')
                                 .toUpperCase()
                                 .substring(0, 2)}
@@ -475,18 +441,15 @@ Lotto int: ${internalLot}`;
                 <QRCodeSVG 
                   value={generateQRData(selectedLotForQR)} 
                   size={256}
-                  level="H"
-                  includeMargin
+                  level="M"
+                  includeMargin={true}
                 />
               </div>
-              <div className="text-sm space-y-1 w-full">
-                <p><strong>Prodotto:</strong> {product.name}</p>
-                <p><strong>Lotto:</strong> {selectedLotForQR.internal_lot_number}</p>
-                <p><strong>Lotto originale:</strong> {selectedLotForQR.lot_number}</p>
-                <p><strong>Produzione:</strong> {format(new Date(selectedLotForQR.production_date), 'yyyy-MM-dd')}</p>
-                {selectedLotForQR.expiry_date && (
-                  <p><strong>Scadenza:</strong> {format(new Date(selectedLotForQR.expiry_date), 'yyyy-MM-dd')}</p>
-                )}
+              <div className="text-center space-y-1">
+                <p className="font-medium">{product.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  Lotto: {selectedLotForQR.internal_lot_number || selectedLotForQR.lot_number}
+                </p>
               </div>
             </div>
           )}

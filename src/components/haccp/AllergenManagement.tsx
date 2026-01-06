@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { supabase } from '@/integrations/supabase/client';
+import { pb } from '@/lib/pocketbase';
 import { toast } from 'sonner';
 import { Upload, AlertTriangle, CheckCircle, FileText } from 'lucide-react';
 
@@ -26,18 +26,14 @@ export const AllergenManagement = () => {
 
   const fetchAllergens = async () => {
     try {
-      const { data, error } = await supabase
-        .from('allergens')
-        .select('*')
-        .order('number');
-
-      if (error) {
-        toast.error('Errore nel caricamento degli allergeni');
-      } else {
-        setAllergens(data || []);
-      }
+      const data = await pb.collection('allergens').getFullList<Allergen>({
+        sort: 'number',
+      });
+      setAllergens(data || []);
     } catch (error) {
-      toast.error('Errore nel caricamento degli allergeni');
+      console.error('Error fetching allergens:', error);
+      // Collection might not exist yet
+      setAllergens([]);
     } finally {
       setLoading(false);
     }
@@ -67,19 +63,15 @@ export const AllergenManagement = () => {
       }).filter(a => !isNaN(a.number));
 
       // Delete existing allergens
-      const { error: deleteError } = await supabase
-        .from('allergens')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
-
-      if (deleteError) throw deleteError;
+      const existingAllergens = await pb.collection('allergens').getFullList();
+      for (const allergen of existingAllergens) {
+        await pb.collection('allergens').delete(allergen.id);
+      }
 
       // Insert new allergens
-      const { error: insertError } = await supabase
-        .from('allergens')
-        .insert(newAllergens);
-
-      if (insertError) throw insertError;
+      for (const allergen of newAllergens) {
+        await pb.collection('allergens').create(allergen);
+      }
 
       toast.success(`${newAllergens.length} allergeni caricati con successo`);
       fetchAllergens();
