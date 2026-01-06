@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { supabase } from "@/integrations/supabase/client";
+import { pb } from "@/lib/pocketbase";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -72,30 +72,21 @@ export const EditCategoryDialog = ({
       };
       const validatedData = categorySchema.parse(dataToValidate);
 
-      const { error } = await supabase
-        .from('product_categories')
-        .update({
-          name: validatedData.name,
-          ingredients: validatedData.ingredients || null,
-          preparation_procedure: validatedData.preparation_procedure || null,
-          shelf_life_days: validatedData.shelf_life_days || null
-        })
-        .eq('id', category.id);
+      await pb.collection('products').update(category.id, {
+        name: validatedData.name,
+        ingredients: validatedData.ingredients || null,
+        preparation_procedure: validatedData.preparation_procedure || null,
+        shelf_life_days: validatedData.shelf_life_days || null
+      });
 
-      if (error) {
-        if (error.message.includes('duplicate key')) {
-          setError('Categoria già esistente con questo nome');
-        } else {
-          setError(error.message);
-        }
-      } else {
-        toast.success('Categoria aggiornata con successo!');
-        onCategoryUpdated();
-        onOpenChange(false);
-      }
+      toast.success('Categoria aggiornata con successo!');
+      onCategoryUpdated();
+      onOpenChange(false);
     } catch (err) {
       if (err instanceof z.ZodError) {
         setError(err.errors[0].message);
+      } else if ((err as any)?.message?.includes('unique')) {
+        setError('Categoria già esistente con questo nome');
       } else {
         setError('Errore durante l\'aggiornamento della categoria');
       }

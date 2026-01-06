@@ -3,12 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { supabase } from '@/integrations/supabase/client';
+import { pb, currentUser } from '@/lib/pocketbase';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { Plus, Package } from 'lucide-react';
+import { Package } from 'lucide-react';
 
 const categorySchema = z.object({
   name: z.string().trim().min(2, 'Il nome deve avere almeno 2 caratteri').max(100, 'Nome troppo lungo'),
@@ -42,33 +41,25 @@ export const CategoryForm = ({ onCategoryAdded }: CategoryFormProps) => {
     try {
       const validatedData = categorySchema.parse(data);
       
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = currentUser();
       if (!user) throw new Error('Utente non autenticato');
 
-      const { error } = await supabase
-        .from('product_categories')
-        .insert([{
-          user_id: user.id,
-          name: validatedData.name,
-          ingredients: validatedData.ingredients || null,
-          preparation_procedure: validatedData.preparation_procedure || null,
-          shelf_life_days: validatedData.shelf_life_days || null
-        }]);
+      await pb.collection('products').create({
+        user_id: user.id,
+        name: validatedData.name,
+        ingredients: validatedData.ingredients || null,
+        preparation_procedure: validatedData.preparation_procedure || null,
+        shelf_life_days: validatedData.shelf_life_days || null
+      });
 
-      if (error) {
-        if (error.message.includes('duplicate key')) {
-          setError('Categoria già esistente con questo nome');
-        } else {
-          setError(error.message);
-        }
-      } else {
-        toast.success('Categoria aggiunta con successo!');
-        (e.target as HTMLFormElement).reset();
-        onCategoryAdded();
-      }
+      toast.success('Categoria aggiunta con successo!');
+      (e.target as HTMLFormElement).reset();
+      onCategoryAdded();
     } catch (err) {
       if (err instanceof z.ZodError) {
         setError(err.errors[0].message);
+      } else if ((err as any)?.message?.includes('unique')) {
+        setError('Categoria già esistente con questo nome');
       } else {
         setError('Errore durante il salvataggio della categoria');
       }

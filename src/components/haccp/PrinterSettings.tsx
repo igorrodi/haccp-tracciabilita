@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Printer, Save, Usb, Wifi } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { pb, currentUser } from '@/lib/pocketbase';
 import { toast } from 'sonner';
 import { detectUSBPrinters, requestUSBPrinter, DetectedPrinter } from '@/lib/printerDetection';
 import { LabelPreview } from './LabelPreview';
@@ -89,19 +89,16 @@ export const PrinterSettings = () => {
 
   const fetchSettings = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = currentUser();
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('printer_settings')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const data = await pb.collection('printer_settings').getFirstListItem(
+        `user_id = "${user.id}"`,
+        { requestKey: null }
+      ).catch(() => null);
 
-      if (error && error.code !== 'PGRST116') {
-        toast.error('Errore nel caricamento delle impostazioni');
-      } else if (data) {
-        setSettings(data);
+      if (data) {
+        setSettings(data as any);
       }
     } catch (error) {
       console.error('Error fetching printer settings:', error);
@@ -113,48 +110,55 @@ export const PrinterSettings = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = currentUser();
       if (!user) return;
 
-      // Remove id from settings data to avoid conflicts
       const { id, ...settingsWithoutId } = settings;
       const settingsData = {
         ...settingsWithoutId,
         user_id: user.id,
       };
 
-      let error;
       if (id) {
-        // Update existing settings
-        const result = await supabase
-          .from('printer_settings')
-          .update(settingsData)
-          .eq('id', id);
-        error = result.error;
+        await pb.collection('printer_settings').update(id, settingsData);
       } else {
-        // Insert new settings
-        const result = await supabase
-          .from('printer_settings')
-          .insert([settingsData])
-          .select()
-          .single();
-        error = result.error;
-        if (!error && result.data) {
-          setSettings(result.data);
-        }
+        const result = await pb.collection('printer_settings').create(settingsData);
+        setSettings({ ...settings, id: result.id });
       }
 
-      if (error) {
-        toast.error('Errore nel salvataggio delle impostazioni');
-        console.error('Save error:', error);
-      } else {
-        toast.success('Impostazioni stampante salvate con successo');
-      }
+      toast.success('Impostazioni stampante salvate con successo');
     } catch (error) {
       toast.error('Errore nel salvataggio');
       console.error('Save error:', error);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTogglePrinter = async (checked: boolean) => {
+    const newSettings = { ...settings, printer_enabled: checked };
+    setSettings(newSettings);
+    
+    try {
+      const user = currentUser();
+      if (!user) return;
+
+      const { id, ...settingsWithoutId } = newSettings;
+      const settingsData = {
+        ...settingsWithoutId,
+        user_id: user.id,
+      };
+
+      if (id) {
+        await pb.collection('printer_settings').update(id, { printer_enabled: checked });
+      } else {
+        const result = await pb.collection('printer_settings').create(settingsData);
+        setSettings({ ...newSettings, id: result.id });
+      }
+      toast.success(checked ? 'Stampante abilitata' : 'Stampante disabilitata');
+    } catch (error) {
+      console.error('Error saving printer toggle:', error);
+      toast.error('Errore nel salvataggio');
     }
   };
 
@@ -194,42 +198,7 @@ export const PrinterSettings = () => {
           <Switch
             id="printer_enabled"
             checked={settings.printer_enabled}
-            onCheckedChange={async (checked) => {
-              const newSettings = { ...settings, printer_enabled: checked };
-              setSettings(newSettings);
-              
-              // Auto-save when toggling printer enable/disable
-              try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) return;
-
-                const { id, ...settingsWithoutId } = newSettings;
-                const settingsData = {
-                  ...settingsWithoutId,
-                  user_id: user.id,
-                };
-
-                if (id) {
-                  await supabase
-                    .from('printer_settings')
-                    .update({ printer_enabled: checked })
-                    .eq('id', id);
-                } else {
-                  const result = await supabase
-                    .from('printer_settings')
-                    .insert([settingsData])
-                    .select()
-                    .single();
-                  if (result.data) {
-                    setSettings(result.data);
-                  }
-                }
-                toast.success(checked ? 'Stampante abilitata' : 'Stampante disabilitata');
-              } catch (error) {
-                console.error('Error saving printer toggle:', error);
-                toast.error('Errore nel salvataggio');
-              }
-            }}
+            onCheckedChange={handleTogglePrinter}
           />
         </div>
 
@@ -248,99 +217,99 @@ export const PrinterSettings = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-            <SelectItem value="thermal">Termica</SelectItem>
-            <SelectItem value="inkjet">Inkjet</SelectItem>
-            <SelectItem value="laser">Laser</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+                  <SelectItem value="thermal">Termica</SelectItem>
+                  <SelectItem value="inkjet">Inkjet</SelectItem>
+                  <SelectItem value="laser">Laser</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-      <div className="space-y-4 rounded-lg border p-4">
-        <div className="flex items-center justify-between">
-          <Label className="text-base font-semibold">Connessione Stampante</Label>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="connection-type">Tipo di Connessione</Label>
-          <Select
-            value={settings.printer_connection_type || 'browser'}
-            onValueChange={(value) => setSettings(prev => ({ ...prev, printer_connection_type: value }))}
-          >
-            <SelectTrigger id="connection-type">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="browser">
-                <div className="flex items-center gap-2">
-                  <Printer className="h-4 w-4" />
-                  <span>Browser (Dialogo Sistema)</span>
-                </div>
-              </SelectItem>
-              <SelectItem value="usb">
-                <div className="flex items-center gap-2">
-                  <Usb className="h-4 w-4" />
-                  <span>USB Diretta</span>
-                </div>
-              </SelectItem>
-              <SelectItem value="network">
-                <div className="flex items-center gap-2">
-                  <Wifi className="h-4 w-4" />
-                  <span>Rete (IP)</span>
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {settings.printer_connection_type === 'usb' && (
-          <div className="space-y-2">
-            <Label>Stampante USB</Label>
-            {settings.printer_name ? (
-              <div className="flex items-center justify-between rounded-lg border p-3 bg-muted">
-                <div className="flex items-center gap-2">
-                  <Usb className="h-4 w-4" />
-                  <span className="text-sm font-medium">{settings.printer_name}</span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRequestPrinter}
-                >
-                  Cambia
-                </Button>
+            <div className="space-y-4 rounded-lg border p-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-semibold">Connessione Stampante</Label>
               </div>
-            ) : (
-              <Button
-                onClick={handleRequestPrinter}
-                variant="outline"
-                className="w-full"
-              >
-                <Usb className="mr-2 h-4 w-4" />
-                Seleziona Stampante USB
-              </Button>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Permette al browser di comunicare direttamente con la stampante USB
-            </p>
-          </div>
-        )}
 
-        {settings.printer_connection_type === 'network' && (
-          <div className="space-y-2">
-            <Label htmlFor="printer-ip">Indirizzo IP Stampante</Label>
-            <Input
-              id="printer-ip"
-              type="text"
-              placeholder="192.168.1.100"
-              value={settings.printer_ip_address || ''}
-              onChange={(e) => setSettings(prev => ({ ...prev, printer_ip_address: e.target.value }))}
-            />
-            <p className="text-xs text-muted-foreground">
-              Inserisci l'indirizzo IP della stampante di rete
-            </p>
-          </div>
-        )}
-      </div>
+              <div className="space-y-2">
+                <Label htmlFor="connection-type">Tipo di Connessione</Label>
+                <Select
+                  value={settings.printer_connection_type || 'browser'}
+                  onValueChange={(value) => setSettings(prev => ({ ...prev, printer_connection_type: value }))}
+                >
+                  <SelectTrigger id="connection-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="browser">
+                      <div className="flex items-center gap-2">
+                        <Printer className="h-4 w-4" />
+                        <span>Browser (Dialogo Sistema)</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="usb">
+                      <div className="flex items-center gap-2">
+                        <Usb className="h-4 w-4" />
+                        <span>USB Diretta</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="network">
+                      <div className="flex items-center gap-2">
+                        <Wifi className="h-4 w-4" />
+                        <span>Rete (IP)</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {settings.printer_connection_type === 'usb' && (
+                <div className="space-y-2">
+                  <Label>Stampante USB</Label>
+                  {settings.printer_name ? (
+                    <div className="flex items-center justify-between rounded-lg border p-3 bg-muted">
+                      <div className="flex items-center gap-2">
+                        <Usb className="h-4 w-4" />
+                        <span className="text-sm font-medium">{settings.printer_name}</span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRequestPrinter}
+                      >
+                        Cambia
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={handleRequestPrinter}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      <Usb className="mr-2 h-4 w-4" />
+                      Seleziona Stampante USB
+                    </Button>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Permette al browser di comunicare direttamente con la stampante USB
+                  </p>
+                </div>
+              )}
+
+              {settings.printer_connection_type === 'network' && (
+                <div className="space-y-2">
+                  <Label htmlFor="printer-ip">Indirizzo IP Stampante</Label>
+                  <Input
+                    id="printer-ip"
+                    type="text"
+                    placeholder="192.168.1.100"
+                    value={settings.printer_ip_address || ''}
+                    onChange={(e) => setSettings(prev => ({ ...prev, printer_ip_address: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Inserisci l'indirizzo IP della stampante di rete
+                  </p>
+                </div>
+              )}
+            </div>
 
             {/* Label Dimensions */}
             <div className="grid grid-cols-2 gap-4">

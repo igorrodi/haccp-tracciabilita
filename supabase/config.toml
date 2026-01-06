@@ -1,7 +1,0 @@
-project_id = "domzjvvfcalyzphrizfw"
-
-[functions.send-invite]
-verify_jwt = false
-
-[functions.delete-user]
-verify_jwt = false
