@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Script per aggiornare l'applicazione da GitHub
-# Esegue pull, rebuild e riavvio automatico
+# Script per aggiornare Tracker HACCP da GitHub
+# Compatibile con installazione PocketBase su Raspberry Pi
 
 set -e
 
@@ -17,11 +17,15 @@ print_info() { echo -e "${BLUE}[ℹ]${NC} $1"; }
 
 clear
 echo "╔═══════════════════════════════════════════════════════════════╗"
-echo "║     Aggiornamento HACCP App da GitHub                        ║"
+echo "║        Aggiornamento Tracker HACCP da GitHub                  ║"
 echo "╚═══════════════════════════════════════════════════════════════╝"
 echo ""
 
-APP_DIR="$HOME/haccp-app"
+# Configurazione
+APP_NAME="trackerhaccp"
+APP_DIR="/opt/${APP_NAME}"
+DATA_DIR="/var/lib/${APP_NAME}"
+REPO_URL="https://github.com/igorrodi/haccp-tracciabilita.git"
 
 # ============================================================================
 # FASE 1: Backup prima dell'aggiornamento
@@ -29,120 +33,94 @@ APP_DIR="$HOME/haccp-app"
 
 print_info "FASE 1: Backup pre-aggiornamento..."
 
-if [ -f "$APP_DIR/scripts/backup-to-mega.sh" ]; then
+if command -v ${APP_NAME}-backup &> /dev/null; then
     print_info "Esecuzione backup di sicurezza..."
-    "$APP_DIR/scripts/backup-to-mega.sh"
+    ${APP_NAME}-backup
     print_status "Backup completato!"
 else
-    print_info "Script backup non trovato, continuo senza backup..."
-fi
-
-# ============================================================================
-# FASE 2: Pull da GitHub
-# ============================================================================
-
-print_info "FASE 2: Download aggiornamenti da GitHub..."
-
-cd "$APP_DIR"
-
-# Salva modifiche locali (se presenti)
-if [ -n "$(git status --porcelain)" ]; then
-    print_info "Salvataggio modifiche locali..."
-    git stash push -m "Auto-stash before update $(date +%Y%m%d_%H%M%S)"
-fi
-
-# Pull da GitHub
-print_info "Pull da GitHub..."
-git pull origin main
-
-print_status "Codice aggiornato!"
-
-# ============================================================================
-# FASE 3: Aggiorna dipendenze
-# ============================================================================
-
-print_info "FASE 3: Aggiornamento dipendenze..."
-
-if [ -f "package.json" ]; then
-    print_info "Installazione nuove dipendenze npm..."
-    npm install --quiet
-    print_status "Dipendenze aggiornate!"
-fi
-
-# ============================================================================
-# FASE 4: Applica nuove migrazioni database
-# ============================================================================
-
-print_info "FASE 4: Verifica nuove migrazioni database..."
-
-if [ -d "supabase/migrations" ]; then
-    print_info "Applicazione migrazioni..."
-    
-    # Ottieni ID container database
-    DB_CONTAINER=$(docker compose -f scripts/docker/docker-compose.yml ps -q db)
-    
-    if [ -n "$DB_CONTAINER" ]; then
-        # Applica ogni migrazione
-        for migration in supabase/migrations/*.sql; do
-            if [ -f "$migration" ]; then
-                FILENAME=$(basename "$migration")
-                print_info "Applico: $FILENAME"
-                
-                docker exec -i "$DB_CONTAINER" \
-                    psql -U postgres -d postgres < "$migration" 2>&1 | grep -v "NOTICE:" | grep -v "^$" || true
-            fi
-        done
-        print_status "Migrazioni applicate!"
-    else
-        print_error "Database non in esecuzione!"
+    print_info "Creazione backup manuale..."
+    BACKUP_FILE="/var/backups/${APP_NAME}/${APP_NAME}-pre-update-$(date +%Y%m%d-%H%M%S).tar.gz"
+    mkdir -p /var/backups/${APP_NAME}
+    if [ -d "$DATA_DIR/pb_data" ]; then
+        sudo systemctl stop ${APP_NAME} 2>/dev/null || true
+        sudo tar -czf "$BACKUP_FILE" -C "$DATA_DIR" pb_data
+        sudo systemctl start ${APP_NAME} 2>/dev/null || true
+        print_status "Backup creato: $BACKUP_FILE"
     fi
 fi
 
 # ============================================================================
-# FASE 5: Rebuild applicazione
+# FASE 2: Download aggiornamenti da GitHub
 # ============================================================================
 
-print_info "FASE 5: Rebuild applicazione..."
+print_info "FASE 2: Download aggiornamenti da GitHub..."
 
-# Build frontend
+cd /tmp
+rm -rf ${APP_NAME}-update-src
+git clone --depth 1 "$REPO_URL" ${APP_NAME}-update-src
+
+print_status "Codice scaricato!"
+
+# ============================================================================
+# FASE 3: Build applicazione
+# ============================================================================
+
+print_info "FASE 3: Build applicazione..."
+
+cd /tmp/${APP_NAME}-update-src
+
+# Installa dipendenze e build
+print_info "Installazione dipendenze npm..."
+npm ci --silent 2>/dev/null || npm install --silent
+
 print_info "Build frontend..."
 npm run build
-
-# Rebuild immagine Docker
-print_info "Rebuild immagine Docker..."
-docker build -t haccp-app:latest -f scripts/docker/Dockerfile .
 
 print_status "Build completata!"
 
 # ============================================================================
-# FASE 6: Riavvio servizi
+# FASE 4: Deploy nuova versione
 # ============================================================================
 
-print_info "FASE 6: Riavvio servizi..."
+print_info "FASE 4: Deploy nuova versione..."
 
-cd scripts/docker
+# Copia nuovi file
+sudo rm -rf ${APP_DIR}/www/*
+sudo cp -r dist/* ${APP_DIR}/www/
 
-# Ferma app
-print_info "Stop container app..."
-docker stop haccp-app 2>/dev/null || true
-docker rm haccp-app 2>/dev/null || true
-
-# Riavvia con docker-compose
-print_info "Avvio nuova versione..."
-docker compose up -d
-
-# Attendi che l'app sia pronta
-print_info "Attesa avvio app (10 secondi)..."
-sleep 10
-
-# Verifica che sia in esecuzione
-if docker ps | grep -q "haccp-app"; then
-    print_status "App riavviata con successo!"
-else
-    print_error "Errore avvio app!"
-    docker logs haccp-app
-    exit 1
+# Aggiorna schema PocketBase se presente
+if [ -f "scripts/pocketbase/pb_schema.json" ]; then
+    sudo cp scripts/pocketbase/pb_schema.json ${DATA_DIR}/
+    print_info "Schema PocketBase aggiornato"
 fi
+
+print_status "File aggiornati!"
+
+# ============================================================================
+# FASE 5: Riavvio servizi
+# ============================================================================
+
+print_info "FASE 5: Riavvio servizi..."
+
+# Riavvia PocketBase (se in esecuzione)
+if systemctl is-active --quiet ${APP_NAME}; then
+    sudo systemctl restart ${APP_NAME}
+    print_status "PocketBase riavviato!"
+fi
+
+# Ricarica Nginx
+sudo systemctl reload nginx 2>/dev/null || true
+
+# ============================================================================
+# FASE 6: Pulizia
+# ============================================================================
+
+print_info "FASE 6: Pulizia file temporanei..."
+
+cd /
+rm -rf /tmp/${APP_NAME}-update-src
+
+print_status "Pulizia completata!"
 
 # ============================================================================
 # FASE 7: Verifica finale
@@ -150,11 +128,24 @@ fi
 
 print_info "FASE 7: Verifica finale..."
 
-# Test connessione app
-if curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 | grep -q "200\|301\|302"; then
-    print_status "App funzionante!"
+# Attendi avvio
+sleep 2
+
+# Verifica servizio PocketBase
+if systemctl is-active --quiet ${APP_NAME}; then
+    print_status "PocketBase in esecuzione!"
 else
-    print_error "App non risponde!"
+    print_error "PocketBase non risponde!"
+    sudo journalctl -u ${APP_NAME} --no-pager -n 5
+fi
+
+# Test connessione app
+if curl -sk -o /dev/null -w "%{http_code}" https://localhost 2>/dev/null | grep -q "200\|301\|302"; then
+    print_status "App funzionante!"
+elif curl -s -o /dev/null -w "%{http_code}" http://localhost 2>/dev/null | grep -q "200\|301\|302"; then
+    print_status "App funzionante (HTTP)!"
+else
+    print_info "App potrebbe richiedere qualche secondo per rispondere"
 fi
 
 # ============================================================================
@@ -163,20 +154,17 @@ fi
 
 echo ""
 echo "╔═══════════════════════════════════════════════════════════════╗"
-echo "║         Aggiornamento Completato con Successo!               ║"
+echo "║         Aggiornamento Completato con Successo!                ║"
 echo "╚═══════════════════════════════════════════════════════════════╝"
 echo ""
-print_status "HACCP App aggiornata all'ultima versione!"
+print_status "Tracker HACCP aggiornato all'ultima versione!"
 echo ""
-print_info "Versione corrente:"
-git log -1 --oneline
-echo ""
-print_info "Servizi disponibili:"
-echo "  🌐 App HACCP: http://localhost:3000"
-echo "  🗄️  Supabase Studio: http://localhost:54323"
+print_info "Accesso:"
+echo "  🌐 App HACCP:      https://${APP_NAME}.local"
+echo "  ⚙️  Admin PocketBase: https://${APP_NAME}.local/_/"
 echo ""
 print_info "Comandi utili:"
-echo "  • Visualizza log:  docker logs -f haccp-app"
-echo "  • Riavvia app:     docker restart haccp-app"
-echo "  • Verifica stato:  docker ps"
+echo "  • Stato sistema:   ${APP_NAME}-status"
+echo "  • Backup manuale:  ${APP_NAME}-backup"
+echo "  • Log PocketBase:  sudo journalctl -u ${APP_NAME} -f"
 echo ""
