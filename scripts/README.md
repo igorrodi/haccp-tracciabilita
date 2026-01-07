@@ -1,330 +1,240 @@
-# 🚀 Script di Installazione HACCP App
+# 🚀 Installazione Tracker HACCP su Raspberry Pi
 
-Questa directory contiene gli script per installare e deployare l'applicazione HACCP su diverse piattaforme.
+Guida completa per installare l'applicazione con PocketBase.
 
-## 📋 Contenuto
+---
 
-### ⭐ Installazione Locale Completa (PRODUZIONE)
-- **`install-raspberry-pi-local.sh`**: **RACCOMANDATO PER INSTALLAZIONI IN LOCALE**
-  - Supabase locale self-hosted per ARM64
-  - Dominio locale `.local` con mDNS
-  - HTTPS con certificati self-signed
-  - OCR automatico (Tesseract)
-  - PWA installabile
-  - Backup automatici
-  - **📖 [Guida completa dettagliata](./INSTALL_LOCAL.md)**
-- **`setup-github.sh`**: Configurazione GitHub per aggiornamenti automatici
+## 📦 Metodo 1: Installazione Automatica (con GitHub)
 
-### 🍓 Raspberry Pi 5 con Ubuntu Server
-- **`install-raspberry-pi.sh`**: Installazione base con Supabase Cloud esterno
+### Requisiti
+- Raspberry Pi 3/4/5 con Raspberry Pi OS (64-bit consigliato)
+- Connessione internet
+- Almeno 2GB RAM, 8GB storage
 
-### 🐳 Installazione Docker 
-- **`docker/build-and-run.sh`**: Script tutto-in-uno per build e deploy automatico
-- **`docker/`**: Directory con tutti i file per deployment Docker avanzato
-  - `Dockerfile`: Immagine Docker ottimizzata per produzione
-  - `Dockerfile.dev`: Immagine Docker per sviluppo con hot reload
-  - `docker-compose.yml`: Configurazione servizi
-  - `nginx.conf`: Configurazione web server
-  - `install-docker.sh`: Script installazione Docker completo
-
-## 🛠️ Utilizzo
-
-### ⭐ Installazione Locale Completa (PRODUZIONE)
-
-**Per installazione in locale con Supabase, dominio .local e HTTPS:**
+### Installazione
 
 ```bash
-# 1. Scarica lo script
-wget https://raw.githubusercontent.com/your-repo/haccp-app/main/scripts/install-raspberry-pi-local.sh
-chmod +x install-raspberry-pi-local.sh
+# Scarica lo script
+curl -O https://raw.githubusercontent.com/tuouser/tracker-haccp/main/scripts/install-haccp-pocketbase.sh
 
-# 2. Opzionale: Configura GitHub per aggiornamenti automatici
-export GITHUB_REPO="https://github.com/TUO_USERNAME/haccp-app.git"
-
-# 3. Esegui l'installazione
-./install-raspberry-pi-local.sh
-
-# 4. Dopo l'installazione, configura GitHub (se non fatto prima)
-chmod +x scripts/setup-github.sh
-./scripts/setup-github.sh
+# Rendi eseguibile e avvia
+chmod +x install-haccp-pocketbase.sh
+sudo ./install-haccp-pocketbase.sh
 ```
 
-**Cosa installa:**
-- ✅ Supabase locale self-hosted (PostgreSQL, Auth, Storage)
-- ✅ Dominio locale `haccp-app.local` accessibile da tutti i dispositivi
-- ✅ HTTPS con certificati self-signed
-- ✅ OCR (Tesseract) per riconoscimento automatico lotti
-- ✅ ImageMagick per ritaglio foto
-- ✅ PWA installabile per uso offline
-- ✅ Backup automatici ogni notte alle 2:00
-- ✅ Script di gestione (update, backup, monitor)
+---
 
-**Accesso all'app:**
-- `https://haccp-app.local` (da qualsiasi dispositivo in rete)
-- `http://localhost:8000` (Supabase Studio)
+## 🔧 Metodo 2: Installazione Manuale OFFLINE (senza GitHub)
 
-**Comandi di gestione:**
-```bash
-sudo update-haccp    # Aggiorna da GitHub
-sudo backup-haccp    # Backup completo
-sudo monitor-haccp   # Stato servizi
-```
+Ideale per ambienti senza internet o per controllo totale.
 
-📖 **[Leggi la guida completa](./INSTALL_LOCAL.md)** per dettagli su configurazione, troubleshooting e ottimizzazioni.
+### Passo 1: Prepara i file su un PC
 
-### 🚀 Installazione Docker Semplificata
+Sul tuo PC con internet, scarica:
 
-**Un solo comando per tutto:**
+1. **PocketBase** da https://pocketbase.io/docs/
+   - `pocketbase_X.X.X_linux_arm64.zip` per Pi 64-bit
+   - `pocketbase_X.X.X_linux_armv7.zip` per Pi 32-bit
+
+2. **Compila l'app React**:
+   ```bash
+   npm install
+   npm run build
+   ```
+
+3. **Copia su chiavetta USB**:
+   ```
+   USB/
+   ├── pocketbase_linux_arm64.zip
+   ├── dist/                    ← cartella app compilata
+   └── pb_schema.json          ← da scripts/pocketbase/
+   ```
+
+### Passo 2: Installa dipendenze sul Raspberry Pi
 
 ```bash
-# Dal root del progetto
-chmod +x scripts/docker/build-and-run.sh
-./scripts/docker/build-and-run.sh
-
-# Opzioni disponibili:
-./scripts/docker/build-and-run.sh --help           # Mostra aiuto completo
-./scripts/docker/build-and-run.sh -p 8080          # Usa porta 8080 invece di 80
-./scripts/docker/build-and-run.sh --dev            # Modalità sviluppo con hot reload
-./scripts/docker/build-and-run.sh --clean          # Pulisci e rebuilda tutto
-./scripts/docker/build-and-run.sh --no-cache       # Build senza cache Docker
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y nginx openssl avahi-daemon unzip
 ```
 
-**Lo script automaticamente:**
-- ✅ Verifica prerequisiti (Docker, permessi, etc.)
-- ✅ Crea l'immagine Docker dell'app (produzione o sviluppo)
-- ✅ Configura Nginx con sicurezza ottimizzata  
-- ✅ Avvia il container con health check automatici
-- ✅ Crea script di gestione (haccp-update.sh, haccp-backup.sh, haccp-monitor.sh)
-- ✅ Verifica il deployment e mostra URL di accesso
-- ✅ Supporta modalità sviluppo con hot reload (Vite dev server + Nginx)
-
-**Al termine avrai:**
-- App accessibile su `http://localhost` (o porta specificata)
-- Script `haccp-update.sh` per aggiornamenti
-- Script `haccp-backup.sh` per backup automatici  
-- Script `haccp-monitor.sh` per monitoraggio stato
-
-### Installazione su Raspberry Pi 5
+### Passo 3: Copia i file dalla USB
 
 ```bash
-# 1. Scarica e prepara lo script
-wget -O install-raspberry-pi.sh https://raw.githubusercontent.com/your-repo/haccp-app/main/scripts/install-raspberry-pi.sh
-chmod +x install-raspberry-pi.sh
+# Monta USB
+sudo mount /dev/sda1 /mnt
 
-# 2. Copia il codice dell'app in /tmp/haccp-app/
-cp -r /path/to/haccp-app /tmp/
+# Crea cartelle
+sudo mkdir -p /opt/haccp-app/{bin,data,web}
 
-# 3. Esegui l'installazione
-./install-raspberry-pi.sh
+# Copia PocketBase
+sudo unzip /mnt/pocketbase_linux_arm64.zip -d /opt/haccp-app/bin/
+sudo chmod +x /opt/haccp-app/bin/pocketbase
+
+# Copia app web
+sudo cp -r /mnt/dist/* /opt/haccp-app/web/
+
+# Smonta USB
+sudo umount /mnt
 ```
 
-**Cosa fa lo script:**
-- ✅ Aggiorna il sistema Ubuntu
-- ✅ Installa Node.js 20.x e dipendenze
-- ✅ Configura Nginx come web server
-- ✅ Build e deploy dell'applicazione React
-- ✅ Configura firewall e sicurezza
-- ✅ Crea script di aggiornamento automatico
-- ✅ Ottimizzazioni specifiche per Raspberry Pi
-
-### Installazione con Docker
+### Passo 4: Configura servizio PocketBase
 
 ```bash
-# 1. Scarica lo script Docker
-wget -O install-docker.sh https://raw.githubusercontent.com/your-repo/haccp-app/main/scripts/docker/install-docker.sh
-chmod +x install-docker.sh
+sudo tee /etc/systemd/system/pocketbase.service > /dev/null <<EOF
+[Unit]
+Description=PocketBase
+After=network.target
 
-# 2. Esegui l'installazione
-./install-docker.sh
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/haccp-app
+ExecStart=/opt/haccp-app/bin/pocketbase serve --http=127.0.0.1:8090 --dir=/opt/haccp-app/data
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable pocketbase
+sudo systemctl start pocketbase
 ```
 
-**Cosa fa lo script:**
-- ✅ Rileva automaticamente la distribuzione OS
-- ✅ Installa Docker e Docker Compose
-- ✅ Configura Docker per l'utente corrente
-- ✅ Build e deploy dell'applicazione in container
-- ✅ Crea script di gestione (update, backup, monitor)
-- ✅ Ottimizzazioni per Raspberry Pi se rilevato
+### Passo 5: Configura HTTPS
 
-## 🎯 Sistemi Supportati
-
-### Raspberry Pi Script
-- ✅ Raspberry Pi 5 con Ubuntu Server 22.04+
-- ✅ Ubuntu Server 20.04/22.04
-- ✅ Debian 11/12
-
-### Docker Script
-- ✅ Ubuntu 18.04/20.04/22.04
-- ✅ Debian 10/11/12
-- ✅ CentOS 7/8
-- ✅ RHEL 7/8/9
-- ✅ Fedora 35+
-- ✅ Raspberry Pi OS
-
-## 🔧 Post-Installazione
-
-### Raspberry Pi
-
-Dopo l'installazione, l'app sarà disponibile su:
-- `http://IP_DEL_RASPBERRY`
-- `http://localhost` (se accesso locale)
-
-**Script di gestione:**
 ```bash
-# Aggiorna l'applicazione
-sudo /usr/local/bin/update-haccp-app
-
-# Controlla stato Nginx
-sudo systemctl status nginx
-
-# Visualizza log
-sudo tail -f /var/log/nginx/access.log
+# Genera certificato SSL
+sudo mkdir -p /etc/ssl/haccp
+sudo openssl req -x509 -nodes -days 3650 \
+  -newkey rsa:2048 \
+  -keyout /etc/ssl/haccp/key.pem \
+  -out /etc/ssl/haccp/cert.pem \
+  -subj "/CN=haccp-app.local"
 ```
 
-### Docker
+### Passo 6: Configura Nginx
 
-Dopo l'installazione, l'app sarà disponibile su:
-- `http://localhost`
-- `http://IP_DEL_SERVER`
-
-**Script di gestione (build-and-run.sh):**
 ```bash
-# Script generati automaticamente nella root del progetto:
-./haccp-update.sh       # Aggiorna l'app (rebuild e redeploy)
-./haccp-backup.sh       # Crea backup completo del container
-./haccp-monitor.sh      # Mostra stato, risorse e health check
+sudo tee /etc/nginx/sites-available/haccp-app > /dev/null <<'EOF'
+server {
+    listen 80;
+    server_name haccp-app.local _;
+    return 301 https://$host$request_uri;
+}
 
-# Gestione diretta container:
-docker ps               # Stato container
-docker logs haccp-container    # Log applicazione
-docker restart haccp-container # Riavvia container
-docker stop haccp-container    # Ferma container
+server {
+    listen 443 ssl;
+    server_name haccp-app.local _;
+
+    ssl_certificate /etc/ssl/haccp/cert.pem;
+    ssl_certificate_key /etc/ssl/haccp/key.pem;
+
+    root /opt/haccp-app/web;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8090/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location /_/ {
+        proxy_pass http://127.0.0.1:8090/_/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+EOF
+
+sudo ln -sf /etc/nginx/sites-available/haccp-app /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl restart nginx
 ```
 
-**Script di gestione (docker-compose avanzato):**
+### Passo 7: Configura nome locale (mDNS)
+
 ```bash
-cd ~/haccp-app-docker
+sudo hostnamectl set-hostname haccp-app
+echo "127.0.0.1 haccp-app.local" | sudo tee -a /etc/hosts
 
-# Aggiorna applicazione
-./update.sh
+sudo tee /etc/avahi/services/haccp.service > /dev/null <<EOF
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name>Tracker HACCP</name>
+  <service>
+    <type>_https._tcp</type>
+    <port>443</port>
+  </service>
+</service-group>
+EOF
 
-# Monitora stato
-./monitor.sh
-
-# Crea backup
-./backup.sh
-
-# Gestione manuale
-docker compose logs -f      # Log in tempo reale
-docker compose restart     # Riavvia
-docker compose down        # Ferma
+sudo systemctl restart avahi-daemon
 ```
 
-## ⚙️ Configurazione
+### Passo 8: Primo accesso
 
-### Variabili d'Ambiente
+1. **App**: `https://haccp-app.local` (accetta certificato)
+2. **Admin PocketBase**: `https://haccp-app.local/_/`
+3. Crea account admin al primo accesso
 
-L'applicazione utilizza le seguenti variabili per Supabase:
-- `VITE_SUPABASE_URL`: URL del progetto Supabase
-- `VITE_SUPABASE_PUBLISHABLE_KEY`: Chiave pubblica Supabase
+---
 
-Queste sono già configurate nel codice per il progetto `domzjvvfcalyzphrizfw`.
+## 💾 Metodo 3: Immagine SD Pre-configurata
 
-### Personalizzazioni
+Dopo aver configurato un Raspberry Pi, puoi creare un'immagine clonabile:
 
-**Raspberry Pi:**
-- Nginx config: `/etc/nginx/sites-available/haccp-app`
-- App directory: `/var/www/haccp-app`
-- Log: `/var/log/nginx/`
-
-**Docker:**
-- Config: `~/haccp-app-docker/docker-compose.yml`
-- Log: `~/haccp-app-docker/logs/`
-- SSL certs: `~/haccp-app-docker/ssl/`
-
-## 🔐 Sicurezza
-
-Entrambi gli script implementano:
-- ✅ Firewall configurato (UFW)
-- ✅ Headers di sicurezza HTTP
-- ✅ Nginx hardening
-- ✅ Utenti non-root per servizi
-- ✅ Compressione Gzip
-- ✅ Cache ottimizzata
-- ✅ Health checks
-
-## 🚨 Risoluzione Problemi
-
-### Problemi Comuni
-
-**Raspberry Pi:**
 ```bash
-# Nginx non si avvia
-sudo nginx -t                    # Test config
-sudo systemctl status nginx     # Stato servizio
-
-# App non si carica
-sudo tail -f /var/log/nginx/error.log
-
-# Memoria insufficiente durante build
-sudo dphys-swapfile swapoff
-sudo dphys-swapfile swapon
+# Sul PC, con SD inserita:
+sudo dd if=/dev/sdX of=haccp-tracker.img bs=4M status=progress
+gzip haccp-tracker.img
 ```
 
-**Docker:**
+Per usarla: scrivi l'immagine su una nuova SD con **Raspberry Pi Imager** o **balenaEtcher**.
+
+---
+
+## 📋 Script Disponibili
+
+| Script | Descrizione |
+|--------|-------------|
+| `install-haccp-pocketbase.sh` | Installazione automatica completa |
+| `setup-github.sh` | Configura sync con GitHub |
+| `setup-github-ssh.sh` | Configura GitHub con chiavi SSH |
+| `setup-mega-backup.sh` | Backup automatico su MEGA cloud |
+| `update-from-github.sh` | Aggiorna app da GitHub |
+
+---
+
+## 🔧 Comandi Utili
+
 ```bash
-# Container non si avvia
-docker compose logs haccp-app
+# Stato servizi
+sudo systemctl status pocketbase nginx
 
-# Problemi permessi
-sudo usermod -aG docker $USER
-# Poi logout/login
+# Log PocketBase
+sudo journalctl -u pocketbase -f
 
-# Porta già in uso
-docker compose down
-sudo netstat -tlnp | grep :80
+# Backup manuale
+sudo tar czf backup-$(date +%Y%m%d).tar.gz /opt/haccp-app/data
+
+# Riavvia tutto
+sudo systemctl restart pocketbase nginx
 ```
 
-### Log e Debug
+---
 
-**Raspberry Pi:**
-- Nginx access: `/var/log/nginx/access.log`
-- Nginx error: `/var/log/nginx/error.log`
-- System: `sudo journalctl -u nginx`
+## ❓ Problemi Comuni
 
-**Docker:**
-- App logs: `docker compose logs haccp-app`
-- Container stats: `docker stats`
-- System: `docker system df`
-
-## 📞 Supporto
-
-Per problemi o domande:
-1. Controlla i log per errori specifici
-2. Verifica che tutti i servizi siano attivi
-3. Testa la connettività di rete
-4. Controlla le configurazioni Supabase
-
-## 🔄 Aggiornamenti
-
-**Raspberry Pi:**
-```bash
-# Aggiornamento automatico
-sudo /usr/local/bin/update-haccp-app
-
-# Aggiornamento manuale
-cd /var/www/haccp-app
-npm install
-npm run build
-sudo systemctl reload nginx
-```
-
-**Docker:**
-```bash
-# Aggiornamento automatico
-./update.sh
-
-# Aggiornamento manuale
-docker compose pull
-docker compose up --build -d
-```
+| Problema | Soluzione |
+|----------|-----------|
+| Pagina non carica | `sudo systemctl status nginx pocketbase` |
+| Errore certificato | Normale, accettalo nel browser |
+| Nome .local non funziona | Usa IP diretto: `https://192.168.1.X` |
+| PocketBase non parte | `sudo journalctl -u pocketbase -n 50` |
