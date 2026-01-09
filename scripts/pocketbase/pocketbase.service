@@ -1,0 +1,50 @@
+# /etc/systemd/system/pocketbase.service
+#
+# PocketBase Backend Service for Tracker HACCP
+# Raspberry Pi ARM64 optimized
+#
+
+[Unit]
+Description=PocketBase Backend
+Documentation=https://pocketbase.io/docs/
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=haccp
+Group=haccp
+WorkingDirectory=/opt/haccp
+
+# Main process
+ExecStart=/opt/haccp/bin/pocketbase serve \
+    --http=127.0.0.1:8090 \
+    --dir=/opt/haccp/data
+
+# Restart policy
+Restart=always
+RestartSec=5
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/haccp/data /opt/haccp/logs
+
+# Resource limits (optimized for Raspberry Pi)
+MemoryMax=256M
+MemoryHigh=192M
+CPUQuota=80%
+
+# Logging
+StandardOutput=append:/opt/haccp/logs/pocketbase.log
+StandardError=append:/opt/haccp/logs/pocketbase-error.log
+
+# Environment
+Environment=POCKETBASE_ENCRYPTION_KEY=
+
+[Install]
+WantedBy=multi-user.target
