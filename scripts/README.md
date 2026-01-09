@@ -1,147 +1,47 @@
-# 🚀 Tracker HACCP - Installazione Raspberry Pi
+# Tracker HACCP - Raspberry Pi Installation
 
-Sistema di tracciabilità HACCP autogestito con HTTPS locale.
-
-**Stack:** React + Vite + PocketBase + Caddy
-
----
-
-## ⚡ Installazione Rapida (UN COMANDO)
+## Quick Install
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/USER/REPO/main/scripts/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/USER/haccp-tracciabilita/main/scripts/install.sh | sudo bash
 ```
 
-Questo comando:
-- Installa tutti i pacchetti necessari
-- Scarica e configura PocketBase (ARM64)
-- Installa Caddy come reverse proxy HTTPS
-- Configura il dominio locale `haccp.local`
-- Avvia tutti i servizi
+**Requirements:** Raspberry Pi OS 64-bit, 2GB+ RAM
 
-**Requisiti:** Raspberry Pi OS 64-bit, 2GB+ RAM, 8GB+ storage
+## Access
 
----
+- **App:** https://haccp.local
+- **Admin:** https://haccp.local/_/
 
-## 🌐 Accesso
+## Commands
 
-| URL | Descrizione |
-|-----|-------------|
-| `https://haccp.local` | App principale |
-| `https://haccp.local/_/` | Admin PocketBase |
-| `https://192.168.x.x` | Accesso via IP |
+```bash
+haccp-status    # Check services
+haccp-backup    # Backup database
+haccp-logs      # View logs
+```
 
-> Accetta il certificato self-signed al primo accesso.
-
----
-
-## 📁 Struttura File
+## Structure
 
 ```
 /opt/haccp/
-├── bin/pocketbase      # Backend
-├── data/               # Database (BACKUP!)
-├── web/                # Frontend React
-├── backups/            # Backup automatici
-└── logs/               # Log applicazione
-
-/etc/caddy/Caddyfile    # Config reverse proxy
-/etc/systemd/system/pocketbase.service
+├── pocketbase/
+│   ├── bin/pocketbase
+│   ├── pb_data/          # DATABASE
+│   └── pb_migrations/
+├── frontend/             # React build
+├── logs/
+└── backups/
 ```
 
----
+## Files
 
-## 🔧 Comandi Utili
-
-```bash
-# Stato servizi
-haccp-status
-
-# Log in tempo reale
-haccp-logs
-
-# Backup database
-haccp-backup
-
-# Aggiorna frontend
-haccp-update
-
-# Controllo manuale
-sudo systemctl status pocketbase caddy
-sudo systemctl restart pocketbase caddy
-```
-
----
-
-## 🛡️ Architettura
-
-```
-Browser → https://haccp.local:443
-              │
-              ▼
-         ┌─────────┐
-         │  CADDY  │ ← HTTPS, headers, compressione
-         └────┬────┘
-              │
-    ┌─────────┴─────────┐
-    │                   │
-    ▼                   ▼
-/api/* /_/*         /* (static)
-    │                   │
-    ▼                   ▼
-PocketBase         /opt/haccp/web
-:8090 (local)      index.html, assets
-```
-
-- PocketBase: solo `127.0.0.1` (non esposto)
-- HTTPS obbligatorio con certificato locale
-- Funziona offline senza internet
-
----
-
-## 📦 Installazione Manuale (Offline)
-
-Se non hai internet sul Raspberry Pi:
-
-### 1. Prepara su PC
-
-```bash
-# Compila frontend
-npm install && npm run build
-
-# Scarica PocketBase ARM64
-# https://pocketbase.io/docs/ → pocketbase_*_linux_arm64.zip
-```
-
-### 2. Copia su USB
-
-```
-USB/
-├── pocketbase_linux_arm64.zip
-├── dist/                 ← cartella build
-└── install.sh            ← da scripts/
-```
-
-### 3. Su Raspberry Pi
-
-```bash
-# Monta USB e esegui
-sudo mount /dev/sda1 /mnt
-cd /mnt
-sudo bash install.sh --offline
-```
-
----
-
-## 📋 File Disponibili
-
-| File | Descrizione |
+| File | Description |
 |------|-------------|
-| `install.sh` | Installer principale (Caddy + PocketBase) |
-| `pocketbase/pocketbase.service` | Servizio systemd |
-| `caddy/Caddyfile` | Configurazione reverse proxy |
-| `pocketbase/pb_schema.json` | Schema database |
-| `INSTALL.md` | Documentazione dettagliata |
+| `install.sh` | Main installer |
+| `pocketbase/pocketbase.service` | Systemd service |
+| `caddy/Caddyfile` | Reverse proxy |
+| `INSTALL.md` | Full documentation |
 
 ---
 

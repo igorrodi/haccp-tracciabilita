@@ -1,176 +1,43 @@
-# ============================================================================
-# Tracker HACCP - Caddyfile
-# /etc/caddy/Caddyfile
-#
-# Architecture: Caddy as reverse proxy + HTTPS termination
-# Backend: PocketBase on 127.0.0.1:8090
-# Frontend: Static files in /opt/haccp/web
-# ============================================================================
-
 {
-    # ========================================================================
-    # Global Options
-    # ========================================================================
-    
-    # Disable admin API (security)
     admin off
-    
-    # Use local CA for self-signed certificates
-    # This allows HTTPS without internet access
     local_certs
-    
-    # Disable automatic HTTPS redirects (we handle manually)
     auto_https disable_redirects
-    
-    # Structured logging
-    log {
-        output file /opt/haccp/logs/caddy-access.log {
-            roll_size 10mb
-            roll_keep 5
-        }
-        format json
-        level INFO
-    }
 }
-
-# ============================================================================
-# HTTPS Site (Primary)
-# ============================================================================
 
 https://haccp.local {
-    # ------------------------------------------------------------------------
-    # TLS Configuration
-    # ------------------------------------------------------------------------
-    
-    # Use internal/self-signed certificate
-    # Works offline without internet access
-    tls internal {
-        # Optional: specify key type
-        # key_type rsa4096
-    }
-    
-    # ------------------------------------------------------------------------
-    # Security Headers
-    # ------------------------------------------------------------------------
-    
+    tls internal
+
     header {
-        # HTTP Strict Transport Security
-        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-        
-        # Prevent clickjacking
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
         X-Frame-Options "SAMEORIGIN"
-        
-        # Prevent MIME type sniffing
         X-Content-Type-Options "nosniff"
-        
-        # XSS Protection (legacy browsers)
         X-XSS-Protection "1; mode=block"
-        
-        # Referrer Policy
         Referrer-Policy "strict-origin-when-cross-origin"
-        
-        # Content Security Policy (adjust as needed)
-        # Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
-        
-        # Remove server identification
         -Server
-        -X-Powered-By
     }
-    
-    # ------------------------------------------------------------------------
-    # API Proxy → PocketBase
-    # ------------------------------------------------------------------------
-    
-    # PocketBase API endpoints
+
     handle /api/* {
         reverse_proxy 127.0.0.1:8090 {
-            # Forward real client IP
             header_up X-Real-IP {remote_host}
-            header_up X-Forwarded-For {remote_host}
             header_up X-Forwarded-Proto {scheme}
-            header_up X-Forwarded-Host {host}
-            
-            # Timeouts
-            transport http {
-                read_timeout 30s
-                write_timeout 30s
-            }
         }
     }
-    
-    # PocketBase Admin UI
-    handle /_/* {
-        reverse_proxy 127.0.0.1:8090 {
-            header_up X-Real-IP {remote_host}
-            header_up X-Forwarded-For {remote_host}
-            header_up X-Forwarded-Proto {scheme}
-            header_up X-Forwarded-Host {host}
-        }
-    }
-    
-    # ------------------------------------------------------------------------
-    # Static Frontend (React SPA)
-    # ------------------------------------------------------------------------
-    
-    handle {
-        # Document root
-        root * /opt/haccp/web
-        
-        # Enable compression
-        encode {
-            gzip
-            zstd
-            minimum_length 256
-        }
-        
-        # SPA routing: fallback to index.html for client-side routes
-        try_files {path} /index.html
-        
-        # Serve static files
-        file_server {
-            precompressed gzip br
-            hide .git .env
-        }
-    }
-    
-    # ------------------------------------------------------------------------
-    # Cache Control
-    # ------------------------------------------------------------------------
-    
-    # Immutable assets (hashed filenames from Vite)
-    @immutable path *.js *.css *.woff *.woff2 *.png *.jpg *.jpeg *.gif *.svg *.ico *.webp
-    header @immutable Cache-Control "public, max-age=31536000, immutable"
-    
-    # HTML - no cache (always fetch latest)
-    @html path *.html /
-    header @html Cache-Control "no-cache, no-store, must-revalidate"
-    header @html Pragma "no-cache"
-    header @html Expires "0"
-    
-    # ------------------------------------------------------------------------
-    # Error Handling
-    # ------------------------------------------------------------------------
-    
-    handle_errors {
-        respond "{http.error.status_code} {http.error.status_text}"
-    }
-}
 
-# ============================================================================
-# HTTP → HTTPS Redirect
-# ============================================================================
+    handle /_/* {
+        reverse_proxy 127.0.0.1:8090
+    }
+
+    handle {
+        root * /opt/haccp/frontend
+        encode gzip
+        try_files {path} /index.html
+        file_server
+    }
+
+    @static path *.js *.css *.png *.jpg *.ico *.svg *.woff2
+    header @static Cache-Control "public, max-age=31536000, immutable"
+}
 
 http://haccp.local {
     redir https://{host}{uri} permanent
 }
-
-# ============================================================================
-# Optional: Listen on IP address as well
-# ============================================================================
-
-# Uncomment to also serve via IP address:
-#
-# https:// {
-#     tls internal
-#     import site_config
-# }

@@ -1,10 +1,9 @@
 #!/bin/bash
 #
-# Tracker HACCP - Production Installer for Raspberry Pi
-# Single command: curl -sSL https://raw.githubusercontent.com/USER/REPO/main/scripts/install.sh | sudo bash
+# Tracker HACCP - Production Installer
+# Usage: curl -sSL https://raw.githubusercontent.com/USER/haccp-tracciabilita/main/scripts/install.sh | sudo bash
 #
-# Architecture: React + PocketBase + Caddy (HTTPS)
-# Target: Raspberry Pi OS 64-bit (ARM64)
+# Idempotent: safe to run multiple times
 #
 
 set -euo pipefail
@@ -13,153 +12,166 @@ set -euo pipefail
 # CONFIGURATION
 # ============================================================================
 
-APP_NAME="haccp"
-APP_DOMAIN="haccp.local"
-APP_DIR="/opt/haccp"
-APP_USER="haccp"
-APP_GROUP="haccp"
+readonly APP_NAME="haccp"
+readonly APP_DOMAIN="haccp.local"
+readonly APP_DIR="/opt/haccp"
+readonly APP_USER="haccp"
+readonly APP_GROUP="haccp"
 
-POCKETBASE_VERSION="0.25.9"
-POCKETBASE_PORT="8090"
+readonly POCKETBASE_VERSION="0.25.9"
+readonly POCKETBASE_PORT="8090"
+readonly POCKETBASE_DIR="${APP_DIR}/pocketbase"
 
-# GitHub raw URL for assets (update with your repo)
-GITHUB_RAW_URL="https://raw.githubusercontent.com/USER/REPO/main"
-GITHUB_RELEASES_URL="https://github.com/USER/REPO/releases/latest/download"
+readonly FRONTEND_DIR="${APP_DIR}/frontend"
+readonly LOGS_DIR="${APP_DIR}/logs"
+readonly BACKUPS_DIR="${APP_DIR}/backups"
+
+# GitHub URLs (update with your repo)
+readonly GITHUB_REPO="USER/haccp-tracciabilita"
+readonly GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_REPO}/main"
+readonly GITHUB_RELEASES="https://github.com/${GITHUB_REPO}/releases/latest/download"
 
 # Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly BLUE='\033[0;34m'
+readonly NC='\033[0m'
 
 # ============================================================================
-# FUNCTIONS
+# LOGGING
 # ============================================================================
 
 log_info()  { echo -e "${BLUE}[INFO]${NC} $1"; }
-log_ok()    { echo -e "${GREEN}[OK]${NC} $1"; }
-log_warn()  { echo -e "${YELLOW}[WARN]${NC} $1"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+log_ok()    { echo -e "${GREEN}[✓]${NC} $1"; }
+log_warn()  { echo -e "${YELLOW}[!]${NC} $1"; }
+log_error() { echo -e "${RED}[✗]${NC} $1"; exit 1; }
+
+# ============================================================================
+# CHECKS
+# ============================================================================
 
 check_root() {
-    if [[ $EUID -ne 0 ]]; then
-        log_error "This script must be run as root (use sudo)"
-        exit 1
-    fi
+    [[ $EUID -eq 0 ]] || log_error "Run as root: sudo bash install.sh"
 }
 
-check_architecture() {
-    ARCH=$(uname -m)
-    if [[ "$ARCH" != "aarch64" ]]; then
-        log_error "This script requires ARM64 architecture (found: $ARCH)"
-        exit 1
-    fi
-    log_ok "Architecture: ARM64"
-}
-
-check_os() {
-    if [[ ! -f /etc/os-release ]]; then
-        log_error "Cannot detect OS"
-        exit 1
-    fi
-    source /etc/os-release
-    if [[ "$ID" != "debian" && "$ID" != "raspbian" ]]; then
-        log_warn "Untested OS: $ID (continuing anyway)"
-    fi
-    log_ok "OS: $PRETTY_NAME"
+check_arch() {
+    [[ "$(uname -m)" == "aarch64" ]] || log_error "Requires ARM64 (found: $(uname -m))"
 }
 
 # ============================================================================
-# INSTALLATION
+# SYSTEM SETUP
 # ============================================================================
 
 install_packages() {
-    log_info "Updating system packages..."
+    log_info "Installing system packages..."
     apt-get update -qq
+    apt-get install -y -qq curl unzip avahi-daemon libnss-mdns ca-certificates
     
-    log_info "Installing required packages..."
-    apt-get install -y -qq \
-        curl \
-        wget \
-        unzip \
-        avahi-daemon \
-        libnss-mdns \
-        debian-keyring \
-        debian-archive-keyring \
-        apt-transport-https \
-        ca-certificates
+    # Install Caddy
+    if ! command -v caddy &>/dev/null; then
+        log_info "Installing Caddy..."
+        curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | \
+            gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg 2>/dev/null || true
+        curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | \
+            tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null
+        apt-get update -qq
+        apt-get install -y -qq caddy
+    fi
     
-    log_ok "System packages installed"
-}
-
-install_caddy() {
-    log_info "Installing Caddy..."
-    
-    # Add Caddy GPG key
-    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg 2>/dev/null || true
-    
-    # Add Caddy repository
-    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list > /dev/null
-    
-    apt-get update -qq
-    apt-get install -y -qq caddy
-    
-    # Stop Caddy until configured
     systemctl stop caddy 2>/dev/null || true
-    
-    log_ok "Caddy installed"
+    log_ok "Packages installed"
 }
 
 create_user() {
-    log_info "Creating application user..."
-    
-    if ! getent group "$APP_GROUP" > /dev/null 2>&1; then
+    if ! getent group "$APP_GROUP" &>/dev/null; then
         groupadd --system "$APP_GROUP"
     fi
-    
-    if ! getent passwd "$APP_USER" > /dev/null 2>&1; then
+    if ! getent passwd "$APP_USER" &>/dev/null; then
         useradd --system --gid "$APP_GROUP" --shell /usr/sbin/nologin \
             --home-dir "$APP_DIR" --no-create-home "$APP_USER"
     fi
-    
-    log_ok "User $APP_USER created"
+    log_ok "User: $APP_USER"
 }
 
 create_directories() {
-    log_info "Creating directory structure..."
-    
-    mkdir -p "$APP_DIR"/{bin,data,web,backups,logs,ssl}
-    
-    log_ok "Directories created at $APP_DIR"
+    mkdir -p "${POCKETBASE_DIR}"/{bin,pb_data,pb_migrations}
+    mkdir -p "${FRONTEND_DIR}"
+    mkdir -p "${LOGS_DIR}"
+    mkdir -p "${BACKUPS_DIR}"
+    log_ok "Directories created"
 }
+
+# ============================================================================
+# POCKETBASE
+# ============================================================================
 
 install_pocketbase() {
+    local pb_bin="${POCKETBASE_DIR}/bin/pocketbase"
+    
+    if [[ -f "$pb_bin" ]]; then
+        log_info "PocketBase already installed, checking version..."
+    fi
+    
     log_info "Downloading PocketBase v${POCKETBASE_VERSION}..."
-    
-    local pb_url="https://github.com/pocketbase/pocketbase/releases/download/v${POCKETBASE_VERSION}/pocketbase_${POCKETBASE_VERSION}_linux_arm64.zip"
-    local tmp_zip="/tmp/pocketbase.zip"
-    
-    curl -sL "$pb_url" -o "$tmp_zip"
-    unzip -o -q "$tmp_zip" -d "$APP_DIR/bin/"
-    rm -f "$tmp_zip"
-    chmod +x "$APP_DIR/bin/pocketbase"
-    
-    log_ok "PocketBase installed"
+    local url="https://github.com/pocketbase/pocketbase/releases/download/v${POCKETBASE_VERSION}/pocketbase_${POCKETBASE_VERSION}_linux_arm64.zip"
+    curl -sL "$url" -o /tmp/pocketbase.zip
+    unzip -o -q /tmp/pocketbase.zip -d "${POCKETBASE_DIR}/bin/"
+    rm -f /tmp/pocketbase.zip
+    chmod +x "$pb_bin"
+    log_ok "PocketBase v${POCKETBASE_VERSION} installed"
 }
 
-download_frontend() {
-    log_info "Downloading frontend assets..."
+configure_pocketbase_service() {
+    cat > /etc/systemd/system/pocketbase.service << EOF
+[Unit]
+Description=PocketBase
+After=network.target
+
+[Service]
+Type=simple
+User=${APP_USER}
+Group=${APP_GROUP}
+WorkingDirectory=${POCKETBASE_DIR}
+ExecStart=${POCKETBASE_DIR}/bin/pocketbase serve --http=127.0.0.1:${POCKETBASE_PORT} --dir=${POCKETBASE_DIR}/pb_data --migrationsDir=${POCKETBASE_DIR}/pb_migrations
+Restart=always
+RestartSec=5
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=${POCKETBASE_DIR}/pb_data ${LOGS_DIR}
+
+# Resources
+MemoryMax=256M
+CPUQuota=80%
+
+StandardOutput=append:${LOGS_DIR}/pocketbase.log
+StandardError=append:${LOGS_DIR}/pocketbase-error.log
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    log_ok "PocketBase service configured"
+}
+
+# ============================================================================
+# FRONTEND
+# ============================================================================
+
+install_frontend() {
+    log_info "Downloading frontend..."
     
-    # Option 1: Download from GitHub releases (pre-built)
-    if curl -sL "${GITHUB_RELEASES_URL}/frontend.zip" -o /tmp/frontend.zip 2>/dev/null; then
-        unzip -o -q /tmp/frontend.zip -d "$APP_DIR/web/"
+    if curl -sL "${GITHUB_RELEASES}/frontend.zip" -o /tmp/frontend.zip 2>/dev/null; then
+        rm -rf "${FRONTEND_DIR:?}"/*
+        unzip -o -q /tmp/frontend.zip -d "${FRONTEND_DIR}/"
         rm -f /tmp/frontend.zip
-        log_ok "Frontend downloaded from releases"
+        log_ok "Frontend installed"
     else
-        # Option 2: Create placeholder
-        log_warn "Frontend not found in releases, creating placeholder..."
-        cat > "$APP_DIR/web/index.html" << 'HTMLEOF'
+        log_warn "Frontend not found in releases, creating placeholder"
+        cat > "${FRONTEND_DIR}/index.html" << 'HTML'
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -167,187 +179,99 @@ download_frontend() {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tracker HACCP</title>
     <style>
-        body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #0f172a; color: #e2e8f0; }
-        .container { text-align: center; padding: 2rem; }
-        h1 { color: #22c55e; margin-bottom: 1rem; }
-        p { color: #94a3b8; }
-        code { background: #1e293b; padding: 0.5rem 1rem; border-radius: 0.5rem; display: inline-block; margin-top: 1rem; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, sans-serif; background: #0a0a0a; color: #fafafa; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .card { background: #171717; border: 1px solid #262626; border-radius: 12px; padding: 3rem; text-align: center; max-width: 400px; }
+        h1 { color: #22c55e; margin-bottom: 1rem; font-size: 1.5rem; }
+        p { color: #a1a1aa; margin-bottom: 0.5rem; font-size: 0.9rem; }
+        code { background: #262626; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.85rem; }
+        .status { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #262626; }
+        .dot { display: inline-block; width: 8px; height: 8px; background: #22c55e; border-radius: 50%; margin-right: 8px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>✓ Tracker HACCP Installato</h1>
-        <p>Il backend PocketBase è attivo.</p>
-        <p>Carica i file frontend in:</p>
-        <code>/opt/haccp/web/</code>
+    <div class="card">
+        <h1>✓ Tracker HACCP</h1>
+        <p>Backend PocketBase attivo</p>
+        <p>Admin: <code>https://haccp.local/_/</code></p>
+        <div class="status">
+            <span class="dot"></span>Sistema operativo
+        </div>
     </div>
 </body>
 </html>
-HTMLEOF
+HTML
     fi
 }
 
-configure_pocketbase_service() {
-    log_info "Configuring PocketBase service..."
-    
-    cat > /etc/systemd/system/pocketbase.service << EOF
-[Unit]
-Description=PocketBase Backend
-Documentation=https://pocketbase.io/docs/
-After=network.target
-
-[Service]
-Type=simple
-User=${APP_USER}
-Group=${APP_GROUP}
-WorkingDirectory=${APP_DIR}
-
-ExecStart=${APP_DIR}/bin/pocketbase serve \\
-    --http=127.0.0.1:${POCKETBASE_PORT} \\
-    --dir=${APP_DIR}/data \\
-    --publicDir=${APP_DIR}/web
-
-Restart=always
-RestartSec=5
-StartLimitInterval=60
-StartLimitBurst=3
-
-# Security hardening
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=${APP_DIR}/data ${APP_DIR}/logs
-
-# Resource limits
-MemoryMax=256M
-CPUQuota=80%
-
-# Logging
-StandardOutput=append:${APP_DIR}/logs/pocketbase.log
-StandardError=append:${APP_DIR}/logs/pocketbase-error.log
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    
-    log_ok "PocketBase service configured"
-}
+# ============================================================================
+# CADDY
+# ============================================================================
 
 configure_caddy() {
-    log_info "Configuring Caddy..."
-    
-    cat > /etc/caddy/Caddyfile << EOF
-# ============================================================================
-# Tracker HACCP - Caddy Configuration
-# Local HTTPS with automatic self-signed certificates
-# ============================================================================
-
+    cat > /etc/caddy/Caddyfile << 'EOF'
 {
-    # Global options
     admin off
-    auto_https disable_redirects
-    
-    # Local CA for self-signed certs
     local_certs
-    
-    # Logging
-    log {
-        output file ${APP_DIR}/logs/caddy-access.log
-        format json
-    }
+    auto_https disable_redirects
 }
 
-# Main site - HTTPS
-https://${APP_DOMAIN} {
-    # TLS with local self-signed certificate
+https://haccp.local {
     tls internal
-    
-    # Security headers
+
     header {
-        # HSTS
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
-        # Prevent clickjacking
         X-Frame-Options "SAMEORIGIN"
-        # XSS protection
         X-Content-Type-Options "nosniff"
         X-XSS-Protection "1; mode=block"
-        # Referrer policy
         Referrer-Policy "strict-origin-when-cross-origin"
-        # Remove server header
         -Server
     }
-    
-    # API proxy to PocketBase
+
     handle /api/* {
-        reverse_proxy 127.0.0.1:${POCKETBASE_PORT} {
+        reverse_proxy 127.0.0.1:8090 {
             header_up X-Real-IP {remote_host}
-            header_up X-Forwarded-For {remote_host}
             header_up X-Forwarded-Proto {scheme}
         }
     }
-    
-    # PocketBase admin UI
+
     handle /_/* {
-        reverse_proxy 127.0.0.1:${POCKETBASE_PORT} {
-            header_up X-Real-IP {remote_host}
-            header_up X-Forwarded-For {remote_host}
-            header_up X-Forwarded-Proto {scheme}
-        }
+        reverse_proxy 127.0.0.1:8090
     }
-    
-    # Static frontend files
+
     handle {
-        root * ${APP_DIR}/web
-        
-        # Enable compression
-        encode gzip zstd
-        
-        # SPA fallback - serve index.html for all routes
+        root * /opt/haccp/frontend
+        encode gzip
         try_files {path} /index.html
-        
-        file_server {
-            # Cache static assets
-            precompressed gzip br
-        }
+        file_server
     }
-    
-    # Cache control for static assets
-    @static path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.woff *.woff2
+
+    @static path *.js *.css *.png *.jpg *.ico *.svg *.woff2
     header @static Cache-Control "public, max-age=31536000, immutable"
-    
-    # No cache for HTML
-    @html path *.html /
-    header @html Cache-Control "no-cache, no-store, must-revalidate"
 }
 
-# HTTP redirect to HTTPS
-http://${APP_DOMAIN} {
+http://haccp.local {
     redir https://{host}{uri} permanent
 }
 EOF
-    
-    # Validate Caddy config
-    if caddy validate --config /etc/caddy/Caddyfile 2>/dev/null; then
-        log_ok "Caddy configuration valid"
-    else
-        log_error "Caddy configuration invalid"
-        exit 1
-    fi
+
+    caddy validate --config /etc/caddy/Caddyfile &>/dev/null || log_error "Invalid Caddyfile"
+    log_ok "Caddy configured"
 }
 
-configure_local_domain() {
-    log_info "Configuring local domain..."
-    
-    # Add to /etc/hosts if not present
+# ============================================================================
+# NETWORK
+# ============================================================================
+
+configure_hosts() {
     if ! grep -q "${APP_DOMAIN}" /etc/hosts; then
         echo "127.0.0.1 ${APP_DOMAIN}" >> /etc/hosts
     fi
-    
-    # Configure hostname
-    hostnamectl set-hostname "${APP_NAME}" 2>/dev/null || true
-    
-    # Configure Avahi for mDNS (.local discovery)
+    log_ok "Domain: ${APP_DOMAIN}"
+}
+
+configure_mdns() {
+    mkdir -p /etc/avahi/services
     cat > /etc/avahi/services/haccp.service << EOF
 <?xml version="1.0" standalone='no'?>
 <!DOCTYPE service-group SYSTEM "avahi-service.dtd">
@@ -356,192 +280,93 @@ configure_local_domain() {
   <service>
     <type>_https._tcp</type>
     <port>443</port>
-    <txt-record>path=/</txt-record>
   </service>
 </service-group>
 EOF
-    
-    systemctl enable avahi-daemon
-    systemctl restart avahi-daemon
-    
-    log_ok "Local domain ${APP_DOMAIN} configured"
+    systemctl enable --now avahi-daemon &>/dev/null
+    log_ok "mDNS configured"
 }
 
+# ============================================================================
+# PERMISSIONS & SERVICES
+# ============================================================================
+
 set_permissions() {
-    log_info "Setting permissions..."
-    
     chown -R "${APP_USER}:${APP_GROUP}" "$APP_DIR"
     chmod -R 750 "$APP_DIR"
-    chmod -R 770 "$APP_DIR/data"
-    chmod -R 770 "$APP_DIR/logs"
-    chmod -R 770 "$APP_DIR/backups"
-    chmod 755 "$APP_DIR/bin/pocketbase"
-    
-    # Caddy needs read access to web files
-    chmod -R o+rX "$APP_DIR/web"
-    
+    chmod -R 770 "${POCKETBASE_DIR}/pb_data"
+    chmod -R 770 "${LOGS_DIR}"
+    chmod -R 770 "${BACKUPS_DIR}"
+    chmod -R o+rX "${FRONTEND_DIR}"
     log_ok "Permissions set"
 }
 
-enable_services() {
-    log_info "Enabling services..."
-    
+start_services() {
     systemctl daemon-reload
-    
-    # Enable and start PocketBase
-    systemctl enable pocketbase
-    systemctl start pocketbase
-    
-    # Wait for PocketBase to start
+    systemctl enable pocketbase caddy &>/dev/null
+    systemctl restart pocketbase
     sleep 2
-    
-    # Enable and start Caddy
-    systemctl enable caddy
-    systemctl start caddy
-    
-    log_ok "Services enabled and started"
+    systemctl restart caddy
+    log_ok "Services started"
 }
 
-create_utility_scripts() {
-    log_info "Creating utility scripts..."
-    
-    # Status script
-    cat > /usr/local/bin/haccp-status << 'EOF'
+# ============================================================================
+# UTILITIES
+# ============================================================================
+
+create_utilities() {
+    cat > /usr/local/bin/haccp-status << 'SCRIPT'
 #!/bin/bash
-echo "═══════════════════════════════════════════════════════════════"
-echo "                    TRACKER HACCP STATUS"
-echo "═══════════════════════════════════════════════════════════════"
-echo ""
-echo "Services:"
-printf "  PocketBase: "; systemctl is-active pocketbase
-printf "  Caddy:      "; systemctl is-active caddy
-printf "  Avahi:      "; systemctl is-active avahi-daemon
-echo ""
-echo "Resources:"
-echo "  Disk: $(df -h /opt/haccp | tail -1 | awk '{print $3 "/" $2 " (" $5 " used)"}')"
-echo "  Memory: $(free -h | grep Mem | awk '{print $3 "/" $2}')"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "           TRACKER HACCP STATUS"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+printf "PocketBase: "; systemctl is-active pocketbase
+printf "Caddy:      "; systemctl is-active caddy
 echo ""
 echo "Access: https://haccp.local"
 echo "Admin:  https://haccp.local/_/"
-echo "═══════════════════════════════════════════════════════════════"
-EOF
+SCRIPT
 
-    # Backup script
-    cat > /usr/local/bin/haccp-backup << 'EOF'
+    cat > /usr/local/bin/haccp-backup << 'SCRIPT'
 #!/bin/bash
-BACKUP_DIR="/opt/haccp/backups"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="${BACKUP_DIR}/haccp_${TIMESTAMP}.tar.gz"
-
-echo "Creating backup..."
+BACKUP="/opt/haccp/backups/haccp_$(date +%Y%m%d_%H%M%S).tar.gz"
 systemctl stop pocketbase
-tar -czf "$BACKUP_FILE" -C /opt/haccp data/
+tar -czf "$BACKUP" -C /opt/haccp/pocketbase pb_data
 systemctl start pocketbase
+ls -t /opt/haccp/backups/*.tar.gz 2>/dev/null | tail -n +8 | xargs -r rm
+echo "Backup: $BACKUP"
+SCRIPT
 
-# Keep last 7 backups
-ls -t ${BACKUP_DIR}/haccp_*.tar.gz 2>/dev/null | tail -n +8 | xargs -r rm
-
-echo "Backup created: $BACKUP_FILE"
-ls -lh "$BACKUP_FILE"
-EOF
-
-    # Logs script
-    cat > /usr/local/bin/haccp-logs << 'EOF'
+    cat > /usr/local/bin/haccp-logs << 'SCRIPT'
 #!/bin/bash
-case "${1:-all}" in
-    pocketbase|pb) tail -f /opt/haccp/logs/pocketbase.log ;;
-    caddy|web)     tail -f /opt/haccp/logs/caddy-access.log ;;
-    errors|err)    tail -f /opt/haccp/logs/pocketbase-error.log ;;
-    *)             journalctl -u pocketbase -u caddy -f ;;
-esac
-EOF
-
-    # Update script
-    cat > /usr/local/bin/haccp-update << 'EOF'
-#!/bin/bash
-echo "Updating frontend..."
-TEMP_DIR=$(mktemp -d)
-RELEASES_URL="https://github.com/USER/REPO/releases/latest/download"
-
-if curl -sL "${RELEASES_URL}/frontend.zip" -o "${TEMP_DIR}/frontend.zip"; then
-    rm -rf /opt/haccp/web/*
-    unzip -q "${TEMP_DIR}/frontend.zip" -d /opt/haccp/web/
-    chown -R haccp:haccp /opt/haccp/web
-    rm -rf "$TEMP_DIR"
-    systemctl reload caddy
-    echo "Update complete!"
-else
-    echo "Error: Could not download update"
-    rm -rf "$TEMP_DIR"
-    exit 1
-fi
-EOF
+tail -f /opt/haccp/logs/*.log
+SCRIPT
 
     chmod +x /usr/local/bin/haccp-*
-    
-    log_ok "Utility scripts created"
+    log_ok "Utilities created"
 }
 
-verify_installation() {
-    log_info "Verifying installation..."
-    
-    local errors=0
-    
-    # Check PocketBase
-    if systemctl is-active --quiet pocketbase; then
-        log_ok "PocketBase is running"
-    else
-        log_error "PocketBase is not running"
-        ((errors++))
-    fi
-    
-    # Check Caddy
-    if systemctl is-active --quiet caddy; then
-        log_ok "Caddy is running"
-    else
-        log_error "Caddy is not running"
-        ((errors++))
-    fi
-    
-    # Check HTTPS
-    sleep 2
-    if curl -ksI "https://127.0.0.1" 2>/dev/null | grep -q "200\|301\|302"; then
-        log_ok "HTTPS is working"
-    else
-        log_warn "HTTPS may need a moment to initialize"
-    fi
-    
-    return $errors
-}
+# ============================================================================
+# SUMMARY
+# ============================================================================
 
 print_summary() {
-    local IP_ADDR
-    IP_ADDR=$(hostname -I | awk '{print $1}')
-    
+    local ip=$(hostname -I | awk '{print $1}')
     echo ""
-    echo -e "${GREEN}╔══════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║                                                                  ║${NC}"
-    echo -e "${GREEN}║          ✓ TRACKER HACCP INSTALLATO CON SUCCESSO!               ║${NC}"
-    echo -e "${GREEN}║                                                                  ║${NC}"
-    echo -e "${GREEN}╚══════════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}  ✓ TRACKER HACCP INSTALLED${NC}"
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "${BLUE}Accesso:${NC}"
-    echo "  🌐 App:    https://${APP_DOMAIN}"
-    echo "  🔧 Admin:  https://${APP_DOMAIN}/_/"
-    echo "  📍 IP:     https://${IP_ADDR}"
+    echo "  App:    https://${APP_DOMAIN}"
+    echo "  Admin:  https://${APP_DOMAIN}/_/"
+    echo "  IP:     https://${ip}"
     echo ""
-    echo -e "${BLUE}Comandi utili:${NC}"
-    echo "  haccp-status  → Stato dei servizi"
-    echo "  haccp-backup  → Crea backup"
-    echo "  haccp-logs    → Visualizza log"
-    echo "  haccp-update  → Aggiorna frontend"
+    echo "  Commands:"
+    echo "    haccp-status   Check services"
+    echo "    haccp-backup   Backup database"
+    echo "    haccp-logs     View logs"
     echo ""
-    echo -e "${BLUE}Cartelle:${NC}"
-    echo "  ${APP_DIR}/web     → Frontend"
-    echo "  ${APP_DIR}/data    → Database PocketBase"
-    echo "  ${APP_DIR}/backups → Backup"
-    echo ""
-    echo -e "${YELLOW}Nota: Accetta il certificato self-signed nel browser.${NC}"
+    echo -e "${YELLOW}  Note: Accept the self-signed certificate in browser${NC}"
     echo ""
 }
 
@@ -551,29 +376,28 @@ print_summary() {
 
 main() {
     echo ""
-    echo -e "${BLUE}╔══════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║            TRACKER HACCP - INSTALLER                             ║${NC}"
-    echo -e "${BLUE}║            React + PocketBase + Caddy                            ║${NC}"
-    echo -e "${BLUE}╚══════════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}  TRACKER HACCP INSTALLER${NC}"
+    echo -e "${BLUE}  React + PocketBase + Caddy${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    
+
     check_root
-    check_architecture
-    check_os
+    check_arch
     
     install_packages
-    install_caddy
     create_user
     create_directories
     install_pocketbase
-    download_frontend
     configure_pocketbase_service
+    install_frontend
     configure_caddy
-    configure_local_domain
+    configure_hosts
+    configure_mdns
     set_permissions
-    create_utility_scripts
-    enable_services
-    verify_installation
+    create_utilities
+    start_services
+    
     print_summary
 }
 
