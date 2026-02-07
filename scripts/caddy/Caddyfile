@@ -16,17 +16,21 @@ https://haccp.local {
         -Server
     }
 
+    # PocketBase API - proxy ALL PocketBase endpoints
     handle /api/* {
+        uri strip_prefix /api
         reverse_proxy 127.0.0.1:8090 {
             header_up X-Real-IP {remote_host}
             header_up X-Forwarded-Proto {scheme}
         }
     }
 
+    # PocketBase Admin UI
     handle /_/* {
         reverse_proxy 127.0.0.1:8090
     }
 
+    # Frontend SPA
     handle {
         root * /opt/haccp/frontend
         encode gzip
