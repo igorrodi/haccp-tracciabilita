@@ -205,6 +205,45 @@ HTML
 }
 
 # ============================================================================
+# POCKETBASE SCHEMA IMPORT
+# ============================================================================
+
+import_schema() {
+    log_info "Importing PocketBase schema..."
+    
+    # Download schema from GitHub
+    if curl -sL "${GITHUB_RAW}/scripts/pocketbase/pb_schema.json" -o /tmp/pb_schema.json 2>/dev/null; then
+        # Wait for PocketBase to be ready
+        local max_attempts=30
+        local attempt=0
+        while ! curl -s "http://127.0.0.1:${POCKETBASE_PORT}/api/health" &>/dev/null; do
+            attempt=$((attempt + 1))
+            if [[ $attempt -ge $max_attempts ]]; then
+                log_warn "PocketBase not ready, schema import skipped"
+                return
+            fi
+            sleep 1
+        done
+        
+        # Check if collections already exist
+        local collections=$(curl -s "http://127.0.0.1:${POCKETBASE_PORT}/api/collections" | grep -c '"name"' || echo "0")
+        if [[ "$collections" -gt 2 ]]; then
+            log_info "Collections already exist, skipping schema import"
+            rm -f /tmp/pb_schema.json
+            return
+        fi
+        
+        log_info "Schema will be imported on first admin setup via PocketBase Admin UI"
+        cp /tmp/pb_schema.json "${POCKETBASE_DIR}/pb_schema.json"
+        chown "${APP_USER}:${APP_GROUP}" "${POCKETBASE_DIR}/pb_schema.json"
+        rm -f /tmp/pb_schema.json
+        log_ok "Schema file ready for import"
+    else
+        log_warn "Could not download schema file"
+    fi
+}
+
+# ============================================================================
 # CADDY
 # ============================================================================
 
@@ -397,6 +436,7 @@ main() {
     set_permissions
     create_utilities
     start_services
+    import_schema
     
     print_summary
 }

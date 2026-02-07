@@ -1,5 +1,18 @@
 [
   {
+    "name": "users",
+    "type": "auth",
+    "schema": [
+      { "name": "name", "type": "text" },
+      { "name": "role", "type": "select", "required": true, "options": { "values": ["admin", "user"] } }
+    ],
+    "listRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "viewRule": "@request.auth.id != ''",
+    "createRule": "",
+    "updateRule": "@request.auth.id = id || @request.auth.role = 'admin'",
+    "deleteRule": "@request.auth.role = 'admin'"
+  },
+  {
     "name": "products",
     "type": "base",
     "schema": [
@@ -7,7 +20,7 @@
       { "name": "shelf_life_days", "type": "number" },
       { "name": "ingredients", "type": "text" },
       { "name": "preparation_procedure", "type": "text" },
-      { "name": "user_id", "type": "relation", "options": { "collectionId": "_pb_users_auth_", "cascadeDelete": false, "maxSelect": 1 } }
+      { "name": "user_id", "type": "relation", "options": { "collectionId": "users", "cascadeDelete": false, "maxSelect": 1 } }
     ],
     "listRule": "@request.auth.id != ''",
     "viewRule": "@request.auth.id != ''",
@@ -35,7 +48,7 @@
       { "name": "name", "type": "text", "required": true },
       { "name": "contact_info", "type": "text" },
       { "name": "notes", "type": "text" },
-      { "name": "user_id", "type": "relation", "options": { "collectionId": "_pb_users_auth_", "cascadeDelete": false, "maxSelect": 1 } }
+      { "name": "user_id", "type": "relation", "options": { "collectionId": "users", "cascadeDelete": false, "maxSelect": 1 } }
     ],
     "listRule": "@request.auth.id != ''",
     "viewRule": "@request.auth.id != ''",
@@ -59,7 +72,7 @@
       { "name": "status", "type": "select", "options": { "values": ["active", "used", "expired", "discarded"] } },
       { "name": "notes", "type": "text" },
       { "name": "label_image", "type": "file", "options": { "maxSelect": 1, "maxSize": 5242880, "mimeTypes": ["image/jpeg", "image/png", "image/webp"] } },
-      { "name": "user_id", "type": "relation", "options": { "collectionId": "_pb_users_auth_", "cascadeDelete": false, "maxSelect": 1 } }
+      { "name": "user_id", "type": "relation", "options": { "collectionId": "users", "cascadeDelete": false, "maxSelect": 1 } }
     ],
     "listRule": "@request.auth.id != ''",
     "viewRule": "@request.auth.id != ''",
@@ -86,7 +99,7 @@
     "name": "printer_settings",
     "type": "base",
     "schema": [
-      { "name": "user_id", "type": "relation", "required": true, "options": { "collectionId": "_pb_users_auth_", "cascadeDelete": true, "maxSelect": 1 } },
+      { "name": "user_id", "type": "relation", "required": true, "options": { "collectionId": "users", "cascadeDelete": true, "maxSelect": 1 } },
       { "name": "printer_enabled", "type": "bool" },
       { "name": "printer_name", "type": "text" },
       { "name": "printer_type", "type": "select", "options": { "values": ["thermal", "inkjet", "laser"] } },

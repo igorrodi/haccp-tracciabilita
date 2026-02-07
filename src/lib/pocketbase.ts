@@ -5,15 +5,14 @@ const getPocketBaseUrl = () => {
   const hostname = window.location.hostname;
   const protocol = window.location.protocol;
   
+  // Development: direct connection to PocketBase
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return "http://localhost:8090";
   }
   
-  if (protocol === 'https:') {
-    return `${protocol}//${hostname}/api`;
-  }
-  
-  return `http://${hostname}:8090`;
+  // Production: use /api prefix (Caddy strips it and proxies to PocketBase)
+  // Note: PocketBase SDK handles the /api prefix correctly
+  return `${protocol}//${hostname}/api`;
 };
 
 export const pb = new PocketBase(getPocketBaseUrl());
