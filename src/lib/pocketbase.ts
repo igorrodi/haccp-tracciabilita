@@ -10,9 +10,10 @@ const getPocketBaseUrl = () => {
     return "http://localhost:8090";
   }
   
-  // Production: use /api prefix (Caddy strips it and proxies to PocketBase)
-  // Note: PocketBase SDK handles the /api prefix correctly
-  return `${protocol}//${hostname}/api`;
+  // Production: PocketBase SDK auto-adds /api to requests
+  // Caddy proxies /api/* directly to PocketBase at 127.0.0.1:8090
+  // So we just use the origin URL (no /api suffix needed)
+  return `${protocol}//${hostname}`;
 };
 
 export const pb = new PocketBase(getPocketBaseUrl());
