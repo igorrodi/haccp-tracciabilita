@@ -164,9 +164,9 @@ export const SystemPanel = () => {
                 </div>
               </div>
 
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <h4 className="font-medium text-green-800 mb-2">✅ Sistema Locale</h4>
-                <p className="text-sm text-green-700">
+              <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                <h4 className="font-medium text-primary mb-2">✅ Sistema Locale</h4>
+                <p className="text-sm text-muted-foreground">
                   Tutti i dati sono salvati localmente sul Raspberry Pi.
                   Nessuna dipendenza da servizi cloud esterni.
                 </p>
