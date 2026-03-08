@@ -244,7 +244,7 @@ export const ProductsList = () => {
                     <div className="flex items-start justify-between">
                       <button
                         className="space-y-1.5 flex-1 min-w-0 text-left"
-                        onClick={() => setExpandedProduct(isExpanded ? null : product.id)}
+                        onClick={() => handleExpandProduct(product.id)}
                       >
                         <div className="flex items-center gap-2">
                           <h3 className="font-medium">{product.name}</h3>
