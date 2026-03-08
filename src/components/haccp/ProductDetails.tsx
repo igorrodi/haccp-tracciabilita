@@ -297,7 +297,7 @@ Lotto int: ${internalLot}`;
                   <TableHeader>
                     <TableRow>
                       <TableHead>Etichetta</TableHead>
-                      <TableHead>Utente</TableHead>
+                      {isAdmin && <TableHead>Utente</TableHead>}
                       <TableHead>Lotto</TableHead>
                       <TableHead>Lotto originale</TableHead>
                       <TableHead>Produzione</TableHead>
