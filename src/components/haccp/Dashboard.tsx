@@ -154,7 +154,9 @@ export const Dashboard = () => {
                   <div key={lot.id} className="flex items-center justify-between p-2 bg-amber-50 dark:bg-amber-950/20 rounded text-sm">
                     <div>
                       <span className="font-medium">{lot.product_name}</span>
-                      <span className="text-muted-foreground ml-2">({lot.lot_number})</span>
+                      <span className="text-muted-foreground ml-2 font-mono">
+                        ({lot.internal_lot_number || lot.lot_number})
+                      </span>
                     </div>
                     <Badge variant="outline" className="text-amber-600 border-amber-400 text-xs">
                       {differenceInDays(new Date(lot.expiry_date!), new Date())}g
