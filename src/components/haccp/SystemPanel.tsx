@@ -87,6 +87,10 @@ export const SystemPanel = () => {
         <AllergenManagement />
       </TabsContent>
 
+      <TabsContent value="seasons">
+        <SeasonManager />
+      </TabsContent>
+
       {/* Unified Data & Cloud tab */}
       <TabsContent value="data">
         <div className="space-y-4">
