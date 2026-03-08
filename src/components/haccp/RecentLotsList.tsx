@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLots, useProducts, useSuppliers, PBLot } from '@/hooks/usePocketBase';
-import { format } from 'date-fns';
+import { format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { Clock, Snowflake, Trash2, Package, Printer } from 'lucide-react';
+import { Clock, Snowflake, Trash2, Package, Printer, FileDown, Filter } from 'lucide-react';
 import { pb, currentUser } from '@/lib/pocketbase';
 import { printLabel } from '@/lib/labelPrinter';
 import { toast } from 'sonner';
@@ -28,6 +30,9 @@ export const RecentLotsList = () => {
   const { data: suppliers } = useSuppliers();
   const [printerEnabled, setPrinterEnabled] = useState(false);
   const [printerSettings, setPrinterSettings] = useState<any>(null);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     const checkPrinter = async () => {
@@ -89,6 +94,73 @@ export const RecentLotsList = () => {
     }
   };
 
+  const filteredLots = lots.filter(lot => {
+    if (!dateFrom && !dateTo) return true;
+    const lotDate = new Date(lot.production_date || lot.created);
+    if (dateFrom && dateTo) {
+      return isWithinInterval(lotDate, { start: startOfDay(new Date(dateFrom)), end: endOfDay(new Date(dateTo)) });
+    }
+    if (dateFrom) return lotDate >= startOfDay(new Date(dateFrom));
+    if (dateTo) return lotDate <= endOfDay(new Date(dateTo));
+    return true;
+  });
+
+  const handleExportPDF = async () => {
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
+
+      const doc = new jsPDF();
+      const now = new Date();
+
+      doc.setFontSize(18);
+      doc.text('Registro Lotti HACCP', 14, 20);
+      doc.setFontSize(10);
+      doc.text(`Generato il ${format(now, 'dd/MM/yyyy HH:mm', { locale: it })}`, 14, 28);
+
+      let startY = 34;
+      if (dateFrom || dateTo) {
+        doc.text(`Periodo: ${dateFrom || '...'} — ${dateTo || '...'}`, 14, 34);
+        startY = 40;
+      }
+
+      const tableData = filteredLots.map(lot => [
+        lot.internal_lot_number || '—',
+        getProductName(lot.product_id),
+        lot.lot_number || '—',
+        getSupplierName(lot.supplier_id) || '—',
+        lot.production_date ? format(new Date(lot.production_date), 'dd/MM/yyyy') : '—',
+        lot.expiry_date ? format(new Date(lot.expiry_date), 'dd/MM/yyyy') : '—',
+        lot.is_frozen ? 'Sì' : 'No',
+      ]);
+
+      autoTable(doc, {
+        startY,
+        head: [['Lotto Int.', 'Prodotto', 'Lotti Orig.', 'Fornitore', 'Produzione', 'Scadenza', 'Cong.']],
+        body: tableData,
+        styles: { fontSize: 7 },
+        headStyles: { fillColor: [22, 163, 74] },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 22 },
+          2: { cellWidth: 30 },
+        },
+      });
+
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.text(`HACCP Tracker - Pagina ${i}/${pageCount}`, 14, doc.internal.pageSize.height - 10);
+      }
+
+      doc.save(`lotti_${format(now, 'yyyy-MM-dd')}.pdf`);
+      toast.success('PDF lotti esportato');
+    } catch (err) {
+      console.error('PDF export error:', err);
+      toast.error("Errore nell'esportazione PDF");
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -128,19 +200,51 @@ export const RecentLotsList = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Clock className="w-5 h-5" />
-          Lotti Recenti ({lots.length})
-        </CardTitle>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="w-5 h-5" />
+            Lotti ({filteredLots.length})
+          </CardTitle>
+          <div className="flex items-center gap-1">
+            <Button size="sm" variant="outline" onClick={() => setShowFilters(!showFilters)}>
+              <Filter className="w-4 h-4 mr-1" />
+              Filtra
+            </Button>
+            {filteredLots.length > 0 && (
+              <Button size="sm" variant="outline" onClick={handleExportPDF}>
+                <FileDown className="w-4 h-4 mr-1" />
+                PDF
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {showFilters && (
+          <div className="flex items-end gap-3 mt-3 flex-wrap">
+            <div className="space-y-1">
+              <Label className="text-xs">Da</Label>
+              <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-40 h-8 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">A</Label>
+              <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-40 h-8 text-sm" />
+            </div>
+            {(dateFrom || dateTo) && (
+              <Button size="sm" variant="ghost" onClick={() => { setDateFrom(''); setDateTo(''); }}>
+                Reset
+              </Button>
+            )}
+          </div>
+        )}
       </CardHeader>
       <CardContent>
-        {lots.length === 0 ? (
+        {filteredLots.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">
-            Nessun lotto registrato. Crea il primo lotto!
+            {lots.length === 0 ? 'Nessun lotto registrato. Crea il primo lotto!' : 'Nessun lotto nel periodo selezionato.'}
           </p>
         ) : (
           <div className="space-y-3">
-            {lots.slice(0, 10).map((lot) => (
+            {filteredLots.slice(0, 20).map((lot) => (
               <div
                 key={lot.id}
                 className="p-4 bg-muted/50 rounded-lg border border-border hover:border-primary/50 transition-colors"
@@ -182,38 +286,40 @@ export const RecentLotsList = () => {
                         Scad: {formatDate(lot.expiry_date)}
                       </p>
                     )}
-                    {printerEnabled && (
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-6 w-6" 
-                        onClick={() => handlePrint(lot)}
-                        title="Stampa etichetta"
-                      >
-                        <Printer className="h-3 w-3 text-primary" />
-                      </Button>
-                    )}
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6">
-                          <Trash2 className="h-3 w-3 text-destructive" />
+                    <div className="flex items-center justify-end gap-0.5">
+                      {printerEnabled && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6" 
+                          onClick={() => handlePrint(lot)}
+                          title="Stampa etichetta"
+                        >
+                          <Printer className="h-3 w-3 text-primary" />
                         </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Elimina lotto?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Stai per eliminare il lotto {lot.lot_number}. Questa azione non può essere annullata.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Annulla</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDelete(lot.id)}>
-                            Elimina
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                      )}
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-6 w-6">
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Elimina lotto?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Stai per eliminare il lotto {lot.internal_lot_number || lot.lot_number}. Questa azione non può essere annullata.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Annulla</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDelete(lot.id)}>
+                              Elimina
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </div>
                 </div>
               </div>
