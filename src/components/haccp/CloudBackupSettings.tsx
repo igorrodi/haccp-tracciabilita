@@ -201,7 +201,7 @@ export const CloudBackupSettings = () => {
             Generazione CSV Automatica
           </CardTitle>
           <CardDescription>
-            Ogni notte alle 03:30 vengono generati i CSV di Temperature, Ricezione e Pulizie
+            Ogni notte alle 03:30 vengono generati i CSV di Prodotti, Lotti, Fornitori e Allergeni
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -245,14 +245,17 @@ export const CloudBackupSettings = () => {
             </div>
 
             {/* Tables exported */}
-            <div className="grid grid-cols-3 gap-2">
-              {['Temperature', 'Ricezione', 'Pulizie'].map((table) => (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {['Prodotti', 'Lotti', 'Fornitori', 'Allergeni'].map((table) => (
                 <div key={table} className="flex items-center gap-2 p-2 rounded-md bg-muted/50 text-sm">
                   <span className="w-2 h-2 rounded-full bg-primary" />
                   {table}
                 </div>
               ))}
             </div>
+            <p className="text-xs text-muted-foreground">
+              💡 Le foto delle etichette allegate ai lotti vengono incluse come link nel CSV.
+            </p>
 
             {/* Rclone sync status */}
             <div className="border-t pt-3 space-y-2">
