@@ -112,14 +112,51 @@ export const ProductsList = () => {
             <Package className="w-5 h-5" />
             Prodotti
           </CardTitle>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="w-4 h-4 mr-2" />
+                Nuovo
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nuovo Prodotto</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome Prodotto *</Label>
+                  <Input id="name" value={formData.name} onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))} placeholder="Es: Lasagna alla bolognese" required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="shelf_life_days">Durata (giorni)</Label>
+                  <Input id="shelf_life_days" type="number" value={formData.shelf_life_days} onChange={(e) => setFormData(prev => ({ ...prev, shelf_life_days: e.target.value }))} placeholder="Es: 5" min="1" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ingredients">Ingredienti</Label>
+                  <Textarea id="ingredients" value={formData.ingredients} onChange={(e) => setFormData(prev => ({ ...prev, ingredients: e.target.value }))} placeholder="Lista ingredienti..." rows={3} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="preparation_procedure">Procedura</Label>
+                  <Textarea id="preparation_procedure" value={formData.preparation_procedure} onChange={(e) => setFormData(prev => ({ ...prev, preparation_procedure: e.target.value }))} placeholder="Procedura di preparazione..." rows={3} />
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" className="flex-1" onClick={() => { setDialogOpen(false); resetForm(); }}>Annulla</Button>
+                  <Button type="submit" className="flex-1" disabled={submitting || !formData.name}>
+                    {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Crea'}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8 space-y-4">
             <p className="text-sm text-muted-foreground">
-              Collezione "products" non trovata nel database PocketBase.
+              Database non connesso. In produzione i prodotti saranno salvati su PocketBase.
             </p>
             <p className="text-xs text-muted-foreground">
-              Accedi al pannello admin per creare la collezione.
+              Puoi comunque usare il pulsante "Nuovo" per vedere il form.
             </p>
           </div>
         </CardContent>
