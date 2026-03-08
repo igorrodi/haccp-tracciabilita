@@ -49,6 +49,10 @@ export const SystemPanel = () => {
             <FileSpreadsheet className="w-3 h-3" />
             Export
           </TabsTrigger>
+          <TabsTrigger value="printer" className="flex-shrink-0 flex items-center gap-1">
+            <Printer className="w-3 h-3" />
+            Stampante
+          </TabsTrigger>
           <TabsTrigger value="backup" className="flex-shrink-0 flex items-center gap-1">
             <Cloud className="w-3 h-3" />
             Cloud
