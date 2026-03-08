@@ -5,8 +5,9 @@ import { CloudBackupSettings } from './CloudBackupSettings';
 import { DataExport } from './DataExport';
 import { AllergenManagement } from './AllergenManagement';
 import { PrinterSettings } from './PrinterSettings';
+import { UpdatesBackupPanel } from './UpdatesBackupPanel';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ExternalLink, Database, Settings, Cloud, FileSpreadsheet, AlertTriangle, Truck, Users, Info, Printer } from 'lucide-react';
+import { ExternalLink, Database, Settings, Cloud, FileSpreadsheet, AlertTriangle, Truck, Users, Info, Printer, ArrowUpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isAdmin } from '@/lib/pocketbase';
 
@@ -32,7 +33,7 @@ export const SystemPanel = () => {
   return (
     <Tabs defaultValue="suppliers" className="w-full">
       <div className="w-full overflow-x-auto pb-2">
-        <TabsList className="inline-flex w-full min-w-max md:grid md:w-full md:grid-cols-8 gap-1">
+        <TabsList className="inline-flex w-full min-w-max md:grid md:w-full md:grid-cols-9 gap-1">
           <TabsTrigger value="suppliers" className="flex-shrink-0 flex items-center gap-1">
             <Truck className="w-3 h-3" />
             Fornitori
@@ -60,6 +61,10 @@ export const SystemPanel = () => {
           <TabsTrigger value="database" className="flex-shrink-0 flex items-center gap-1">
             <Database className="w-3 h-3" />
             Database
+          </TabsTrigger>
+          <TabsTrigger value="updates" className="flex-shrink-0 flex items-center gap-1">
+            <ArrowUpCircle className="w-3 h-3" />
+            Aggiornamenti
           </TabsTrigger>
           <TabsTrigger value="info" className="flex-shrink-0 flex items-center gap-1">
             <Info className="w-3 h-3" />
@@ -145,6 +150,11 @@ export const SystemPanel = () => {
         </Card>
       </TabsContent>
       
+      
+      <TabsContent value="updates">
+        <UpdatesBackupPanel />
+      </TabsContent>
+
       <TabsContent value="info">
         <Card>
           <CardHeader>
