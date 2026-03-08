@@ -10,6 +10,7 @@ import { Plus, Package, Pencil, Trash2, X, Check, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
