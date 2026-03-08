@@ -37,7 +37,7 @@ export const SystemPanel = () => {
   return (
     <Tabs defaultValue="suppliers" className="w-full">
       <div className="w-full overflow-x-auto pb-2">
-        <TabsList className="inline-flex w-full min-w-max md:grid md:w-full md:grid-cols-7 gap-1">
+        <TabsList className="inline-flex w-full min-w-max md:grid md:w-full md:grid-cols-8 gap-1">
           <TabsTrigger value="suppliers" className="flex-shrink-0 flex items-center gap-1">
             <Truck className="w-3 h-3" />
             Fornitori
@@ -49,6 +49,10 @@ export const SystemPanel = () => {
           <TabsTrigger value="allergens" className="flex-shrink-0 flex items-center gap-1">
             <AlertTriangle className="w-3 h-3" />
             Allergeni
+          </TabsTrigger>
+          <TabsTrigger value="seasons" className="flex-shrink-0 flex items-center gap-1">
+            <Calendar className="w-3 h-3" />
+            Stagioni
           </TabsTrigger>
           <TabsTrigger value="data" className="flex-shrink-0 flex items-center gap-1">
             <FileSpreadsheet className="w-3 h-3" />
