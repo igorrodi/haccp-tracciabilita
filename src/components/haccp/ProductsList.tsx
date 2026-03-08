@@ -44,6 +44,8 @@ export const ProductsList = () => {
   const [submitting, setSubmitting] = useState(false);
   const [allergens, setAllergens] = useState<AllergenInfo[]>([]);
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
+  const [lotImages, setLotImages] = useState<Record<string, { id: string; url: string }[]>>({});
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     shelf_life_days: '',
