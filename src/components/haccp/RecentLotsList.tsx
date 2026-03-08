@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useLots, useProducts, useSuppliers, PBLot } from '@/hooks/usePocketBase';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { Clock, Snowflake, Trash2, Package } from 'lucide-react';
+import { Clock, Snowflake, Trash2, Package, Printer } from 'lucide-react';
+import { pb, currentUser } from '@/lib/pocketbase';
+import { printLabel } from '@/lib/labelPrinter';
+import { toast } from 'sonner';
 import {
   AlertDialog,
   AlertDialogAction,
