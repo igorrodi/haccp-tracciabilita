@@ -85,6 +85,11 @@ export const SystemPanel = () => {
       <TabsContent value="backup">
         <CloudBackupSettings />
       </TabsContent>
+
+      <TabsContent value="printer">
+        <PrinterSettings />
+      </TabsContent>
+
       <TabsContent value="allergens">
         <AllergenManagement />
       </TabsContent>

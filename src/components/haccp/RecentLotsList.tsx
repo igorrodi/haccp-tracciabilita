@@ -175,6 +175,17 @@ export const RecentLotsList = () => {
                         Scad: {formatDate(lot.expiry_date)}
                       </p>
                     )}
+                    {printerEnabled && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6" 
+                        onClick={() => handlePrint(lot)}
+                        title="Stampa etichetta"
+                      >
+                        <Printer className="h-3 w-3 text-primary" />
+                      </Button>
+                    )}
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-6 w-6">
