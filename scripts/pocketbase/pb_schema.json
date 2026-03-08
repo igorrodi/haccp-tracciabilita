@@ -57,6 +57,23 @@
     "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
   },
   {
+    "name": "seasons",
+    "type": "base",
+    "schema": [
+      { "name": "name", "type": "text", "required": true },
+      { "name": "start_date", "type": "date", "required": true },
+      { "name": "end_date", "type": "date" },
+      { "name": "status", "type": "select", "required": true, "options": { "values": ["active", "archived"] } },
+      { "name": "notes", "type": "text" },
+      { "name": "user_id", "type": "relation", "options": { "collectionId": "users", "cascadeDelete": false, "maxSelect": 1 } }
+    ],
+    "listRule": "@request.auth.id != ''",
+    "viewRule": "@request.auth.id != ''",
+    "createRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "updateRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
+  },
+  {
     "name": "lots",
     "type": "base",
     "schema": [
@@ -64,6 +81,7 @@
       { "name": "internal_lot_number", "type": "text" },
       { "name": "product_id", "type": "relation", "options": { "collectionId": "products", "cascadeDelete": false, "maxSelect": 1 } },
       { "name": "supplier_id", "type": "relation", "options": { "collectionId": "suppliers", "cascadeDelete": false, "maxSelect": 1 } },
+      { "name": "season_id", "type": "relation", "options": { "collectionId": "seasons", "cascadeDelete": false, "maxSelect": 1 } },
       { "name": "production_date", "type": "date", "required": true },
       { "name": "expiry_date", "type": "date" },
       { "name": "freezing_date", "type": "date" },
