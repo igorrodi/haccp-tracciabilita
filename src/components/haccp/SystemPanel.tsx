@@ -4,8 +4,9 @@ import { UserManagement } from './UserManagement';
 import { CloudBackupSettings } from './CloudBackupSettings';
 import { DataExport } from './DataExport';
 import { AllergenManagement } from './AllergenManagement';
+import { PrinterSettings } from './PrinterSettings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ExternalLink, Database, Settings, Cloud, FileSpreadsheet, AlertTriangle, Truck, Users, Info } from 'lucide-react';
+import { ExternalLink, Database, Settings, Cloud, FileSpreadsheet, AlertTriangle, Truck, Users, Info, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isAdmin } from '@/lib/pocketbase';
 
