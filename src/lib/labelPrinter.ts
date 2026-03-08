@@ -1,7 +1,7 @@
-import { QRCodeSVG } from 'qrcode.react';
 import { format } from 'date-fns';
+import { pb } from '@/lib/pocketbase';
 
-interface LotData {
+export interface LotData {
   internal_lot_number?: string;
   lot_number: string;
   production_date: string;
@@ -11,7 +11,7 @@ interface LotData {
   freezing_date?: string;
 }
 
-interface PrinterSettings {
+export interface PrinterSettings {
   label_width: number;
   label_height: number;
   include_qr_code: boolean;
@@ -26,7 +26,21 @@ interface PrinterSettings {
   printer_vendor_id?: number;
   printer_product_id?: number;
   printer_ip_address?: string;
+  cups_printer_name?: string;
+  custom_layout?: any;
 }
+
+// Label format presets
+export const LABEL_PRESETS = [
+  { name: '100 × 50 mm (Standard)', width: 100, height: 50 },
+  { name: '80 × 30 mm (Piccola)', width: 80, height: 30 },
+  { name: '60 × 40 mm (Compatta)', width: 60, height: 40 },
+  { name: '100 × 70 mm (Grande)', width: 100, height: 70 },
+  { name: '62 × 29 mm (Brother)', width: 62, height: 29 },
+  { name: '89 × 36 mm (Dymo)', width: 89, height: 36 },
+  { name: '54 × 25 mm (Dymo piccola)', width: 54, height: 25 },
+  { name: '62 × 100 mm (Brother larga)', width: 62, height: 100 },
+];
 
 export const generateLabelHTML = (lot: LotData, settings: PrinterSettings): string => {
   const fontSize = settings.font_size === 'small' ? '10px' : 
@@ -39,6 +53,48 @@ export const generateLabelHTML = (lot: LotData, settings: PrinterSettings): stri
     produzione: lot.production_date,
     scadenza: lot.expiry_date || 'N/A',
   });
+
+  // If custom layout exists, use positioned elements
+  const useCustomLayout = settings.custom_layout && Array.isArray(settings.custom_layout);
+
+  let contentHTML = '';
+
+  if (useCustomLayout) {
+    const fields = settings.custom_layout;
+    for (const field of fields) {
+      if (!field.enabled) continue;
+      let text = '';
+      switch (field.id) {
+        case 'product_name': text = lot.product_name; break;
+        case 'lot_number': text = `Lotto: ${lot.internal_lot_number || lot.lot_number}`; break;
+        case 'production_date': text = `Produzione: ${format(new Date(lot.production_date), 'dd/MM/yyyy')}`; break;
+        case 'expiry_date': text = lot.expiry_date ? `Scadenza: ${format(new Date(lot.expiry_date), 'dd/MM/yyyy')}` : ''; break;
+        case 'freezing_date': text = (lot.is_frozen && lot.freezing_date) ? `Congelato: ${format(new Date(lot.freezing_date), 'dd/MM/yyyy')}` : ''; break;
+        case 'qr_code': text = '[QR]'; break;
+        case 'barcode': text = `*${lot.internal_lot_number || lot.lot_number}*`; break;
+      }
+      if (!text) continue;
+
+      const posX = (field.x / 300) * settings.label_width;
+      const posY = (field.y / 200) * settings.label_height;
+
+      if (field.id === 'barcode') {
+        contentHTML += `<div style="position:absolute;left:${posX}mm;top:${posY}mm;font-family:'Libre Barcode 128',cursive;font-size:24px;">${text}</div>`;
+      } else if (field.id === 'qr_code') {
+        contentHTML += `<div style="position:absolute;left:${posX}mm;top:${posY}mm;" class="qr-code"><canvas id="qr-code" width="60" height="60"></canvas></div>`;
+      } else {
+        contentHTML += `<div style="position:absolute;left:${posX}mm;top:${posY}mm;font-size:${field.fontSize || 12}px;${field.id === 'product_name' ? 'font-weight:bold;' : ''}">${text}</div>`;
+      }
+    }
+  } else {
+    contentHTML = `
+      ${settings.include_product_name ? `<div class="header">${lot.product_name}</div>` : ''}
+      ${settings.include_lot_number ? `<div class="row"><strong>Lotto:</strong> ${lot.internal_lot_number || lot.lot_number}</div>` : ''}
+      ${settings.include_production_date ? `<div class="row"><strong>Produzione:</strong> ${format(new Date(lot.production_date), 'dd/MM/yyyy')}</div>` : ''}
+      ${settings.include_expiry_date && lot.expiry_date ? `<div class="row"><strong>Scadenza:</strong> ${format(new Date(lot.expiry_date), 'dd/MM/yyyy')}</div>` : ''}
+      ${settings.include_freezing_date && lot.is_frozen && lot.freezing_date ? `<div class="row"><strong>Congelato il:</strong> ${format(new Date(lot.freezing_date), 'dd/MM/yyyy')}</div>` : ''}
+    `;
+  }
 
   return `
     <!DOCTYPE html>
@@ -57,81 +113,27 @@ export const generateLabelHTML = (lot: LotData, settings: PrinterSettings): stri
             padding: 4mm;
             width: ${settings.label_width}mm;
             height: ${settings.label_height}mm;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+            position: relative;
+            ${useCustomLayout ? '' : 'display:flex;flex-direction:column;justify-content:space-between;'}
           }
-          .header {
-            font-weight: bold;
-            margin-bottom: 2mm;
-          }
-          .content {
-            flex: 1;
-          }
-          .row {
-            margin: 1mm 0;
-          }
-          .qr-code {
-            text-align: center;
-            margin-top: 2mm;
-          }
-          .barcode {
-            text-align: center;
-            font-family: 'Libre Barcode 128', cursive;
-            font-size: 24px;
-            margin-top: 2mm;
-          }
+          .header { font-weight: bold; margin-bottom: 2mm; }
+          .content { flex: 1; }
+          .row { margin: 1mm 0; }
+          .qr-code { text-align: center; margin-top: 2mm; }
+          .barcode { text-align: center; font-family: 'Libre Barcode 128', cursive; font-size: 24px; margin-top: 2mm; }
         </style>
       </head>
       <body>
-        <div class="content">
-          ${settings.include_product_name ? `
-            <div class="header">${lot.product_name}</div>
-          ` : ''}
-          
-          ${settings.include_lot_number ? `
-            <div class="row">
-              <strong>Lotto:</strong> ${lot.internal_lot_number || lot.lot_number}
-            </div>
-          ` : ''}
-          
-          ${settings.include_production_date ? `
-            <div class="row">
-              <strong>Produzione:</strong> ${format(new Date(lot.production_date), 'dd/MM/yyyy')}
-            </div>
-          ` : ''}
-          
-          ${settings.include_expiry_date && lot.expiry_date ? `
-            <div class="row">
-              <strong>Scadenza:</strong> ${format(new Date(lot.expiry_date), 'dd/MM/yyyy')}
-            </div>
-          ` : ''}
-          
-          ${settings.include_freezing_date && lot.is_frozen && lot.freezing_date ? `
-            <div class="row">
-              <strong>Congelato il:</strong> ${format(new Date(lot.freezing_date), 'dd/MM/yyyy')}
-            </div>
-          ` : ''}
-        </div>
-        
-        ${settings.include_qr_code ? `
-          <div class="qr-code">
-            <svg id="qr-code" width="60" height="60"></svg>
-          </div>
-        ` : ''}
-        
-        ${settings.include_barcode ? `
-          <div class="barcode">
-            *${lot.internal_lot_number || lot.lot_number}*
-          </div>
-        ` : ''}
-        
+        ${useCustomLayout ? contentHTML : `
+          <div class="content">${contentHTML}</div>
+          ${settings.include_qr_code ? `<div class="qr-code"><canvas id="qr-code" width="60" height="60"></canvas></div>` : ''}
+          ${settings.include_barcode ? `<div class="barcode">*${lot.internal_lot_number || lot.lot_number}*</div>` : ''}
+        `}
         ${settings.include_qr_code ? `
           <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
           <script>
             QRCode.toCanvas(document.getElementById('qr-code'), ${JSON.stringify(qrData)}, {
-              width: 60,
-              margin: 0
+              width: 60, margin: 0
             });
           </script>
         ` : ''}
@@ -140,32 +142,39 @@ export const generateLabelHTML = (lot: LotData, settings: PrinterSettings): stri
   `;
 };
 
-const printViaUSB = async (labelHTML: string, settings: PrinterSettings): Promise<void> => {
-  if (!settings.printer_vendor_id || !settings.printer_product_id) {
-    throw new Error('Stampante USB non configurata');
+// CUPS printing via PocketBase API
+const printViaCUPS = async (labelHTML: string, settings: PrinterSettings): Promise<void> => {
+  const response = await pb.send('/api/cups/print', {
+    method: 'POST',
+    body: {
+      html: labelHTML,
+      printer: settings.cups_printer_name || '',
+      copies: 1,
+      label_width: settings.label_width,
+      label_height: settings.label_height,
+    },
+  });
+
+  if (!response.success) {
+    throw new Error(response.error || 'Errore stampa CUPS');
   }
+};
 
+// Get available CUPS printers
+export const getCUPSPrinters = async (): Promise<{ printers: Array<{ name: string; enabled: boolean; description: string }>; default_printer: string; cups_available: boolean }> => {
   try {
-    if (!navigator.usb) {
-      throw new Error('Web USB API non supportata');
-    }
+    return await pb.send('/api/cups/printers', { method: 'GET' });
+  } catch {
+    return { printers: [], default_printer: '', cups_available: false };
+  }
+};
 
-    const devices = await navigator.usb.getDevices();
-    const device = devices.find(
-      d => d.vendorId === settings.printer_vendor_id && d.productId === settings.printer_product_id
-    );
-
-    if (!device) {
-      throw new Error('Stampante USB non trovata. Ricollegare la stampante.');
-    }
-
-    // For now, fall back to browser print for USB
-    // Direct USB printing requires specific printer language (ESC/POS, ZPL, etc.)
-    console.log('USB printer detected, using browser print dialog');
-    await printViaBrowser(labelHTML);
-  } catch (error) {
-    console.error('USB printing error:', error);
-    throw new Error('Errore nella stampa USB');
+// Get CUPS status
+export const getCUPSStatus = async (): Promise<{ cups_available: boolean; status?: string }> => {
+  try {
+    return await pb.send('/api/cups/status', { method: 'GET' });
+  } catch {
+    return { cups_available: false };
   }
 };
 
@@ -194,15 +203,9 @@ const printViaBrowser = async (labelHTML: string): Promise<void> => {
 export const printLabel = async (lot: LotData, settings: PrinterSettings): Promise<void> => {
   const labelHTML = generateLabelHTML(lot, settings);
   
-  // Choose printing method based on connection type
-  if (settings.printer_connection_type === 'usb') {
-    await printViaUSB(labelHTML, settings);
-  } else if (settings.printer_connection_type === 'network') {
-    // Network printing would require backend support
-    console.log('Network printing not yet implemented, using browser');
-    await printViaBrowser(labelHTML);
+  if (settings.printer_connection_type === 'cups') {
+    await printViaCUPS(labelHTML, settings);
   } else {
-    // Default: browser print dialog
     await printViaBrowser(labelHTML);
   }
 };

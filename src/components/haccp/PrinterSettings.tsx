@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Printer, Save, Usb, Wifi } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Printer, Save, Wifi, Monitor, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
 import { pb, currentUser } from '@/lib/pocketbase';
 import { toast } from 'sonner';
-import { detectUSBPrinters, requestUSBPrinter, DetectedPrinter } from '@/lib/printerDetection';
 import { LabelPreview } from './LabelPreview';
+import { LABEL_PRESETS, getCUPSPrinters, getCUPSStatus } from '@/lib/labelPrinter';
 
-interface PrinterSettings {
+interface PrinterSettingsData {
   id?: string;
   printer_enabled: boolean;
   printer_type: string;
@@ -30,11 +31,18 @@ interface PrinterSettings {
   printer_ip_address?: string;
   printer_vendor_id?: number;
   printer_product_id?: number;
+  cups_printer_name?: string;
   custom_layout?: any;
 }
 
+interface CUPSPrinter {
+  name: string;
+  enabled: boolean;
+  description: string;
+}
+
 export const PrinterSettings = () => {
-  const [settings, setSettings] = useState<PrinterSettings>({
+  const [settings, setSettings] = useState<PrinterSettingsData>({
     printer_enabled: false,
     printer_type: 'thermal',
     label_width: 100,
@@ -51,39 +59,38 @@ export const PrinterSettings = () => {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [detectedPrinters, setDetectedPrinters] = useState<DetectedPrinter[]>([]);
+  const [cupsPrinters, setCupsPrinters] = useState<CUPSPrinter[]>([]);
+  const [cupsAvailable, setCupsAvailable] = useState<boolean | null>(null);
+  const [checkingCups, setCheckingCups] = useState(false);
 
   useEffect(() => {
     fetchSettings();
-    loadDetectedPrinters();
   }, []);
 
-  const loadDetectedPrinters = async () => {
+  const checkCUPS = async () => {
+    setCheckingCups(true);
     try {
-      const printers = await detectUSBPrinters();
-      setDetectedPrinters(printers);
-    } catch (error) {
-      console.error('Error loading printers:', error);
-    }
-  };
-
-  const handleRequestPrinter = async () => {
-    try {
-      const printer = await requestUSBPrinter();
-      if (printer) {
-        setSettings(prev => ({
-          ...prev,
-          printer_name: printer.name,
-          printer_connection_type: 'usb',
-          printer_vendor_id: printer.vendorId,
-          printer_product_id: printer.productId,
-        }));
-        await loadDetectedPrinters();
-        toast.success('Stampante selezionata con successo');
+      const [printersResult, statusResult] = await Promise.all([
+        getCUPSPrinters(),
+        getCUPSStatus(),
+      ]);
+      setCupsAvailable(printersResult.cups_available);
+      setCupsPrinters(printersResult.printers);
+      
+      if (printersResult.cups_available) {
+        if (printersResult.printers.length > 0) {
+          toast.success(`${printersResult.printers.length} stampante/i trovata/e`);
+        } else {
+          toast.info('CUPS attivo ma nessuna stampante configurata. Accedi a CUPS (porta 631) per aggiungere una stampante.');
+        }
+      } else {
+        toast.error('CUPS non disponibile sul server');
       }
-    } catch (error) {
-      toast.error('Errore nella selezione della stampante');
-      console.error(error);
+    } catch {
+      setCupsAvailable(false);
+      toast.error('Impossibile contattare CUPS');
+    } finally {
+      setCheckingCups(false);
     }
   };
 
@@ -114,10 +121,7 @@ export const PrinterSettings = () => {
       if (!user) return;
 
       const { id, ...settingsWithoutId } = settings;
-      const settingsData = {
-        ...settingsWithoutId,
-        user_id: user.id,
-      };
+      const settingsData = { ...settingsWithoutId, user_id: user.id };
 
       if (id) {
         await pb.collection('printer_settings').update(id, settingsData);
@@ -126,7 +130,7 @@ export const PrinterSettings = () => {
         setSettings({ ...settings, id: result.id });
       }
 
-      toast.success('Impostazioni stampante salvate con successo');
+      toast.success('Impostazioni stampante salvate');
     } catch (error) {
       toast.error('Errore nel salvataggio');
       console.error('Save error:', error);
@@ -144,10 +148,7 @@ export const PrinterSettings = () => {
       if (!user) return;
 
       const { id, ...settingsWithoutId } = newSettings;
-      const settingsData = {
-        ...settingsWithoutId,
-        user_id: user.id,
-      };
+      const settingsData = { ...settingsWithoutId, user_id: user.id };
 
       if (id) {
         await pb.collection('printer_settings').update(id, { printer_enabled: checked });
@@ -159,6 +160,14 @@ export const PrinterSettings = () => {
     } catch (error) {
       console.error('Error saving printer toggle:', error);
       toast.error('Errore nel salvataggio');
+    }
+  };
+
+  const handlePresetChange = (presetName: string) => {
+    if (presetName === 'custom') return;
+    const preset = LABEL_PRESETS.find(p => p.name === presetName);
+    if (preset) {
+      setSettings(prev => ({ ...prev, label_width: preset.width, label_height: preset.height }));
     }
   };
 
@@ -179,215 +188,231 @@ export const PrinterSettings = () => {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Printer className="w-5 h-5" />
-          Impostazioni Stampante Etichette
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Enable/Disable Printer */}
-        <div className="flex items-center justify-between space-x-2 p-4 rounded-xl border bg-card">
-          <div className="space-y-0.5">
-            <Label htmlFor="printer_enabled">Abilita stampante</Label>
-            <p className="text-sm text-muted-foreground">
-              Attiva la funzione di stampa etichette per i lotti
-            </p>
-          </div>
-          <Switch
-            id="printer_enabled"
-            checked={settings.printer_enabled}
-            onCheckedChange={handleTogglePrinter}
-          />
-        </div>
-
-        {settings.printer_enabled && (
-          <>
-            {/* Printer Type */}
-            <div className="space-y-2">
-              <Label htmlFor="printer_type">Tipo stampante</Label>
-              <Select
-                value={settings.printer_type}
-                onValueChange={(value) =>
-                  setSettings({ ...settings, printer_type: value })
-                }
-              >
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="thermal">Termica</SelectItem>
-                  <SelectItem value="inkjet">Inkjet</SelectItem>
-                  <SelectItem value="laser">Laser</SelectItem>
-                </SelectContent>
-              </Select>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Printer className="w-5 h-5" />
+            Impostazioni Stampante Etichette
+          </CardTitle>
+          <CardDescription>
+            Configura la stampante per le etichette dei lotti. Supporta stampa via CUPS o browser.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Enable/Disable */}
+          <div className="flex items-center justify-between space-x-2 p-4 rounded-xl border bg-card">
+            <div className="space-y-0.5">
+              <Label htmlFor="printer_enabled">Abilita stampante</Label>
+              <p className="text-sm text-muted-foreground">
+                Attiva la funzione di stampa etichette per i lotti
+              </p>
             </div>
+            <Switch
+              id="printer_enabled"
+              checked={settings.printer_enabled}
+              onCheckedChange={handleTogglePrinter}
+            />
+          </div>
 
-            <div className="space-y-4 rounded-lg border p-4">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">Connessione Stampante</Label>
+          {settings.printer_enabled && (
+            <>
+              {/* Connection Type */}
+              <div className="space-y-4 rounded-lg border p-4">
+                <Label className="text-base font-semibold">Metodo di Stampa</Label>
+
+                <div className="space-y-2">
+                  <Label htmlFor="connection-type">Tipo di Connessione</Label>
+                  <Select
+                    value={settings.printer_connection_type || 'browser'}
+                    onValueChange={(value) => {
+                      setSettings(prev => ({ ...prev, printer_connection_type: value }));
+                      if (value === 'cups' && cupsAvailable === null) {
+                        checkCUPS();
+                      }
+                    }}
+                  >
+                    <SelectTrigger id="connection-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="browser">
+                        <div className="flex items-center gap-2">
+                          <Monitor className="h-4 w-4" />
+                          <span>Browser (Dialogo Sistema)</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="cups">
+                        <div className="flex items-center gap-2">
+                          <Printer className="h-4 w-4" />
+                          <span>CUPS (Stampa Diretta)</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="network">
+                        <div className="flex items-center gap-2">
+                          <Wifi className="h-4 w-4" />
+                          <span>Rete (IP)</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* CUPS Section */}
+                {settings.printer_connection_type === 'cups' && (
+                  <div className="space-y-3 p-3 rounded-lg border bg-muted/30">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Label className="font-medium">Stato CUPS</Label>
+                        {cupsAvailable === true && (
+                          <Badge variant="default" className="text-xs">
+                            <CheckCircle2 className="w-3 h-3 mr-1" /> Attivo
+                          </Badge>
+                        )}
+                        {cupsAvailable === false && (
+                          <Badge variant="destructive" className="text-xs">
+                            <XCircle className="w-3 h-3 mr-1" /> Non disponibile
+                          </Badge>
+                        )}
+                      </div>
+                      <Button variant="outline" size="sm" onClick={checkCUPS} disabled={checkingCups}>
+                        <RefreshCw className={`w-3 h-3 mr-1 ${checkingCups ? 'animate-spin' : ''}`} />
+                        Verifica
+                      </Button>
+                    </div>
+
+                    {cupsPrinters.length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Stampante CUPS</Label>
+                        <Select
+                          value={settings.cups_printer_name || ''}
+                          onValueChange={(value) => setSettings(prev => ({ ...prev, cups_printer_name: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleziona stampante..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {cupsPrinters.map(p => (
+                              <SelectItem key={p.name} value={p.name}>
+                                <div className="flex items-center gap-2">
+                                  <Printer className="h-3 w-3" />
+                                  <span>{p.name}</span>
+                                  {p.enabled && <Badge variant="outline" className="text-[10px]">attiva</Badge>}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-muted-foreground">
+                      Per aggiungere stampanti, accedi all'interfaccia CUPS su <code className="bg-background px-1 rounded">http://[IP-Raspberry]:631</code>
+                    </p>
+                  </div>
+                )}
+
+                {/* Network Section */}
+                {settings.printer_connection_type === 'network' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="printer-ip">Indirizzo IP Stampante</Label>
+                    <Input
+                      id="printer-ip"
+                      type="text"
+                      placeholder="192.168.1.100"
+                      value={settings.printer_ip_address || ''}
+                      onChange={(e) => setSettings(prev => ({ ...prev, printer_ip_address: e.target.value }))}
+                    />
+                  </div>
+                )}
               </div>
 
+              {/* Label Format Presets */}
+              <div className="space-y-4 rounded-lg border p-4">
+                <Label className="text-base font-semibold">Formato Etichetta</Label>
+
+                <div className="space-y-2">
+                  <Label>Preset formato</Label>
+                  <Select
+                    value={LABEL_PRESETS.find(p => p.width === settings.label_width && p.height === settings.label_height)?.name || 'custom'}
+                    onValueChange={handlePresetChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleziona formato..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LABEL_PRESETS.map(preset => (
+                        <SelectItem key={preset.name} value={preset.name}>
+                          {preset.name}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="custom">Personalizzato</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="label_width">Larghezza (mm)</Label>
+                    <Input
+                      id="label_width"
+                      type="number"
+                      className="rounded-xl"
+                      value={settings.label_width}
+                      onChange={(e) => setSettings({ ...settings, label_width: parseInt(e.target.value) || 100 })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="label_height">Altezza (mm)</Label>
+                    <Input
+                      id="label_height"
+                      type="number"
+                      className="rounded-xl"
+                      value={settings.label_height}
+                      onChange={(e) => setSettings({ ...settings, label_height: parseInt(e.target.value) || 50 })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Font Size */}
               <div className="space-y-2">
-                <Label htmlFor="connection-type">Tipo di Connessione</Label>
+                <Label htmlFor="font_size">Dimensione testo base</Label>
                 <Select
-                  value={settings.printer_connection_type || 'browser'}
-                  onValueChange={(value) => setSettings(prev => ({ ...prev, printer_connection_type: value }))}
+                  value={settings.font_size}
+                  onValueChange={(value) => setSettings({ ...settings, font_size: value })}
                 >
-                  <SelectTrigger id="connection-type">
+                  <SelectTrigger className="rounded-xl">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="browser">
-                      <div className="flex items-center gap-2">
-                        <Printer className="h-4 w-4" />
-                        <span>Browser (Dialogo Sistema)</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="usb">
-                      <div className="flex items-center gap-2">
-                        <Usb className="h-4 w-4" />
-                        <span>USB Diretta</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="network">
-                      <div className="flex items-center gap-2">
-                        <Wifi className="h-4 w-4" />
-                        <span>Rete (IP)</span>
-                      </div>
-                    </SelectItem>
+                    <SelectItem value="small">Piccolo</SelectItem>
+                    <SelectItem value="medium">Medio</SelectItem>
+                    <SelectItem value="large">Grande</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {settings.printer_connection_type === 'usb' && (
-                <div className="space-y-2">
-                  <Label>Stampante USB</Label>
-                  {settings.printer_name ? (
-                    <div className="flex items-center justify-between rounded-lg border p-3 bg-muted">
-                      <div className="flex items-center gap-2">
-                        <Usb className="h-4 w-4" />
-                        <span className="text-sm font-medium">{settings.printer_name}</span>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRequestPrinter}
-                      >
-                        Cambia
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      onClick={handleRequestPrinter}
-                      variant="outline"
-                      className="w-full"
-                    >
-                      <Usb className="mr-2 h-4 w-4" />
-                      Seleziona Stampante USB
-                    </Button>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    Permette al browser di comunicare direttamente con la stampante USB
-                  </p>
-                </div>
-              )}
-
-              {settings.printer_connection_type === 'network' && (
-                <div className="space-y-2">
-                  <Label htmlFor="printer-ip">Indirizzo IP Stampante</Label>
-                  <Input
-                    id="printer-ip"
-                    type="text"
-                    placeholder="192.168.1.100"
-                    value={settings.printer_ip_address || ''}
-                    onChange={(e) => setSettings(prev => ({ ...prev, printer_ip_address: e.target.value }))}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Inserisci l'indirizzo IP della stampante di rete
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Label Dimensions */}
-            <div className="grid grid-cols-2 gap-4">
+              {/* Label Preview with Drag & Drop */}
               <div className="space-y-2">
-                <Label htmlFor="label_width">Larghezza etichetta (mm)</Label>
-                <Input
-                  id="label_width"
-                  type="number"
-                  className="rounded-xl"
-                  value={settings.label_width}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      label_width: parseInt(e.target.value),
-                    })
-                  }
+                <Label className="text-base font-semibold">Layout Etichetta (Drag & Drop)</Label>
+                <LabelPreview 
+                  width={settings.label_width}
+                  height={settings.label_height}
+                  settings={settings}
+                  onSettingsChange={setSettings}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="label_height">Altezza etichetta (mm)</Label>
-                <Input
-                  id="label_height"
-                  type="number"
-                  className="rounded-xl"
-                  value={settings.label_height}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      label_height: parseInt(e.target.value),
-                    })
-                  }
-                />
-              </div>
-            </div>
 
-            {/* Font Size */}
-            <div className="space-y-2">
-              <Label htmlFor="font_size">Dimensione testo</Label>
-              <Select
-                value={settings.font_size}
-                onValueChange={(value) =>
-                  setSettings({ ...settings, font_size: value })
-                }
-              >
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="small">Piccolo</SelectItem>
-                  <SelectItem value="medium">Medio</SelectItem>
-                  <SelectItem value="large">Grande</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Label Preview */}
-            <div className="space-y-2">
-              <Label className="text-base font-semibold">Anteprima e Layout Etichetta</Label>
-              <LabelPreview 
-                width={settings.label_width}
-                height={settings.label_height}
-                settings={settings}
-                onSettingsChange={setSettings}
-              />
-            </div>
-
-            {/* Save Button */}
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full"
-            >
-              <Save className="w-4 h-4 mr-2" />
-              {saving ? 'Salvataggio...' : 'Salva Impostazioni'}
-            </Button>
-          </>
-        )}
-      </CardContent>
-    </Card>
+              {/* Save Button */}
+              <Button onClick={handleSave} disabled={saving} className="w-full">
+                <Save className="w-4 h-4 mr-2" />
+                {saving ? 'Salvataggio...' : 'Salva Impostazioni'}
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 };

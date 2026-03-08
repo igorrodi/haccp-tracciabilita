@@ -37,6 +37,8 @@ COPY scripts/rclone-sync.sh /pb/rclone-sync.sh
 COPY scripts/docker-entrypoint.sh /pb/entrypoint.sh
 RUN chmod +x /pb/entrypoint.sh /pb/rclone-sync.sh
 
-EXPOSE 80
+COPY scripts/cups/cupsd.conf /etc/cups/cupsd.conf
+
+EXPOSE 80 631
 
 ENTRYPOINT ["/pb/entrypoint.sh"]
