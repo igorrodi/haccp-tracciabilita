@@ -31,6 +31,7 @@ export const TemperatureLog = () => {
   const [notes, setNotes] = useState('');
   const [filterLocation, setFilterLocation] = useState<string>('all');
   const { locations: LOCATIONS } = useTemperatureLocations();
+  const { activeSeason } = useSeasons();
 
   useEffect(() => {
     fetchLogs();
