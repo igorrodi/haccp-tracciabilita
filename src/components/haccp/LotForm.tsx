@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Plus, Package, ScanBarcode, Camera, Crop, FileSearch, X, ImagePlus, Hash, Lock } from 'lucide-react';
 import { useProducts, useSuppliers, useLots } from '@/hooks/usePocketBase';
+import { useSeasons } from '@/hooks/useSeasons';
 import { pb } from '@/lib/pocketbase';
 import { format } from 'date-fns';
 import { BarcodeScanner } from './BarcodeScanner';
