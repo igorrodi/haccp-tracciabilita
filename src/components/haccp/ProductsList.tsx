@@ -123,7 +123,7 @@ export const ProductsList = () => {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Nuovo Prodotto</DialogTitle>
-              </DialogHeader>
+                <DialogDescription>Inserisci i dettagli del nuovo prodotto</DialogDescription>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Nome Prodotto *</Label>
