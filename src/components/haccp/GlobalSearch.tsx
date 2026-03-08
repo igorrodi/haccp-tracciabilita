@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { pb } from '@/lib/pocketbase';
-import { Search, Package, Hash, Truck, X } from 'lucide-react';
+import { Search, Package, Hash, Truck, X, ScanLine } from 'lucide-react';
+import { BarcodeScanner } from './BarcodeScanner';
 
 interface SearchResult {
   type: 'product' | 'lot' | 'supplier';
@@ -21,6 +23,7 @@ export const GlobalSearch = ({ onSelectProduct }: GlobalSearchProps) => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -56,27 +59,54 @@ export const GlobalSearch = ({ onSelectProduct }: GlobalSearchProps) => {
     } catch { /* ignore */ } finally { setLoading(false); }
   };
 
+  const handleScanResult = (scannedText: string) => {
+    setShowScanner(false);
+    setQuery(scannedText);
+    setOpen(true);
+  };
+
   const iconMap = { product: Package, lot: Hash, supplier: Truck };
   const labelMap = { product: 'Prodotto', lot: 'Lotto', supplier: 'Fornitore' };
 
   return (
     <div ref={ref} className="relative w-full max-w-md">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Cerca prodotti, lotti, fornitori..."
-          value={query}
-          onChange={e => { setQuery(e.target.value); setOpen(true); }}
-          onFocus={() => results.length > 0 && setOpen(true)}
-          className="pl-9 pr-8"
-        />
-        {query && (
-          <button onClick={() => { setQuery(''); setResults([]); setOpen(false); }} className="absolute right-3 top-1/2 -translate-y-1/2">
-            <X className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-          </button>
-        )}
+      <div className="relative flex gap-1">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Cerca prodotti, lotti, fornitori..."
+            value={query}
+            onChange={e => { setQuery(e.target.value); setOpen(true); }}
+            onFocus={() => results.length > 0 && setOpen(true)}
+            className="pl-9 pr-8"
+          />
+          {query && (
+            <button onClick={() => { setQuery(''); setResults([]); setOpen(false); }} className="absolute right-3 top-1/2 -translate-y-1/2">
+              <X className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+            </button>
+          )}
+        </div>
+        <Button
+          variant="outline"
+          size="icon"
+          className="flex-shrink-0"
+          onClick={() => setShowScanner(true)}
+          title="Scansiona QR/Barcode"
+        >
+          <ScanLine className="w-4 h-4" />
+        </Button>
       </div>
-      {open && results.length > 0 && (
+
+      {showScanner && (
+        <div className="absolute top-full mt-1 w-full z-50">
+          <BarcodeScanner
+            onScan={handleScanResult}
+            onClose={() => setShowScanner(false)}
+          />
+        </div>
+      )}
+
+      {open && results.length > 0 && !showScanner && (
         <Card className="absolute top-full mt-1 w-full z-50 shadow-lg">
           <CardContent className="p-1">
             {results.map(r => {
@@ -103,7 +133,7 @@ export const GlobalSearch = ({ onSelectProduct }: GlobalSearchProps) => {
           </CardContent>
         </Card>
       )}
-      {open && loading && (
+      {open && loading && !showScanner && (
         <Card className="absolute top-full mt-1 w-full z-50">
           <CardContent className="p-3 text-center text-sm text-muted-foreground">Ricerca...</CardContent>
         </Card>
