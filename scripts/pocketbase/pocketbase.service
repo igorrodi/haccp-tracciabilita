@@ -1,27 +1,14 @@
 [Unit]
-Description=PocketBase
+Description=PocketBase - Tracker HACCP
 After=network.target
 
 [Service]
 Type=simple
-User=haccp
-Group=haccp
+ExecStart=/opt/haccp/pocketbase/pocketbase serve --http=0.0.0.0:80 --dir=/opt/haccp/pocketbase/pb_data --migrationsDir=/opt/haccp/pocketbase/pb_migrations --publicDir=/opt/haccp/pocketbase/pb_public
 WorkingDirectory=/opt/haccp/pocketbase
-ExecStart=/opt/haccp/pocketbase/bin/pocketbase serve --http=127.0.0.1:8090 --dir=/opt/haccp/pocketbase/pb_data --migrationsDir=/opt/haccp/pocketbase/pb_migrations
 Restart=always
 RestartSec=5
-
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/opt/haccp/pocketbase/pb_data /opt/haccp/logs
-
-MemoryMax=256M
-CPUQuota=80%
-
-StandardOutput=append:/opt/haccp/logs/pocketbase.log
-StandardError=append:/opt/haccp/logs/pocketbase-error.log
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 
 [Install]
 WantedBy=multi-user.target
