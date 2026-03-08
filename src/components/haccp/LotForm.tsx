@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Plus, Package, ScanBarcode, Camera, Crop, FileSearch, X, ImagePlus, Hash, Lock } from 'lucide-react';
 import { useProducts, useSuppliers, useLots } from '@/hooks/usePocketBase';
+import { useSeasons } from '@/hooks/useSeasons';
 import { pb } from '@/lib/pocketbase';
 import { format } from 'date-fns';
 import { BarcodeScanner } from './BarcodeScanner';
@@ -40,6 +41,7 @@ export const LotForm = () => {
   const { data: products, loading: productsLoading } = useProducts();
   const { data: suppliers, loading: suppliersLoading } = useSuppliers();
   const { create: createLot } = useLots();
+  const { activeSeason } = useSeasons();
 
   const [internalLot, setInternalLot] = useState(generateInternalLot());
   const [originalLots, setOriginalLots] = useState<string[]>([]);
@@ -222,6 +224,7 @@ export const LotForm = () => {
       freezing_date: formData.is_frozen ? formData.freezing_date || formData.production_date : null,
       supplier_id: formData.supplier_id || null,
       product_id: formData.product_id || null,
+      season_id: activeSeason?.id || null,
     };
 
     const { data: newLot, error } = await createLot(lotData);

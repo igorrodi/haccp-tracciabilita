@@ -109,6 +109,7 @@ export interface PBLot {
   freezing_date?: string;
   reception_date?: string;
   supplier_id?: string;
+  season_id?: string;
   is_frozen?: boolean;
   status?: string;
   notes?: string;

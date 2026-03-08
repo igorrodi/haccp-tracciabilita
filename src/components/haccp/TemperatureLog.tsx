@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { useTemperatureLocations } from './TemperatureLocationsSettings';
+import { useSeasons } from '@/hooks/useSeasons';
 
 interface TempLog {
   id: string;
@@ -30,6 +31,7 @@ export const TemperatureLog = () => {
   const [notes, setNotes] = useState('');
   const [filterLocation, setFilterLocation] = useState<string>('all');
   const { locations: LOCATIONS } = useTemperatureLocations();
+  const { activeSeason } = useSeasons();
 
   useEffect(() => {
     fetchLogs();
@@ -59,6 +61,7 @@ export const TemperatureLog = () => {
         temperature: parseFloat(temperature),
         notes: notes || undefined,
         user_id: user.id,
+        season_id: activeSeason?.id || null,
       });
       toast.success('Temperatura registrata');
       setShowForm(false);
