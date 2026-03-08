@@ -26,6 +26,26 @@ export const RecentLotsList = () => {
   const { data: lots, loading, error, remove } = useLots();
   const { data: products } = useProducts();
   const { data: suppliers } = useSuppliers();
+  const [printerEnabled, setPrinterEnabled] = useState(false);
+  const [printerSettings, setPrinterSettings] = useState<any>(null);
+
+  useEffect(() => {
+    const checkPrinter = async () => {
+      try {
+        const user = currentUser();
+        if (!user) return;
+        const data = await pb.collection('printer_settings').getFirstListItem(
+          `user_id = "${user.id}"`,
+          { requestKey: null }
+        ).catch(() => null);
+        if (data) {
+          setPrinterEnabled((data as any).printer_enabled);
+          setPrinterSettings(data);
+        }
+      } catch { /* ignore */ }
+    };
+    checkPrinter();
+  }, []);
 
   const getProductName = (productId?: string) => {
     if (!productId) return 'N/D';
