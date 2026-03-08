@@ -29,13 +29,9 @@ export interface PBUser {
 export const isAuthenticated = () => pb.authStore.isValid;
 export const currentUser = () => pb.authStore.model as unknown as PBUser | null;
 
-// Check if user is admin
+// Check if user is admin — server-side role only, no client bypass
 export const isAdmin = () => {
-  // In preview mode (Lovable/localhost without PocketBase), simulate admin
-  const isPreview = window.location.hostname.includes('lovable') || 
-    (window.location.hostname === 'localhost' && !pb.authStore.isValid);
-  if (isPreview) return true;
-  
+  if (!pb.authStore.isValid) return false;
   const user = pb.authStore.model;
   return (user as any)?.role === 'admin';
 };
