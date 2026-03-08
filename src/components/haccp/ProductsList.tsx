@@ -6,11 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useProducts, useLots, PBProduct, PBLot } from '@/hooks/usePocketBase';
-import { pb } from '@/lib/pocketbase';
-import { Plus, Package, Pencil, Trash2, Loader2, AlertTriangle, Hash, ChevronDown, ChevronUp, Snowflake } from 'lucide-react';
+import { pb, isAdmin, currentUser } from '@/lib/pocketbase';
+import { printLabel, PrinterSettings, LotData } from '@/lib/labelPrinter';
+import { Plus, Package, Pencil, Trash2, Loader2, AlertTriangle, Hash, ChevronDown, ChevronUp, Snowflake, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
   DialogContent,
@@ -38,7 +41,8 @@ interface AllergenInfo {
 
 export const ProductsList = () => {
   const { data: products, loading, error, create, update, remove } = useProducts();
-  const { data: lots } = useLots();
+  const { data: lots, refetch: refetchLots } = useLots();
+  const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -46,6 +50,9 @@ export const ProductsList = () => {
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
   const [lotImages, setLotImages] = useState<Record<string, { id: string; url: string }[]>>({});
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [lotUsers, setLotUsers] = useState<Record<string, { name: string; initials: string }>>({});
+  const [printerSettings, setPrinterSettings] = useState<PrinterSettings | null>(null);
+  const admin = isAdmin();
   const [formData, setFormData] = useState({
     name: '',
     shelf_life_days: '',
@@ -57,6 +64,13 @@ export const ProductsList = () => {
     pb.collection('allergens').getFullList<AllergenInfo>({ sort: 'number' })
       .then(setAllergens)
       .catch(() => {});
+    // Load printer settings
+    const user = currentUser();
+    if (user) {
+      pb.collection('printer_settings').getFirstListItem(`user_id = "${user.id}"`)
+        .then((s: any) => setPrinterSettings(s))
+        .catch(() => {});
+    }
   }, []);
 
   const resetForm = () => {
@@ -120,12 +134,14 @@ export const ProductsList = () => {
     return format(new Date(dateStr), 'dd/MM/yyyy', { locale: it });
   };
 
-  // Load images for lots when product is expanded
-  const loadLotImages = async (productId: string) => {
+  // Load images and users for lots when product is expanded
+  const loadLotData = async (productId: string) => {
     const productLots = lots.filter(l => l.product_id === productId);
     const images: Record<string, { id: string; url: string }[]> = {};
+    const userIds = new Set<string>();
     
     for (const lot of productLots) {
+      if (lot.user_id) userIds.add(lot.user_id);
       try {
         const lotImgs = await pb.collection('lot_images').getFullList({
           filter: `lot_id = "${lot.id}"`,
@@ -140,6 +156,22 @@ export const ProductsList = () => {
     }
     
     setLotImages(prev => ({ ...prev, ...images }));
+
+    // Load user info for admin view
+    if (admin) {
+      const users: Record<string, { name: string; initials: string }> = {};
+      for (const uid of userIds) {
+        if (!lotUsers[uid]) {
+          try {
+            const u = await pb.collection('users').getOne(uid);
+            const name = (u as any).name || (u as any).email || '?';
+            const initials = name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
+            users[uid] = { name, initials };
+          } catch { users[uid] = { name: '?', initials: '?' }; }
+        }
+      }
+      setLotUsers(prev => ({ ...prev, ...users }));
+    }
   };
 
   const handleExpandProduct = (productId: string) => {
@@ -147,7 +179,39 @@ export const ProductsList = () => {
       setExpandedProduct(null);
     } else {
       setExpandedProduct(productId);
-      loadLotImages(productId);
+      loadLotData(productId);
+    }
+  };
+
+  const handleDeleteLot = async (lotId: string) => {
+    try {
+      await pb.collection('lots').delete(lotId);
+      toast({ title: 'Lotto eliminato' });
+      refetchLots();
+    } catch {
+      toast({ title: 'Errore', description: 'Impossibile eliminare il lotto', variant: 'destructive' });
+    }
+  };
+
+  const handlePrintLot = async (lot: PBLot, productName: string) => {
+    if (!printerSettings) {
+      toast({ title: 'Stampante non configurata', description: 'Configura la stampante nelle impostazioni', variant: 'destructive' });
+      return;
+    }
+    try {
+      const lotData: LotData = {
+        internal_lot_number: lot.internal_lot_number,
+        lot_number: lot.lot_number,
+        production_date: lot.production_date,
+        expiry_date: lot.expiry_date,
+        product_name: productName,
+        is_frozen: lot.is_frozen,
+        freezing_date: lot.freezing_date,
+      };
+      await printLabel(lotData, printerSettings);
+      toast({ title: 'Etichetta inviata alla stampa' });
+    } catch {
+      toast({ title: 'Errore stampa', variant: 'destructive' });
     }
   };
 
@@ -314,37 +378,83 @@ export const ProductsList = () => {
                       ) : (
                         productLots.map(lot => (
                           <div key={lot.id} className="p-2 rounded bg-muted/50 space-y-2">
-                            <div className="flex items-center justify-between text-sm">
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono font-bold text-primary text-xs tracking-wider">
+                            <div className="flex items-center justify-between text-sm gap-2">
+                              <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
+                                {/* Avatar utente (solo admin) */}
+                                {admin && lotUsers[lot.user_id] && (
+                                  <Avatar className="h-6 w-6 flex-shrink-0">
+                                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                                      {lotUsers[lot.user_id].initials}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                )}
+                                {/* Lotto interno */}
+                                <span className="font-mono font-bold text-primary text-xs tracking-wider flex-shrink-0">
                                   {lot.internal_lot_number || '—'}
                                 </span>
-                                {lot.is_frozen && <Snowflake className="w-3 h-3 text-blue-500" />}
+                                {/* Lotto originale */}
+                                {lot.lot_number && (
+                                  <span className="text-xs text-muted-foreground truncate max-w-[120px]">
+                                    ({lot.lot_number})
+                                  </span>
+                                )}
+                                {/* Congelato */}
+                                {lot.is_frozen && <Snowflake className="w-3 h-3 text-blue-500 flex-shrink-0" />}
+                                {/* Miniature foto */}
+                                {lotImages[lot.id] && lotImages[lot.id].length > 0 && (
+                                  <div className="flex gap-1 flex-shrink-0">
+                                    {lotImages[lot.id].map(img => (
+                                      <button
+                                        key={img.id}
+                                        onClick={() => setZoomedImage(img.url)}
+                                        className="w-8 h-8 rounded border border-border overflow-hidden hover:ring-2 hover:ring-primary transition-all"
+                                      >
+                                        <img src={img.url} alt="Etichetta" className="w-full h-full object-cover" />
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                                {lot.lot_number && <span className="truncate max-w-[120px]">{lot.lot_number}</span>}
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground flex-shrink-0">
                                 <span>{formatDate(lot.production_date)}</span>
                                 {lot.expiry_date && (
                                   <span className={new Date(lot.expiry_date) < new Date() ? 'text-destructive font-medium' : ''}>
                                     → {formatDate(lot.expiry_date)}
                                   </span>
                                 )}
+                                {/* Stampa */}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => handlePrintLot(lot, product.name)}
+                                >
+                                  <Printer className="h-3.5 w-3.5" />
+                                </Button>
+                                {/* Elimina (solo admin) */}
+                                {admin && (
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7">
+                                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Elimina lotto?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Stai per eliminare il lotto "{lot.internal_lot_number || lot.lot_number}". Questa azione non può essere annullata.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Annulla</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDeleteLot(lot.id)}>Elimina</AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                )}
                               </div>
                             </div>
-                            {/* Lot image thumbnails */}
-                            {lotImages[lot.id] && lotImages[lot.id].length > 0 && (
-                              <div className="flex gap-1.5 flex-wrap">
-                                {lotImages[lot.id].map(img => (
-                                  <button
-                                    key={img.id}
-                                    onClick={() => setZoomedImage(img.url)}
-                                    className="w-12 h-12 rounded border border-border overflow-hidden hover:ring-2 hover:ring-primary transition-all"
-                                  >
-                                    <img src={img.url} alt="Etichetta" className="w-full h-full object-cover" />
-                                  </button>
-                                ))}
-                              </div>
-                            )}
                           </div>
                         ))
                       )}
