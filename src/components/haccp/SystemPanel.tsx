@@ -6,6 +6,7 @@ import { DataExport } from './DataExport';
 import { AllergenManagement } from './AllergenManagement';
 import { PrinterSettings } from './PrinterSettings';
 import { UpdatesBackupPanel } from './UpdatesBackupPanel';
+import { TemperatureLocationsSettings } from './TemperatureLocationsSettings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ExternalLink, Database, Settings, FileSpreadsheet, AlertTriangle, Truck, Users, Info, Printer, ArrowUpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -90,7 +91,10 @@ export const SystemPanel = () => {
       </TabsContent>
 
       <TabsContent value="printer">
-        <PrinterSettings />
+        <div className="space-y-4">
+          <PrinterSettings />
+          <TemperatureLocationsSettings />
+        </div>
       </TabsContent>
 
       <TabsContent value="updates">

@@ -10,6 +10,7 @@ import { Thermometer, Plus, TrendingUp, FileDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { useTemperatureLocations } from './TemperatureLocationsSettings';
 
 interface TempLog {
   id: string;
@@ -20,12 +21,6 @@ interface TempLog {
   created: string;
 }
 
-const LOCATIONS = [
-  'Frigo 1', 'Frigo 2', 'Frigo 3',
-  'Freezer 1', 'Freezer 2',
-  'Ambiente', 'Cella frigorifera',
-];
-
 export const TemperatureLog = () => {
   const [logs, setLogs] = useState<TempLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +29,7 @@ export const TemperatureLog = () => {
   const [temperature, setTemperature] = useState('');
   const [notes, setNotes] = useState('');
   const [filterLocation, setFilterLocation] = useState<string>('all');
+  const { locations: LOCATIONS } = useTemperatureLocations();
 
   useEffect(() => {
     fetchLogs();
