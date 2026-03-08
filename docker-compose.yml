@@ -1,14 +1,18 @@
 services:
   haccp:
     image: ghcr.io/USER/haccp-tracciabilita:latest
+    platform: linux/arm64
     build:
       context: .
       dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
     ports:
       - "80:80"
     volumes:
       - ./pb_data:/pb/pb_data
       - ./pb_schema.json:/pb/pb_schema.json:ro
+      - ./rclone.conf:/pb/pb_data/rclone.conf:ro
     environment:
       - POCKETBASE_PRAGMA_JOURNAL_MODE=wal
       - POCKETBASE_PRAGMA_SYNCHRONOUS=normal

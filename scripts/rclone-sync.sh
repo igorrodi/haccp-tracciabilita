@@ -11,30 +11,43 @@ BACKUP_DIR="/pb/pb_data"
 RCLONE_REMOTE="gdrive:HACCP-Backup"
 LOG_FILE="/pb/pb_data/rclone-sync.log"
 SETTINGS_FILE="/pb/pb_data/rclone.conf"
+STATUS_FILE="/pb/pb_data/exports/.rclone-status.json"
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
+write_status() {
+  local status="$1"
+  local error="${2:-}"
+  cat > "$STATUS_FILE" <<EOF
+{
+  "lastRun": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+  "status": "${status}",
+  "error": ${error:+\"$error\"}${error:-null}
+}
+EOF
+}
+
 log "=== Avvio Rclone Sync ==="
 
-# Check rclone config exists
-if [ ! -f "$SETTINGS_FILE" ]; then
-  log "ERRORE: File di configurazione rclone non trovato: $SETTINGS_FILE"
-  log "Configura Google Drive dalla UI dell'app."
+# Check rclone config exists and is not empty
+if [ ! -s "$SETTINGS_FILE" ]; then
+  log "ERRORE: File di configurazione rclone non trovato o vuoto: $SETTINGS_FILE"
+  log "Configura Google Drive con install.sh o dalla UI dell'app."
+  write_status "error" "Configurazione rclone mancante"
   exit 1
 fi
 
 # Check export directory
 if [ ! -d "$EXPORT_DIR" ]; then
-  log "ATTENZIONE: Directory export non trovata: $EXPORT_DIR"
+  log "ATTENZIONE: Directory export non trovata, creazione..."
   mkdir -p "$EXPORT_DIR"
 fi
 
 # Sync CSV exports to Google Drive (mirror mode)
-# --delete-excluded ensures cloud mirrors local exactly
 log "Sync CSV exports..."
-rclone sync "$EXPORT_DIR" "$RCLONE_REMOTE/exports/" \
+if rclone sync "$EXPORT_DIR" "$RCLONE_REMOTE/exports/" \
   --config "$SETTINGS_FILE" \
   --log-file "$LOG_FILE" \
   --log-level INFO \
@@ -42,23 +55,38 @@ rclone sync "$EXPORT_DIR" "$RCLONE_REMOTE/exports/" \
   --low-level-retries 3 \
   --retries 3 \
   --contimeout 30s \
-  --timeout 120s
-
-# Also sync the PocketBase database backup
-log "Sync database backup..."
-rclone sync "$BACKUP_DIR/data.db" "$RCLONE_REMOTE/database/" \
-  --config "$SETTINGS_FILE" \
-  --log-file "$LOG_FILE" \
-  --log-level INFO \
-  --include "data.db" \
-  --transfers 1
-
-SYNC_STATUS=$?
-
-if [ $SYNC_STATUS -eq 0 ]; then
-  log "=== Sync completato con SUCCESSO ==="
+  --timeout 120s; then
+  log "CSV sync completato"
 else
-  log "=== Sync completato con ERRORI (exit code: $SYNC_STATUS) ==="
+  log "ERRORE nel sync CSV"
+  write_status "error" "Errore sync CSV exports"
+  exit 1
 fi
 
-exit $SYNC_STATUS
+# Sync PocketBase database backup (copy the db file into a temp dir first)
+log "Sync database backup..."
+DB_SYNC_DIR="/tmp/haccp-db-sync"
+mkdir -p "$DB_SYNC_DIR"
+cp "$BACKUP_DIR/data.db" "$DB_SYNC_DIR/data.db" 2>/dev/null || true
+
+if [ -f "$DB_SYNC_DIR/data.db" ]; then
+  if rclone sync "$DB_SYNC_DIR/" "$RCLONE_REMOTE/database/" \
+    --config "$SETTINGS_FILE" \
+    --log-file "$LOG_FILE" \
+    --log-level INFO \
+    --transfers 1; then
+    log "Database sync completato"
+  else
+    log "ERRORE nel sync database"
+    write_status "error" "Errore sync database"
+    rm -rf "$DB_SYNC_DIR"
+    exit 1
+  fi
+  rm -rf "$DB_SYNC_DIR"
+else
+  log "ATTENZIONE: data.db non trovato, skip sync database"
+fi
+
+write_status "success"
+log "=== Sync completato con SUCCESSO ==="
+exit 0
