@@ -61,6 +61,7 @@ export const TemperatureLog = () => {
         temperature: parseFloat(temperature),
         notes: notes || undefined,
         user_id: user.id,
+        season_id: activeSeason?.id || null,
       });
       toast.success('Temperatura registrata');
       setShowForm(false);
