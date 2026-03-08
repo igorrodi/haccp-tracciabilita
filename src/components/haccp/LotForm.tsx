@@ -224,6 +224,7 @@ export const LotForm = () => {
       freezing_date: formData.is_frozen ? formData.freezing_date || formData.production_date : null,
       supplier_id: formData.supplier_id || null,
       product_id: formData.product_id || null,
+      season_id: activeSeason?.id || null,
     };
 
     const { data: newLot, error } = await createLot(lotData);
