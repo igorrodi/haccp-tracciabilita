@@ -124,6 +124,7 @@ export const ProductsList = () => {
               <DialogHeader>
                 <DialogTitle>Nuovo Prodotto</DialogTitle>
                 <DialogDescription>Inserisci i dettagli del nuovo prodotto</DialogDescription>
+              </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Nome Prodotto *</Label>
