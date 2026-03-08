@@ -41,6 +41,7 @@ export const LotForm = () => {
   const { data: products, loading: productsLoading } = useProducts();
   const { data: suppliers, loading: suppliersLoading } = useSuppliers();
   const { create: createLot } = useLots();
+  const { activeSeason } = useSeasons();
 
   const [internalLot, setInternalLot] = useState(generateInternalLot());
   const [originalLots, setOriginalLots] = useState<string[]>([]);
