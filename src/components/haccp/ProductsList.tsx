@@ -120,6 +120,37 @@ export const ProductsList = () => {
     return format(new Date(dateStr), 'dd/MM/yyyy', { locale: it });
   };
 
+  // Load images for lots when product is expanded
+  const loadLotImages = async (productId: string) => {
+    const productLots = lots.filter(l => l.product_id === productId);
+    const images: Record<string, { id: string; url: string }[]> = {};
+    
+    for (const lot of productLots) {
+      try {
+        const lotImgs = await pb.collection('lot_images').getFullList({
+          filter: `lot_id = "${lot.id}"`,
+        });
+        if (lotImgs.length > 0) {
+          images[lot.id] = lotImgs.map((img: any) => ({
+            id: img.id,
+            url: pb.files.getURL(img, img.image),
+          }));
+        }
+      } catch { /* ignore */ }
+    }
+    
+    setLotImages(prev => ({ ...prev, ...images }));
+  };
+
+  const handleExpandProduct = (productId: string) => {
+    if (expandedProduct === productId) {
+      setExpandedProduct(null);
+    } else {
+      setExpandedProduct(productId);
+      loadLotImages(productId);
+    }
+  };
+
   const productForm = (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
