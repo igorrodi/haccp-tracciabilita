@@ -182,6 +182,7 @@ export const ProductsList = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingId ? 'Modifica Prodotto' : 'Nuovo Prodotto'}</DialogTitle>
+              <DialogDescription>Inserisci i dettagli del prodotto</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">

@@ -132,6 +132,7 @@ export const Suppliers = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingId ? 'Modifica Fornitore' : 'Nuovo Fornitore'}</DialogTitle>
+              <DialogDescription>Inserisci i dettagli del fornitore</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
