@@ -2,7 +2,6 @@
 
 // Cron Hook: CSV Export every night at 03:30
 cronAdd("csv_export_nightly", "30 3 * * *", (e) => {
-  const fs = require("fs");
   const exportDir = $os.getenv("PB_DATA_DIR") || "/pb/pb_data";
   const csvDir = exportDir + "/exports";
 
@@ -29,53 +28,128 @@ cronAdd("csv_export_nightly", "30 3 * * *", (e) => {
   }
 
   const today = new Date().toISOString().split("T")[0];
-  const tables = [
-    { collection: "temperature_logs", filename: `Temperature_${today}.csv`, label: "Temperature" },
-    { collection: "reception_logs", filename: `Ricezione_${today}.csv`, label: "Ricezione" },
-    { collection: "cleaning_logs", filename: `Pulizie_${today}.csv`, label: "Pulizie" },
-  ];
+  const baseUrl = $app.settings().meta.appUrl || "";
 
   let success = true;
   let errorMsg = "";
 
-  for (const table of tables) {
-    try {
-      const records = $app.dao().findRecordsByFilter(
-        table.collection,
-        "",    // no filter = all records
-        "-created",
-        0,     // no limit
-        0      // no offset
-      );
+  // Helper: escape CSV field
+  const escapeCsv = (val) => {
+    val = String(val || "");
+    if (val.includes(",") || val.includes('"') || val.includes("\n")) {
+      return '"' + val.replace(/"/g, '""') + '"';
+    }
+    return val;
+  };
 
-      // CSV header
-      let csv = "Data,Operatore,Valore,Note\n";
+  // --- PRODOTTI ---
+  try {
+    const records = $app.dao().findRecordsByFilter("products", "", "name", 0, 0);
+    let csv = "ID,Nome,Ingredienti,Procedura Preparazione,Durata (giorni),Data Creazione\n";
+    for (const r of records) {
+      csv += [
+        escapeCsv(r.getId()),
+        escapeCsv(r.getString("name")),
+        escapeCsv(r.getString("ingredients")),
+        escapeCsv(r.getString("preparation_procedure")),
+        escapeCsv(r.getInt("shelf_life_days") || ""),
+        escapeCsv(r.getString("created")),
+      ].join(",") + "\n";
+    }
+    $os.writeFile(csvDir + `/Prodotti_${today}.csv`, csv, 0o644);
+    console.log(`[CSV Export] Prodotti: ${records.length} record`);
+  } catch (err) {
+    console.log(`[CSV Export] Errore Prodotti: ${err.message}`);
+    success = false;
+    errorMsg += `Prodotti: ${err.message}; `;
+  }
 
-      for (const record of records) {
-        const data = record.getString("date") || record.getString("created");
-        const operatore = record.getString("operator") || "";
-        const valore = record.getString("value") || "";
-        const note = record.getString("notes") || "";
+  // --- LOTTI (con link foto) ---
+  try {
+    const records = $app.dao().findRecordsByFilter("lots", "", "-production_date", 0, 0);
+    let csv = "ID,Numero Lotto,Prodotto ID,Fornitore ID,Data Produzione,Data Scadenza,Congelato,Data Congelamento,Note,Foto Etichette\n";
 
-        // Escape CSV fields
-        const escapeCsv = (val) => {
-          if (val.includes(",") || val.includes('"') || val.includes("\n")) {
-            return '"' + val.replace(/"/g, '""') + '"';
+    for (const r of records) {
+      // Trova foto associate dal collection lot_images
+      let photoLinks = "";
+      try {
+        const images = $app.dao().findRecordsByFilter("lot_images", `lot_id = "${r.getId()}"`, "", 0, 0);
+        const links = [];
+        for (const img of images) {
+          const filename = img.getString("image");
+          if (filename && baseUrl) {
+            links.push(`${baseUrl}/api/files/lot_images/${img.getId()}/${filename}`);
+          } else if (filename) {
+            links.push(filename);
           }
-          return val;
-        };
-
-        csv += `${escapeCsv(data)},${escapeCsv(operatore)},${escapeCsv(valore)},${escapeCsv(note)}\n`;
+        }
+        photoLinks = links.join(" | ");
+      } catch (imgErr) {
+        // lot_images collection might not exist yet
       }
 
-      // Write file
-      $os.writeFile(csvDir + "/" + table.filename, csv, 0o644);
-      console.log(`[CSV Export] ${table.label}: ${records.length} record esportati`);
-    } catch (err) {
-      console.log(`[CSV Export] Errore ${table.label}: ${err.message}`);
-      success = false;
-      errorMsg += `${table.label}: ${err.message}; `;
+      csv += [
+        escapeCsv(r.getId()),
+        escapeCsv(r.getString("lot_number")),
+        escapeCsv(r.getString("product_id")),
+        escapeCsv(r.getString("supplier_id")),
+        escapeCsv(r.getString("production_date")),
+        escapeCsv(r.getString("expiry_date")),
+        escapeCsv(r.getBool("is_frozen") ? "Sì" : "No"),
+        escapeCsv(r.getString("freezing_date")),
+        escapeCsv(r.getString("notes")),
+        escapeCsv(photoLinks),
+      ].join(",") + "\n";
     }
+    $os.writeFile(csvDir + `/Lotti_${today}.csv`, csv, 0o644);
+    console.log(`[CSV Export] Lotti: ${records.length} record`);
+  } catch (err) {
+    console.log(`[CSV Export] Errore Lotti: ${err.message}`);
+    success = false;
+    errorMsg += `Lotti: ${err.message}; `;
+  }
+
+  // --- FORNITORI ---
+  try {
+    const records = $app.dao().findRecordsByFilter("suppliers", "", "name", 0, 0);
+    let csv = "ID,Nome,Contatto,Email,Telefono,Note,Data Creazione\n";
+    for (const r of records) {
+      csv += [
+        escapeCsv(r.getId()),
+        escapeCsv(r.getString("name")),
+        escapeCsv(r.getString("contact_person")),
+        escapeCsv(r.getString("email")),
+        escapeCsv(r.getString("phone")),
+        escapeCsv(r.getString("notes")),
+        escapeCsv(r.getString("created")),
+      ].join(",") + "\n";
+    }
+    $os.writeFile(csvDir + `/Fornitori_${today}.csv`, csv, 0o644);
+    console.log(`[CSV Export] Fornitori: ${records.length} record`);
+  } catch (err) {
+    console.log(`[CSV Export] Errore Fornitori: ${err.message}`);
+    success = false;
+    errorMsg += `Fornitori: ${err.message}; `;
+  }
+
+  // --- ALLERGENI ---
+  try {
+    const records = $app.dao().findRecordsByFilter("allergens", "", "number", 0, 0);
+    let csv = "Numero,Categoria,Ingredienti Ufficiali,Esempi Comuni\n";
+    for (const r of records) {
+      csv += [
+        escapeCsv(r.getInt("number")),
+        escapeCsv(r.getString("category_name")),
+        escapeCsv(r.getString("official_ingredients")),
+        escapeCsv(r.getString("common_examples")),
+      ].join(",") + "\n";
+    }
+    $os.writeFile(csvDir + `/Allergeni_${today}.csv`, csv, 0o644);
+    console.log(`[CSV Export] Allergeni: ${records.length} record`);
+  } catch (err) {
+    console.log(`[CSV Export] Errore Allergeni: ${err.message}`);
+    success = false;
+    errorMsg += `Allergeni: ${err.message}; `;
   }
 
   // 3. Update export status in app_settings
