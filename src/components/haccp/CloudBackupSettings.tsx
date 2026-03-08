@@ -43,7 +43,8 @@ export const CloudBackupSettings = () => {
     autoBackup: false,
     backupFrequency: 'weekly'
   });
-  const [csvStatus, setCsvStatus] = useState<CsvExportStatus>({ lastRun: null, status: null, error: null });
+  const [csvStatus, setCsvStatus] = useState<ExportStatus>({ lastRun: null, status: null, error: null });
+  const [rcloneStatus, setRcloneStatus] = useState<ExportStatus>({ lastRun: null, status: null, error: null });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
