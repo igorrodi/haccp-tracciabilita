@@ -31,6 +31,11 @@ export const currentUser = () => pb.authStore.model as unknown as PBUser | null;
 
 // Check if user is admin
 export const isAdmin = () => {
+  // In preview mode (Lovable/localhost without PocketBase), simulate admin
+  const isPreview = window.location.hostname.includes('lovable') || 
+    (window.location.hostname === 'localhost' && !pb.authStore.isValid);
+  if (isPreview) return true;
+  
   const user = pb.authStore.model;
   return (user as any)?.role === 'admin';
 };
