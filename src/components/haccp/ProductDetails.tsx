@@ -297,7 +297,7 @@ Lotto int: ${internalLot}`;
                   <TableHeader>
                     <TableRow>
                       <TableHead>Etichetta</TableHead>
-                      <TableHead>Utente</TableHead>
+                      {isAdmin && <TableHead>Utente</TableHead>}
                       <TableHead>Lotto</TableHead>
                       <TableHead>Lotto originale</TableHead>
                       <TableHead>Produzione</TableHead>
@@ -329,25 +329,27 @@ Lotto int: ${internalLot}`;
                             </div>
                           )}
                         </TableCell>
-                        <TableCell>
-                          {users[lot.user_id] ? (
-                            <div 
-                              className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary"
-                              title={users[lot.user_id].name || users[lot.user_id].email}
-                            >
-                              {(users[lot.user_id].name || users[lot.user_id].email || 'U')
-                                .split(' ')
-                                .map((n: string) => n[0])
-                                .join('')
-                                .toUpperCase()
-                                .substring(0, 2)}
-                            </div>
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs">
-                              ?
-                            </div>
-                          )}
-                        </TableCell>
+                        {isAdmin && (
+                          <TableCell>
+                            {users[lot.user_id] ? (
+                              <div 
+                                className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary"
+                                title={users[lot.user_id].name || users[lot.user_id].email}
+                              >
+                                {(users[lot.user_id].name || users[lot.user_id].email || 'U')
+                                  .split(' ')
+                                  .map((n: string) => n[0])
+                                  .join('')
+                                  .toUpperCase()
+                                  .substring(0, 2)}
+                              </div>
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs">
+                                ?
+                              </div>
+                            )}
+                          </TableCell>
+                        )}
                         <TableCell className="font-medium">{lot.internal_lot_number || '—'}</TableCell>
                         <TableCell>{lot.lot_number}</TableCell>
                         <TableCell>{format(new Date(lot.production_date), 'dd/MM/yyyy')}</TableCell>
