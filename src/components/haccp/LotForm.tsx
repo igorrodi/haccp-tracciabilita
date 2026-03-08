@@ -102,17 +102,58 @@ export const LotForm = () => {
     }
   }, [formData.product_id, formData.production_date, products]);
 
-  // Handle photo capture/upload
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Smart OCR: extract lot number from image automatically
+  const extractLotFromImage = async (photo: PhotoItem): Promise<string | null> => {
+    try {
+      const Tesseract = await import('tesseract.js');
+      const { data } = await Tesseract.recognize(photo.dataUrl, 'ita+eng', { logger: () => {} });
+      const text = data.text.trim();
+
+      if (!text) return null;
+
+      // Extended patterns to catch common lot label formats
+      const lotPatterns = [
+        /(?:lotto?|lot|l\.?\s*n?\.?\s*|lt\.?\s*):?\s*([A-Z0-9\-\/\.]{3,})/i,
+        /(?:batch|partita|n[°.]?\s*lotto?):?\s*([A-Z0-9\-\/\.]{3,})/i,
+        /(?:cod\.?\s*lotto?):?\s*([A-Z0-9\-\/\.]{3,})/i,
+        /(?:rif\.?\s*):?\s*([A-Z0-9\-\/\.]{3,})/i,
+        /\b([A-Z]{1,3}[\-\/]?\d{2,}[\-\/]?\d{0,4}[A-Z]?)\b/,
+        /\b(\d{6,12})\b/,
+      ];
+
+      for (const pattern of lotPatterns) {
+        const match = text.match(pattern);
+        if (match) return match[1].trim();
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Handle photo capture/upload - auto OCR
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const id = `photo-${++photoCounter}`;
       const newPhoto: PhotoItem = { id, dataUrl: reader.result as string, blob: file, name: file.name };
       setPhotos(prev => [...prev, newPhoto]);
-      setCropTarget(newPhoto);
-      setShowCropper(true);
+
+      // Auto-run OCR to extract lot
+      setOcrProcessing(true);
+      setOcrTargetId(id);
+      const foundLot = await extractLotFromImage(newPhoto);
+      if (foundLot) {
+        addOriginalLot(foundLot);
+        toast.success(`Lotto "${foundLot}" rilevato automaticamente dalla foto`);
+      } else {
+        toast.info('Nessun lotto riconosciuto. Puoi ritagliare e riprovare OCR manualmente.');
+      }
+      setOcrProcessing(false);
+      setOcrTargetId(null);
     };
     reader.readAsDataURL(file);
     e.target.value = '';
@@ -139,6 +180,7 @@ export const LotForm = () => {
     setShowCropper(true);
   };
 
+  // Manual OCR retry (after crop)
   const handleOCR = async (photo: PhotoItem) => {
     setOcrProcessing(true);
     setOcrResult(null);
@@ -149,19 +191,7 @@ export const LotForm = () => {
       const text = data.text.trim();
       setOcrResult(text);
 
-      const lotPatterns = [
-        /(?:lotto?|lot|l\.?\s*n?\.?\s*):?\s*([A-Z0-9\-\/\.]+)/i,
-        /(?:batch|partita):?\s*([A-Z0-9\-\/\.]+)/i,
-        /\b([A-Z]{1,3}[\-\/]?\d{2,}[\-\/]?\d{0,4}[A-Z]?)\b/,
-        /\b(\d{6,12})\b/,
-      ];
-
-      let foundLot = '';
-      for (const pattern of lotPatterns) {
-        const match = text.match(pattern);
-        if (match) { foundLot = match[1].trim(); break; }
-      }
-
+      const foundLot = await extractLotFromImage(photo);
       if (foundLot) {
         addOriginalLot(foundLot);
       } else if (text.length > 0) {
