@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { useTemperatureLocations } from './TemperatureLocationsSettings';
+import { useSeasons } from '@/hooks/useSeasons';
 
 interface TempLog {
   id: string;
