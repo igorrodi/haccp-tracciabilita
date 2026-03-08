@@ -91,7 +91,10 @@ export const SystemPanel = () => {
       </TabsContent>
 
       <TabsContent value="printer">
-        <PrinterSettings />
+        <div className="space-y-4">
+          <PrinterSettings />
+          <TemperatureLocationsSettings />
+        </div>
       </TabsContent>
 
       <TabsContent value="updates">
