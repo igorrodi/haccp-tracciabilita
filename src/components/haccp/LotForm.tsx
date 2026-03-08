@@ -132,42 +132,45 @@ export const LotForm = () => {
     }
   };
 
-  // Handle photo capture/upload - auto OCR
-  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle photo capture/upload - open cropper first
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = async () => {
+    reader.onload = () => {
       const id = `photo-${++photoCounter}`;
       const newPhoto: PhotoItem = { id, dataUrl: reader.result as string, blob: file, name: file.name };
-      setPhotos(prev => [...prev, newPhoto]);
-
-      // Auto-run OCR to extract lot
-      setOcrProcessing(true);
-      setOcrTargetId(id);
-      const foundLot = await extractLotFromImage(newPhoto);
-      if (foundLot) {
-        addOriginalLot(foundLot);
-        toast.success(`Lotto "${foundLot}" rilevato automaticamente dalla foto`);
-      } else {
-        toast.info('Nessun lotto riconosciuto. Puoi ritagliare e riprovare OCR manualmente.');
-      }
-      setOcrProcessing(false);
-      setOcrTargetId(null);
+      // Don't add to photos yet — wait for crop
+      setCropTarget(newPhoto);
+      setShowCropper(true);
     };
     reader.readAsDataURL(file);
     e.target.value = '';
   };
 
-  const handleCropComplete = (blob: Blob) => {
+  const handleCropComplete = async (blob: Blob) => {
     if (!cropTarget) return;
     const url = URL.createObjectURL(blob);
-    setPhotos(prev => prev.map(p => 
-      p.id === cropTarget.id ? { ...p, dataUrl: url, blob } : p
-    ));
+    const croppedPhoto: PhotoItem = { ...cropTarget, dataUrl: url, blob };
+    
+    // Add cropped photo to list
+    setPhotos(prev => [...prev, croppedPhoto]);
     setShowCropper(false);
     setCropTarget(null);
-    toast.success('Immagine ritagliata');
+    toast.success('Foto ritagliata e salvata');
+
+    // Auto-run OCR on cropped image
+    setOcrProcessing(true);
+    setOcrTargetId(croppedPhoto.id);
+    const foundLot = await extractLotFromImage(croppedPhoto);
+    if (foundLot) {
+      addOriginalLot(foundLot);
+      toast.success(`Lotto "${foundLot}" rilevato automaticamente`);
+    } else {
+      toast.info('Nessun lotto riconosciuto. Puoi riprovare OCR manualmente.');
+    }
+    setOcrProcessing(false);
+    setOcrTargetId(null);
   };
 
   const removePhoto = (id: string) => {
