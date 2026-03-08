@@ -1,6 +1,6 @@
 FROM alpine:3.19 AS base
 
-ARG PB_VERSION=0.25.9
+ARG PB_VERSION=0.36.6
 ARG TARGETARCH=arm64
 
 RUN apk add --no-cache curl unzip ca-certificates
@@ -22,7 +22,7 @@ RUN npm run build
 
 # Final image
 FROM alpine:3.19
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates wget
 
 COPY --from=base /usr/local/bin/pocketbase /usr/local/bin/pocketbase
 COPY --from=frontend /app/dist /pb/pb_public

@@ -12,13 +12,10 @@ migrate((app) => {
   const rawData = fs.readFileSync(schemaPath, "utf8");
   const collections = JSON.parse(rawData);
 
-  const dao = app.dao();
-  
-  // Import collections using PocketBase's built-in method
-  dao.importCollections(collections, false, null);
+  // PocketBase v0.25+ API: importCollections on the app instance directly
+  app.importCollections(collections, false);
   
   console.log("Schema imported successfully via migration");
 }, (app) => {
-  // Revert: nothing to do
   console.log("Revert not supported for initial schema import");
 });
