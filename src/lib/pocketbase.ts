@@ -2,18 +2,12 @@ import PocketBase from 'pocketbase';
 
 // Dynamically determine PocketBase URL based on current location
 const getPocketBaseUrl = () => {
-  const hostname = window.location.hostname;
-  const protocol = window.location.protocol;
-  
-  // Development: direct connection to PocketBase
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+  // Dev: PocketBase on port 8090
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return "http://localhost:8090";
   }
-  
-  // Production: PocketBase SDK auto-adds /api to requests
-  // Caddy proxies /api/* directly to PocketBase at 127.0.0.1:8090
-  // So we just use the origin URL (no /api suffix needed)
-  return `${protocol}//${hostname}`;
+  // Production: PocketBase serves everything (API + frontend) on same origin
+  return window.location.origin;
 };
 
 export const pb = new PocketBase(getPocketBaseUrl());
