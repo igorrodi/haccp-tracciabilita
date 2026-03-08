@@ -7,14 +7,9 @@ cronAdd("csv_export_nightly", "30 3 * * *", (e) => {
 
   console.log("[CSV Export] Avvio generazione CSV...");
 
-  // 1. Create exports directory if not exists
-  try {
-    $os.mkdirAll(csvDir, 0o755);
-  } catch (err) {
-    // directory already exists
-  }
+  try { $os.mkdirAll(csvDir, 0o755); } catch (err) {}
 
-  // 2. Rotation: delete old CSV files
+  // Rotation: delete old CSV files
   try {
     const files = $os.readDir(csvDir);
     for (let f of files) {
@@ -22,18 +17,13 @@ cronAdd("csv_export_nightly", "30 3 * * *", (e) => {
         $os.remove(csvDir + "/" + f.name());
       }
     }
-    console.log("[CSV Export] Vecchi CSV eliminati");
-  } catch (err) {
-    console.log("[CSV Export] Nessun file precedente da eliminare");
-  }
+  } catch (err) {}
 
   const today = new Date().toISOString().split("T")[0];
   const baseUrl = $app.settings().meta.appUrl || "";
-
   let success = true;
   let errorMsg = "";
 
-  // Helper: escape CSV field
   const escapeCsv = (val) => {
     val = String(val || "");
     if (val.includes(",") || val.includes('"') || val.includes("\n")) {
@@ -42,124 +32,76 @@ cronAdd("csv_export_nightly", "30 3 * * *", (e) => {
     return val;
   };
 
-  // --- PRODOTTI ---
   try {
-    const records = $app.dao().findRecordsByFilter("products", "", "name", 0, 0);
-    let csv = "ID,Nome,Ingredienti,Procedura Preparazione,Durata (giorni),Data Creazione\n";
-    for (const r of records) {
-      csv += [
-        escapeCsv(r.getId()),
-        escapeCsv(r.getString("name")),
-        escapeCsv(r.getString("ingredients")),
-        escapeCsv(r.getString("preparation_procedure")),
-        escapeCsv(r.getInt("shelf_life_days") || ""),
-        escapeCsv(r.getString("created")),
-      ].join(",") + "\n";
-    }
-    $os.writeFile(csvDir + `/Prodotti_${today}.csv`, csv, 0o644);
-    console.log(`[CSV Export] Prodotti: ${records.length} record`);
-  } catch (err) {
-    console.log(`[CSV Export] Errore Prodotti: ${err.message}`);
-    success = false;
-    errorMsg += `Prodotti: ${err.message}; `;
-  }
+    // Load lookup tables
+    const products = {};
+    try {
+      const prods = $app.dao().findRecordsByFilter("products", "", "", 0, 0);
+      for (const p of prods) { products[p.getId()] = p.getString("name"); }
+    } catch (e) {}
 
-  // --- LOTTI (con link foto) ---
-  try {
-    const records = $app.dao().findRecordsByFilter("lots", "", "-production_date", 0, 0);
-    let csv = "ID,Numero Lotto,Prodotto ID,Fornitore ID,Data Produzione,Data Scadenza,Congelato,Data Congelamento,Note,Foto Etichette\n";
+    const suppliers = {};
+    try {
+      const supps = $app.dao().findRecordsByFilter("suppliers", "", "", 0, 0);
+      for (const s of supps) { suppliers[s.getId()] = s.getString("name"); }
+    } catch (e) {}
 
-    for (const r of records) {
-      // Trova foto associate dal collection lot_images
-      let photoLinks = "";
-      try {
-        const images = $app.dao().findRecordsByFilter("lot_images", `lot_id = "${r.getId()}"`, "", 0, 0);
-        const links = [];
-        for (const img of images) {
-          const filename = img.getString("image");
-          if (filename && baseUrl) {
-            links.push(`${baseUrl}/api/files/lot_images/${img.getId()}/${filename}`);
-          } else if (filename) {
-            links.push(filename);
+    // Fetch all lots
+    const lots = $app.dao().findRecordsByFilter("lots", "", "-production_date", 0, 0);
+
+    // Fetch all lot_images grouped by lot_id
+    const lotPhotos = {};
+    try {
+      const images = $app.dao().findRecordsByFilter("lot_images", "", "", 0, 0);
+      for (const img of images) {
+        const lotId = img.getString("lot_id");
+        const filename = img.getString("image");
+        if (lotId && filename) {
+          if (!lotPhotos[lotId]) lotPhotos[lotId] = [];
+          if (baseUrl) {
+            lotPhotos[lotId].push(`${baseUrl}/api/files/lot_images/${img.getId()}/${filename}`);
+          } else {
+            lotPhotos[lotId].push(filename);
           }
         }
-        photoLinks = links.join(" | ");
-      } catch (imgErr) {
-        // lot_images collection might not exist yet
       }
+    } catch (e) {}
+
+    // Build single CSV
+    let csv = "Prodotto,Numero Lotto,Fornitore,Data Produzione,Data Scadenza,Congelato,Data Congelamento,Note,Foto Etichette\n";
+
+    for (const r of lots) {
+      const productName = products[r.getString("product_id")] || "";
+      const supplierName = suppliers[r.getString("supplier_id")] || "";
+      const photos = lotPhotos[r.getId()] || [];
 
       csv += [
-        escapeCsv(r.getId()),
+        escapeCsv(productName),
         escapeCsv(r.getString("lot_number")),
-        escapeCsv(r.getString("product_id")),
-        escapeCsv(r.getString("supplier_id")),
+        escapeCsv(supplierName),
         escapeCsv(r.getString("production_date")),
         escapeCsv(r.getString("expiry_date")),
         escapeCsv(r.getBool("is_frozen") ? "Sì" : "No"),
         escapeCsv(r.getString("freezing_date")),
         escapeCsv(r.getString("notes")),
-        escapeCsv(photoLinks),
+        escapeCsv(photos.join(" | ")),
       ].join(",") + "\n";
     }
-    $os.writeFile(csvDir + `/Lotti_${today}.csv`, csv, 0o644);
-    console.log(`[CSV Export] Lotti: ${records.length} record`);
+
+    $os.writeFile(csvDir + `/Registro_Lotti_${today}.csv`, csv, 0o644);
+    console.log(`[CSV Export] Registro Lotti: ${lots.length} record`);
   } catch (err) {
-    console.log(`[CSV Export] Errore Lotti: ${err.message}`);
+    console.log(`[CSV Export] Errore: ${err.message}`);
     success = false;
-    errorMsg += `Lotti: ${err.message}; `;
+    errorMsg = err.message;
   }
 
-  // --- FORNITORI ---
-  try {
-    const records = $app.dao().findRecordsByFilter("suppliers", "", "name", 0, 0);
-    let csv = "ID,Nome,Contatto,Email,Telefono,Note,Data Creazione\n";
-    for (const r of records) {
-      csv += [
-        escapeCsv(r.getId()),
-        escapeCsv(r.getString("name")),
-        escapeCsv(r.getString("contact_person")),
-        escapeCsv(r.getString("email")),
-        escapeCsv(r.getString("phone")),
-        escapeCsv(r.getString("notes")),
-        escapeCsv(r.getString("created")),
-      ].join(",") + "\n";
-    }
-    $os.writeFile(csvDir + `/Fornitori_${today}.csv`, csv, 0o644);
-    console.log(`[CSV Export] Fornitori: ${records.length} record`);
-  } catch (err) {
-    console.log(`[CSV Export] Errore Fornitori: ${err.message}`);
-    success = false;
-    errorMsg += `Fornitori: ${err.message}; `;
-  }
-
-  // --- ALLERGENI ---
-  try {
-    const records = $app.dao().findRecordsByFilter("allergens", "", "number", 0, 0);
-    let csv = "Numero,Categoria,Ingredienti Ufficiali,Esempi Comuni\n";
-    for (const r of records) {
-      csv += [
-        escapeCsv(r.getInt("number")),
-        escapeCsv(r.getString("category_name")),
-        escapeCsv(r.getString("official_ingredients")),
-        escapeCsv(r.getString("common_examples")),
-      ].join(",") + "\n";
-    }
-    $os.writeFile(csvDir + `/Allergeni_${today}.csv`, csv, 0o644);
-    console.log(`[CSV Export] Allergeni: ${records.length} record`);
-  } catch (err) {
-    console.log(`[CSV Export] Errore Allergeni: ${err.message}`);
-    success = false;
-    errorMsg += `Allergeni: ${err.message}; `;
-  }
-
-  // 3. Update export status in app_settings
+  // Update export status
   try {
     let statusRecord;
     try {
       statusRecord = $app.dao().findFirstRecordByFilter("app_settings", "key = 'csv_export_status'");
-    } catch (e) {
-      // not found, create
-    }
+    } catch (e) {}
 
     const statusValue = JSON.stringify({
       lastRun: new Date().toISOString(),
