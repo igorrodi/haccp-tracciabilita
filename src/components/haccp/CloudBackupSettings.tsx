@@ -30,7 +30,7 @@ interface CloudConfig {
   lastBackupStatus?: 'success' | 'error';
 }
 
-interface CsvExportStatus {
+interface ExportStatus {
   lastRun: string | null;
   status: 'success' | 'error' | null;
   error: string | null;
@@ -43,7 +43,8 @@ export const CloudBackupSettings = () => {
     autoBackup: false,
     backupFrequency: 'weekly'
   });
-  const [csvStatus, setCsvStatus] = useState<CsvExportStatus>({ lastRun: null, status: null, error: null });
+  const [csvStatus, setCsvStatus] = useState<ExportStatus>({ lastRun: null, status: null, error: null });
+  const [rcloneStatus, setRcloneStatus] = useState<ExportStatus>({ lastRun: null, status: null, error: null });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
@@ -52,6 +53,7 @@ export const CloudBackupSettings = () => {
   useEffect(() => {
     loadConfig();
     loadCsvStatus();
+    loadRcloneStatus();
   }, []);
 
   const loadCsvStatus = async () => {
@@ -63,6 +65,19 @@ export const CloudBackupSettings = () => {
       }
     } catch {
       // Not yet created
+    }
+  };
+
+  const loadRcloneStatus = async () => {
+    try {
+      // Read rclone status from the exports directory (written by rclone-sync.sh)
+      const response = await fetch('/api/files/pb_data/exports/.rclone-status.json');
+      if (response.ok) {
+        const data = await response.json();
+        setRcloneStatus(data);
+      }
+    } catch {
+      // Rclone hasn't run yet
     }
   };
 
@@ -239,13 +254,45 @@ export const CloudBackupSettings = () => {
               ))}
             </div>
 
-            {/* Rclone sync info */}
-            <div className="flex items-center gap-2 text-sm text-muted-foreground border-t pt-3">
-              <FolderSync className="w-4 h-4" />
-              <span>Sync cloud (rclone): ogni giorno alle <strong>04:00</strong> — modalità mirror</span>
+            {/* Rclone sync status */}
+            <div className="border-t pt-3 space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <FolderSync className="w-4 h-4" />
+                <span>Sync cloud (rclone): ogni giorno alle <strong>04:00</strong> — modalità mirror</span>
+              </div>
+              <div className="p-3 rounded-lg bg-muted">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Ultimo sync cloud:</span>
+                  <div className="flex items-center gap-2">
+                    {rcloneStatus.lastRun ? (
+                      <>
+                        <span className="text-sm text-muted-foreground">
+                          {new Date(rcloneStatus.lastRun).toLocaleString('it-IT')}
+                        </span>
+                        {rcloneStatus.status === 'success' ? (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                            <Check className="w-3 h-3 mr-1" />
+                            Successo
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive">
+                            <AlertCircle className="w-3 h-3 mr-1" />
+                            Errore
+                          </Badge>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-sm text-muted-foreground italic">Nessun sync eseguito</span>
+                    )}
+                  </div>
+                </div>
+                {rcloneStatus.error && (
+                  <p className="text-xs text-destructive mt-2">{rcloneStatus.error}</p>
+                )}
+              </div>
             </div>
 
-            <Button variant="outline" size="sm" onClick={loadCsvStatus}>
+            <Button variant="outline" size="sm" onClick={() => { loadCsvStatus(); loadRcloneStatus(); }}>
               <Loader2 className="w-3 h-3 mr-2" />
               Aggiorna stato
             </Button>

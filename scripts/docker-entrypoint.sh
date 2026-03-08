@@ -8,7 +8,7 @@ export POCKETBASE_PRAGMA_JOURNAL_MODE=wal
 export POCKETBASE_PRAGMA_SYNCHRONOUS=normal
 export POCKETBASE_PRAGMA_BUSY_TIMEOUT=5000
 
-# Create exports directory
+# Create required directories
 mkdir -p /pb/pb_data/exports
 
 # Setup cron for rclone sync at 04:00
@@ -16,6 +16,7 @@ echo "0 4 * * * /pb/rclone-sync.sh >> /pb/pb_data/rclone-sync.log 2>&1" | cronta
 crond -b -l 8
 
 echo "Cron configurato: rclone sync alle 04:00"
+echo "Directory exports: /pb/pb_data/exports/"
 
 # Start PocketBase with migrations auto-apply and hooks
 exec pocketbase serve \
