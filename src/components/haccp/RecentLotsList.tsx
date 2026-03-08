@@ -68,6 +68,27 @@ export const RecentLotsList = () => {
     await remove(id);
   };
 
+  const handlePrint = async (lot: PBLot) => {
+    if (!printerSettings) return;
+    try {
+      await printLabel(
+        {
+          internal_lot_number: lot.internal_lot_number,
+          lot_number: lot.lot_number,
+          production_date: lot.production_date,
+          expiry_date: lot.expiry_date,
+          product_name: getProductName(lot.product_id),
+          is_frozen: lot.is_frozen,
+          freezing_date: lot.freezing_date,
+        },
+        printerSettings
+      );
+      toast.success('Etichetta inviata alla stampante');
+    } catch {
+      toast.error('Errore durante la stampa');
+    }
+  };
+
   if (loading) {
     return (
       <Card>
