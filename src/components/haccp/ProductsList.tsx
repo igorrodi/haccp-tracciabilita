@@ -44,6 +44,8 @@ export const ProductsList = () => {
   const [submitting, setSubmitting] = useState(false);
   const [allergens, setAllergens] = useState<AllergenInfo[]>([]);
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
+  const [lotImages, setLotImages] = useState<Record<string, { id: string; url: string }[]>>({});
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     shelf_life_days: '',
@@ -116,6 +118,37 @@ export const ProductsList = () => {
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return '—';
     return format(new Date(dateStr), 'dd/MM/yyyy', { locale: it });
+  };
+
+  // Load images for lots when product is expanded
+  const loadLotImages = async (productId: string) => {
+    const productLots = lots.filter(l => l.product_id === productId);
+    const images: Record<string, { id: string; url: string }[]> = {};
+    
+    for (const lot of productLots) {
+      try {
+        const lotImgs = await pb.collection('lot_images').getFullList({
+          filter: `lot_id = "${lot.id}"`,
+        });
+        if (lotImgs.length > 0) {
+          images[lot.id] = lotImgs.map((img: any) => ({
+            id: img.id,
+            url: pb.files.getURL(img, img.image),
+          }));
+        }
+      } catch { /* ignore */ }
+    }
+    
+    setLotImages(prev => ({ ...prev, ...images }));
+  };
+
+  const handleExpandProduct = (productId: string) => {
+    if (expandedProduct === productId) {
+      setExpandedProduct(null);
+    } else {
+      setExpandedProduct(productId);
+      loadLotImages(productId);
+    }
   };
 
   const productForm = (
@@ -211,7 +244,7 @@ export const ProductsList = () => {
                     <div className="flex items-start justify-between">
                       <button
                         className="space-y-1.5 flex-1 min-w-0 text-left"
-                        onClick={() => setExpandedProduct(isExpanded ? null : product.id)}
+                        onClick={() => handleExpandProduct(product.id)}
                       >
                         <div className="flex items-center gap-2">
                           <h3 className="font-medium">{product.name}</h3>
@@ -280,22 +313,38 @@ export const ProductsList = () => {
                         <p className="text-xs text-muted-foreground text-center py-2">Nessun lotto registrato per questo prodotto</p>
                       ) : (
                         productLots.map(lot => (
-                          <div key={lot.id} className="flex items-center justify-between p-2 rounded bg-muted/50 text-sm">
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono font-bold text-primary text-xs tracking-wider">
-                                {lot.internal_lot_number || '—'}
-                              </span>
-                              {lot.is_frozen && <Snowflake className="w-3 h-3 text-blue-500" />}
-                            </div>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                              {lot.lot_number && <span className="truncate max-w-[120px]">{lot.lot_number}</span>}
-                              <span>{formatDate(lot.production_date)}</span>
-                              {lot.expiry_date && (
-                                <span className={new Date(lot.expiry_date) < new Date() ? 'text-destructive font-medium' : ''}>
-                                  → {formatDate(lot.expiry_date)}
+                          <div key={lot.id} className="p-2 rounded bg-muted/50 space-y-2">
+                            <div className="flex items-center justify-between text-sm">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-bold text-primary text-xs tracking-wider">
+                                  {lot.internal_lot_number || '—'}
                                 </span>
-                              )}
+                                {lot.is_frozen && <Snowflake className="w-3 h-3 text-blue-500" />}
+                              </div>
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                {lot.lot_number && <span className="truncate max-w-[120px]">{lot.lot_number}</span>}
+                                <span>{formatDate(lot.production_date)}</span>
+                                {lot.expiry_date && (
+                                  <span className={new Date(lot.expiry_date) < new Date() ? 'text-destructive font-medium' : ''}>
+                                    → {formatDate(lot.expiry_date)}
+                                  </span>
+                                )}
+                              </div>
                             </div>
+                            {/* Lot image thumbnails */}
+                            {lotImages[lot.id] && lotImages[lot.id].length > 0 && (
+                              <div className="flex gap-1.5 flex-wrap">
+                                {lotImages[lot.id].map(img => (
+                                  <button
+                                    key={img.id}
+                                    onClick={() => setZoomedImage(img.url)}
+                                    className="w-12 h-12 rounded border border-border overflow-hidden hover:ring-2 hover:ring-primary transition-all"
+                                  >
+                                    <img src={img.url} alt="Etichetta" className="w-full h-full object-cover" />
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         ))
                       )}
@@ -307,6 +356,15 @@ export const ProductsList = () => {
           </div>
         )}
       </CardContent>
+
+      {/* Image lightbox */}
+      <Dialog open={!!zoomedImage} onOpenChange={() => setZoomedImage(null)}>
+        <DialogContent className="max-w-lg p-2">
+          {zoomedImage && (
+            <img src={zoomedImage} alt="Etichetta ingrandita" className="w-full h-auto rounded" />
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
