@@ -18,6 +18,8 @@ export function useCollection<T>(collectionName: string) {
       });
       setData(records);
     } catch (err: any) {
+      // Ignore auto-cancellation errors
+      if (err?.isAbort) return;
       const message = err.message || 'Errore nel caricamento dati';
       setError(message);
       // Don't show toast for 404 (collection doesn't exist yet)

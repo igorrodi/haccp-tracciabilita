@@ -10,6 +10,7 @@ import { Plus, Package, Pencil, Trash2, X, Check, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -122,6 +123,7 @@ export const ProductsList = () => {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Nuovo Prodotto</DialogTitle>
+                <DialogDescription>Inserisci i dettagli del nuovo prodotto</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
@@ -181,6 +183,7 @@ export const ProductsList = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingId ? 'Modifica Prodotto' : 'Nuovo Prodotto'}</DialogTitle>
+              <DialogDescription>Inserisci i dettagli del prodotto</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
