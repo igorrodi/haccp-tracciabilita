@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,10 +6,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Plus, Package, ScanBarcode } from 'lucide-react';
+import { Loader2, Plus, Package, ScanBarcode, Camera, Crop, FileSearch } from 'lucide-react';
 import { useProducts, useSuppliers, useLots } from '@/hooks/usePocketBase';
 import { format } from 'date-fns';
 import { BarcodeScanner } from './BarcodeScanner';
+import { ImageCropper } from './ImageCropper';
+import { toast } from 'sonner';
 
 export const LotForm = () => {
   const { data: products, loading: productsLoading } = useProducts();
@@ -28,6 +30,14 @@ export const LotForm = () => {
   });
   const [submitting, setSubmitting] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  
+  // Photo/OCR state
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [showCropper, setShowCropper] = useState(false);
+  const [croppedImage, setCroppedImage] = useState<string | null>(null);
+  const [ocrProcessing, setOcrProcessing] = useState(false);
+  const [ocrResult, setOcrResult] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleBarcodeScan = (barcode: string) => {
     setFormData(prev => ({ ...prev, lot_number: barcode }));
@@ -49,6 +59,85 @@ export const LotForm = () => {
     }
   }, [formData.product_id, formData.production_date, products]);
 
+  // Handle photo capture/upload
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCapturedImage(reader.result as string);
+      setShowCropper(true);
+      setCroppedImage(null);
+      setOcrResult(null);
+    };
+    reader.readAsDataURL(file);
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  };
+
+  // Handle crop complete
+  const handleCropComplete = (blob: Blob) => {
+    const url = URL.createObjectURL(blob);
+    setCroppedImage(url);
+    setShowCropper(false);
+    toast.success('Immagine ritagliata con successo');
+  };
+
+  // OCR: extract lot number from image
+  const handleOCR = async () => {
+    const imageToProcess = croppedImage || capturedImage;
+    if (!imageToProcess) return;
+
+    setOcrProcessing(true);
+    setOcrResult(null);
+
+    try {
+      const Tesseract = await import('tesseract.js');
+      const { data } = await Tesseract.recognize(imageToProcess, 'ita+eng', {
+        logger: (m) => {
+          if (m.status === 'recognizing text') {
+            // Progress tracking if needed
+          }
+        }
+      });
+      
+      const text = data.text.trim();
+      setOcrResult(text);
+
+      // Try to find a lot number pattern in the text
+      const lotPatterns = [
+        /(?:lotto?|lot|l\.?\s*n?\.?\s*):?\s*([A-Z0-9\-\/\.]+)/i,
+        /(?:batch|partita):?\s*([A-Z0-9\-\/\.]+)/i,
+        /\b([A-Z]{1,3}[\-\/]?\d{2,}[\-\/]?\d{0,4}[A-Z]?)\b/,
+        /\b(\d{6,12})\b/,
+      ];
+
+      let foundLot = '';
+      for (const pattern of lotPatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          foundLot = match[1].trim();
+          break;
+        }
+      }
+
+      if (foundLot) {
+        setFormData(prev => ({ ...prev, lot_number: foundLot }));
+        toast.success(`Lotto trovato: ${foundLot}`);
+      } else if (text.length > 0) {
+        toast.info('Testo trovato ma nessun lotto riconosciuto. Controlla il testo estratto sotto.');
+      } else {
+        toast.warning('Nessun testo riconosciuto. Prova con un\'immagine più chiara.');
+      }
+    } catch (error) {
+      console.error('OCR error:', error);
+      toast.error('Errore durante il riconoscimento del testo');
+    } finally {
+      setOcrProcessing(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -64,7 +153,6 @@ export const LotForm = () => {
     const { error } = await createLot(lotData);
     
     if (!error) {
-      // Reset form
       setFormData({
         lot_number: '',
         product_id: '',
@@ -75,6 +163,9 @@ export const LotForm = () => {
         freezing_date: '',
         notes: '',
       });
+      setCapturedImage(null);
+      setCroppedImage(null);
+      setOcrResult(null);
     }
 
     setSubmitting(false);
@@ -100,6 +191,16 @@ export const LotForm = () => {
           </div>
         )}
 
+        {/* Image Cropper Dialog */}
+        {capturedImage && (
+          <ImageCropper
+            image={capturedImage}
+            isOpen={showCropper}
+            onCropComplete={handleCropComplete}
+            onCancel={() => setShowCropper(false)}
+          />
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="lot_number">Numero Lotto *</Label>
@@ -122,6 +223,81 @@ export const LotForm = () => {
                 <ScanBarcode className="h-4 w-4" />
               </Button>
             </div>
+          </div>
+
+          {/* Photo capture + OCR section */}
+          <div className="space-y-2">
+            <Label>📷 Foto Etichetta (OCR)</Label>
+            <div className="flex gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handlePhotoSelect}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Camera className="h-4 w-4 mr-2" />
+                {capturedImage ? 'Cambia foto' : 'Scatta / Carica foto'}
+              </Button>
+              {capturedImage && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setShowCropper(true)}
+                  title="Ritaglia immagine"
+                >
+                  <Crop className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+
+            {/* Image preview */}
+            {(croppedImage || capturedImage) && (
+              <div className="space-y-2">
+                <div className="relative rounded-lg overflow-hidden border bg-muted">
+                  <img
+                    src={croppedImage || capturedImage!}
+                    alt="Etichetta"
+                    className="w-full max-h-48 object-contain"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full"
+                  onClick={handleOCR}
+                  disabled={ocrProcessing}
+                >
+                  {ocrProcessing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Analisi in corso...
+                    </>
+                  ) : (
+                    <>
+                      <FileSearch className="h-4 w-4 mr-2" />
+                      Estrai numero lotto (OCR)
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {/* OCR result */}
+            {ocrResult && (
+              <div className="p-3 bg-muted rounded-lg space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">Testo estratto:</p>
+                <p className="text-sm whitespace-pre-wrap break-all font-mono">{ocrResult}</p>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
