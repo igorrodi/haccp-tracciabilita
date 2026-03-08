@@ -9,7 +9,7 @@ export POCKETBASE_PRAGMA_SYNCHRONOUS=normal
 export POCKETBASE_PRAGMA_BUSY_TIMEOUT=5000
 
 # Create required directories
-mkdir -p /pb/pb_data/exports
+mkdir -p /pb/pb_data/exports /pb/pb_data/backups
 
 # Setup cron for rclone sync at 04:00
 echo "0 4 * * * /pb/rclone-sync.sh >> /pb/pb_data/rclone-sync.log 2>&1" | crontab -
@@ -23,6 +23,20 @@ if command -v cupsd >/dev/null 2>&1; then
   cupsd
   echo "CUPS avviato (porta 631)"
 fi
+
+# Write build info if not present
+if [ ! -f /pb/pb_data/version.json ]; then
+  cat > /pb/pb_data/version.json <<EOF
+{
+  "last_check": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+  "last_update": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+  "status": "installed"
+}
+EOF
+  echo "Version info inizializzata"
+fi
+
+echo "Migrazioni automatiche abilitate (--automigrate)"
 
 # Start PocketBase with migrations auto-apply and hooks
 exec pocketbase serve \
