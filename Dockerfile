@@ -26,7 +26,10 @@ RUN apk add --no-cache ca-certificates
 COPY --from=base /usr/local/bin/pocketbase /usr/local/bin/pocketbase
 COPY --from=frontend /app/dist /pb/pb_public
 COPY scripts/pocketbase/pb_schema.json /pb/pb_schema.json
+COPY scripts/docker-entrypoint.sh /pb/entrypoint.sh
+RUN chmod +x /pb/entrypoint.sh
+RUN apk add --no-cache curl
 
 EXPOSE 80
 
-CMD ["pocketbase", "serve", "--http=0.0.0.0:80", "--dir=/pb/pb_data", "--publicDir=/pb/pb_public"]
+ENTRYPOINT ["/pb/entrypoint.sh"]
