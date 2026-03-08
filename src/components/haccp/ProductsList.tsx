@@ -6,9 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useProducts, useLots, PBProduct } from '@/hooks/usePocketBase';
+import { useProducts, useLots, PBProduct, PBLot } from '@/hooks/usePocketBase';
 import { pb } from '@/lib/pocketbase';
-import { Plus, Package, Pencil, Trash2, Loader2, AlertTriangle, Hash } from 'lucide-react';
+import { Plus, Package, Pencil, Trash2, Loader2, AlertTriangle, Hash, ChevronDown, ChevronUp, Snowflake } from 'lucide-react';
+import { format } from 'date-fns';
+import { it } from 'date-fns/locale';
 import {
   Dialog,
   DialogContent,
@@ -41,7 +43,7 @@ export const ProductsList = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [allergens, setAllergens] = useState<AllergenInfo[]>([]);
-  
+  const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     shelf_life_days: '',
@@ -105,6 +107,15 @@ export const ProductsList = () => {
 
   const getLotCount = (productId: string): number => {
     return lots.filter(l => l.product_id === productId).length;
+  };
+
+  const getProductLots = (productId: string): PBLot[] => {
+    return lots.filter(l => l.product_id === productId);
+  };
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '—';
+    return format(new Date(dateStr), 'dd/MM/yyyy', { locale: it });
   };
 
   const productForm = (
@@ -188,68 +199,108 @@ export const ProductsList = () => {
             {products.map((product) => {
               const productAllergens = getProductAllergens(product.ingredients);
               const lotCount = getLotCount(product.id);
+              const isExpanded = expandedProduct === product.id;
+              const productLots = isExpanded ? getProductLots(product.id) : [];
 
               return (
                 <div
                   key={product.id}
-                  className="p-4 bg-muted/50 rounded-lg border border-border hover:border-primary/50 transition-colors"
+                  className="rounded-lg border border-border hover:border-primary/50 transition-colors overflow-hidden"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1.5 flex-1 min-w-0">
-                      <h3 className="font-medium">{product.name}</h3>
-                      
-                      <div className="flex items-center gap-3 flex-wrap">
-                        {product.shelf_life_days && (
-                          <span className="text-sm text-muted-foreground">
-                            📅 {product.shelf_life_days}g
-                          </span>
-                        )}
-                        <span className="text-sm text-muted-foreground flex items-center gap-1">
-                          <Hash className="w-3 h-3" />
-                          {lotCount} lott{lotCount === 1 ? 'o' : 'i'}
-                        </span>
-                      </div>
-
-                      {product.ingredients && (
-                        <p className="text-xs text-muted-foreground line-clamp-2">{product.ingredients}</p>
-                      )}
-
-                      {productAllergens.length > 0 && (
-                        <div className="flex items-center gap-1 flex-wrap mt-1">
-                          <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />
-                          {productAllergens.map(a => (
-                            <Badge key={a.number} variant="outline" className="text-[10px] px-1.5 py-0 border-amber-400 text-amber-600">
-                              {a.category_name}
-                            </Badge>
-                          ))}
+                  <div className="p-4 bg-muted/50">
+                    <div className="flex items-start justify-between">
+                      <button
+                        className="space-y-1.5 flex-1 min-w-0 text-left"
+                        onClick={() => setExpandedProduct(isExpanded ? null : product.id)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium">{product.name}</h3>
+                          {lotCount > 0 && (
+                            isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                          )}
                         </div>
-                      )}
-                    </div>
-                    <div className="flex gap-1 flex-shrink-0">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(product)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Elimina prodotto?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Stai per eliminare "{product.name}". Questa azione non può essere annullata.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Annulla</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDelete(product.id)}>Elimina</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                        
+                        <div className="flex items-center gap-3 flex-wrap">
+                          {product.shelf_life_days && (
+                            <span className="text-sm text-muted-foreground">📅 {product.shelf_life_days}g</span>
+                          )}
+                          <span className="text-sm text-muted-foreground flex items-center gap-1">
+                            <Hash className="w-3 h-3" />
+                            {lotCount} lott{lotCount === 1 ? 'o' : 'i'}
+                          </span>
+                        </div>
+
+                        {product.ingredients && (
+                          <p className="text-xs text-muted-foreground line-clamp-2">{product.ingredients}</p>
+                        )}
+
+                        {productAllergens.length > 0 && (
+                          <div className="flex items-center gap-1 flex-wrap mt-1">
+                            <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                            {productAllergens.map(a => (
+                              <Badge key={a.number} variant="outline" className="text-[10px] px-1.5 py-0 border-amber-400 text-amber-600">
+                                {a.category_name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </button>
+
+                      <div className="flex gap-1 flex-shrink-0">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleEdit(product); }}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Elimina prodotto?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Stai per eliminare "{product.name}". Questa azione non può essere annullata.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Annulla</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDelete(product.id)}>Elimina</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Expanded lot list */}
+                  {isExpanded && (
+                    <div className="border-t border-border bg-background p-3 space-y-2">
+                      {productLots.length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-2">Nessun lotto registrato per questo prodotto</p>
+                      ) : (
+                        productLots.map(lot => (
+                          <div key={lot.id} className="flex items-center justify-between p-2 rounded bg-muted/50 text-sm">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-primary text-xs tracking-wider">
+                                {lot.internal_lot_number || '—'}
+                              </span>
+                              {lot.is_frozen && <Snowflake className="w-3 h-3 text-blue-500" />}
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              {lot.lot_number && <span className="truncate max-w-[120px]">{lot.lot_number}</span>}
+                              <span>{formatDate(lot.production_date)}</span>
+                              {lot.expiry_date && (
+                                <span className={new Date(lot.expiry_date) < new Date() ? 'text-destructive font-medium' : ''}>
+                                  → {formatDate(lot.expiry_date)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
