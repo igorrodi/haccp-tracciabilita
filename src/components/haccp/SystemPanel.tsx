@@ -62,6 +62,10 @@ export const SystemPanel = () => {
             <Database className="w-3 h-3" />
             Database
           </TabsTrigger>
+          <TabsTrigger value="updates" className="flex-shrink-0 flex items-center gap-1">
+            <ArrowUpCircle className="w-3 h-3" />
+            Aggiornamenti
+          </TabsTrigger>
           <TabsTrigger value="info" className="flex-shrink-0 flex items-center gap-1">
             <Info className="w-3 h-3" />
             Info
