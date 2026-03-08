@@ -162,6 +162,7 @@
       { "name": "operator", "type": "text", "required": true },
       { "name": "value", "type": "text", "required": true },
       { "name": "notes", "type": "text" },
+      { "name": "season_id", "type": "relation", "options": { "collectionId": "seasons", "cascadeDelete": false, "maxSelect": 1 } },
       { "name": "user_id", "type": "relation", "options": { "collectionId": "users", "cascadeDelete": false, "maxSelect": 1 } }
     ],
     "listRule": "@request.auth.id != ''",
