@@ -43,7 +43,7 @@ export const ProductsList = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [allergens, setAllergens] = useState<AllergenInfo[]>([]);
-  
+  const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     shelf_life_days: '',
