@@ -150,6 +150,11 @@ export const SystemPanel = () => {
         </Card>
       </TabsContent>
       
+      
+      <TabsContent value="updates">
+        <UpdatesBackupPanel />
+      </TabsContent>
+
       <TabsContent value="info">
         <Card>
           <CardHeader>
