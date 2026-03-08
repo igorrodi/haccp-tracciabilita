@@ -7,12 +7,14 @@ import { AllergenManagement } from './AllergenManagement';
 import { PrinterSettings } from './PrinterSettings';
 import { UpdatesBackupPanel } from './UpdatesBackupPanel';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ExternalLink, Database, Settings, Cloud, FileSpreadsheet, AlertTriangle, Truck, Users, Info, Printer, ArrowUpCircle } from 'lucide-react';
+import { ExternalLink, Database, Settings, FileSpreadsheet, AlertTriangle, Truck, Users, Info, Printer, ArrowUpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isAdmin } from '@/lib/pocketbase';
+import { useAppVersion } from '@/hooks/useAppVersion';
 
 export const SystemPanel = () => {
   const admin = isAdmin();
+  const version = useAppVersion();
 
   const openPocketBaseAdmin = () => {
     const hostname = window.location.hostname;
@@ -33,7 +35,7 @@ export const SystemPanel = () => {
   return (
     <Tabs defaultValue="suppliers" className="w-full">
       <div className="w-full overflow-x-auto pb-2">
-        <TabsList className="inline-flex w-full min-w-max md:grid md:w-full md:grid-cols-9 gap-1">
+        <TabsList className="inline-flex w-full min-w-max md:grid md:w-full md:grid-cols-7 gap-1">
           <TabsTrigger value="suppliers" className="flex-shrink-0 flex items-center gap-1">
             <Truck className="w-3 h-3" />
             Fornitori
@@ -46,21 +48,13 @@ export const SystemPanel = () => {
             <AlertTriangle className="w-3 h-3" />
             Allergeni
           </TabsTrigger>
-          <TabsTrigger value="export" className="flex-shrink-0 flex items-center gap-1">
+          <TabsTrigger value="data" className="flex-shrink-0 flex items-center gap-1">
             <FileSpreadsheet className="w-3 h-3" />
-            Export
+            Dati & Cloud
           </TabsTrigger>
           <TabsTrigger value="printer" className="flex-shrink-0 flex items-center gap-1">
             <Printer className="w-3 h-3" />
             Stampante
-          </TabsTrigger>
-          <TabsTrigger value="backup" className="flex-shrink-0 flex items-center gap-1">
-            <Cloud className="w-3 h-3" />
-            Cloud
-          </TabsTrigger>
-          <TabsTrigger value="database" className="flex-shrink-0 flex items-center gap-1">
-            <Database className="w-3 h-3" />
-            Database
           </TabsTrigger>
           <TabsTrigger value="updates" className="flex-shrink-0 flex items-center gap-1">
             <ArrowUpCircle className="w-3 h-3" />
@@ -83,117 +77,112 @@ export const SystemPanel = () => {
         </TabsContent>
       )}
 
-      <TabsContent value="export">
-        <DataExport />
+      <TabsContent value="allergens">
+        <AllergenManagement />
       </TabsContent>
 
-      <TabsContent value="backup">
-        <CloudBackupSettings />
+      {/* Unified Data & Cloud tab */}
+      <TabsContent value="data">
+        <div className="space-y-4">
+          <DataExport />
+          <CloudBackupSettings />
+        </div>
       </TabsContent>
 
       <TabsContent value="printer">
         <PrinterSettings />
       </TabsContent>
 
-      <TabsContent value="allergens">
-        <AllergenManagement />
-      </TabsContent>
-
-
-      <TabsContent value="database">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="w-5 h-5" />
-              Gestione Database
-            </CardTitle>
-            <CardDescription>
-              Accedi al pannello admin di PocketBase
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button onClick={openPocketBaseAdmin} className="w-full">
-              <ExternalLink className="w-4 h-4 mr-2" />
-              Apri PocketBase Admin
-            </Button>
-            
-            <div className="p-4 bg-muted rounded-lg space-y-3">
-              <h4 className="font-medium">Collezioni disponibili:</h4>
-              <ul className="text-sm text-muted-foreground space-y-2">
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-primary rounded-full" />
-                  <strong>products</strong> - Prodotti/Categorie
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-primary rounded-full" />
-                  <strong>lots</strong> - Lotti di produzione
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-primary rounded-full" />
-                  <strong>suppliers</strong> - Fornitori
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-primary rounded-full" />
-                  <strong>allergens</strong> - Allergeni
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-primary rounded-full" />
-                  <strong>lot_images</strong> - Foto etichette lotti
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-primary rounded-full" />
-                  <strong>printer_settings</strong> - Impostazioni stampante
-                </li>
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
-      </TabsContent>
-      
-      
       <TabsContent value="updates">
         <UpdatesBackupPanel />
       </TabsContent>
 
       <TabsContent value="info">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="w-5 h-5" />
-              Informazioni Sistema
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4">
-              <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-medium mb-2">Versione</h4>
-                <p className="text-sm text-muted-foreground">HACCP Tracker v2.0 - PocketBase Edition</p>
-              </div>
-              
-              <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-medium mb-2">Backend</h4>
-                <p className="text-sm text-muted-foreground">PocketBase (SQLite) - Ottimizzato per Raspberry Pi</p>
-              </div>
-              
-              <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-medium mb-2">Comandi Utili</h4>
-                <div className="space-y-2 font-mono text-xs">
-                  <p className="p-2 bg-background rounded">haccp-status   # Stato sistema</p>
-                  <p className="p-2 bg-background rounded">haccp-backup   # Backup manuale</p>
-                  <p className="p-2 bg-background rounded">haccp-update   # Aggiorna app</p>
+        <div className="space-y-4">
+          {/* System Info */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="w-5 h-5" />
+                Informazioni Sistema
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4">
+                <div className="p-4 bg-muted rounded-lg">
+                  <h4 className="font-medium mb-2">Versione</h4>
+                  <p className="text-sm text-muted-foreground">
+                    HACCP Tracker v{version?.app_version || '2.1.0'} - PocketBase Edition
+                  </p>
+                </div>
+                
+                <div className="p-4 bg-muted rounded-lg">
+                  <h4 className="font-medium mb-2">Backend</h4>
+                  <p className="text-sm text-muted-foreground">PocketBase (SQLite) - Ottimizzato per Raspberry Pi</p>
+                </div>
+                
+                <div className="p-4 bg-muted rounded-lg">
+                  <h4 className="font-medium mb-2">Comandi Utili</h4>
+                  <div className="space-y-2 font-mono text-xs">
+                    <p className="p-2 bg-background rounded">haccp-status   # Stato sistema</p>
+                    <p className="p-2 bg-background rounded">haccp-backup   # Backup manuale</p>
+                    <p className="p-2 bg-background rounded">haccp-update   # Aggiorna app</p>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                  <h4 className="font-medium text-primary mb-2">✅ Sistema Locale</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Tutti i dati sono salvati localmente sul Raspberry Pi.
+                    Nessuna dipendenza da servizi cloud esterni.
+                  </p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
-                <h4 className="font-medium text-primary mb-2">✅ Sistema Locale</h4>
-                <p className="text-sm text-muted-foreground">
-                  Tutti i dati sono salvati localmente sul Raspberry Pi.
-                  Nessuna dipendenza da servizi cloud esterni.
-                </p>
+          {/* Database - moved here from its own tab */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="w-5 h-5" />
+                Gestione Database
+              </CardTitle>
+              <CardDescription>
+                Accedi al pannello admin di PocketBase
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button onClick={openPocketBaseAdmin} className="w-full">
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Apri PocketBase Admin
+              </Button>
+              
+              <div className="p-4 bg-muted rounded-lg space-y-3">
+                <h4 className="font-medium">Collezioni disponibili:</h4>
+                <ul className="text-sm text-muted-foreground space-y-2">
+                  {[
+                    { name: 'products', desc: 'Prodotti/Categorie' },
+                    { name: 'lots', desc: 'Lotti di produzione' },
+                    { name: 'suppliers', desc: 'Fornitori' },
+                    { name: 'allergens', desc: 'Allergeni' },
+                    { name: 'lot_images', desc: 'Foto etichette lotti' },
+                    { name: 'printer_settings', desc: 'Impostazioni stampante' },
+                    { name: 'cloud_settings', desc: 'Configurazione cloud' },
+                    { name: 'temperature_logs', desc: 'Log temperature' },
+                    { name: 'reception_logs', desc: 'Log ricezione merci' },
+                    { name: 'cleaning_logs', desc: 'Log pulizie' },
+                  ].map(col => (
+                    <li key={col.name} className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-primary rounded-full" />
+                      <strong>{col.name}</strong> - {col.desc}
+                    </li>
+                  ))}
+                </ul>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </TabsContent>
     </Tabs>
   );
