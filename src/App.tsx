@@ -66,10 +66,6 @@ const AuthRouter = () => {
 };
 
 const App = () => {
-  // Preview mode: bypass auth when PocketBase is unreachable
-  const isPreview = window.location.hostname.includes('lovable') || 
-                    window.location.hostname.includes('localhost');
-
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -78,14 +74,12 @@ const App = () => {
         <InstallPWA />
         <BrowserRouter>
           <Routes>
-            <Route path="/auth" element={isPreview ? <Navigate to="/" replace /> : <AuthRouter />} />
+            <Route path="/auth" element={<AuthRouter />} />
             <Route path="/setup" element={<FirstTimeSetup />} />
             <Route path="/" element={
-              isPreview ? <Index /> : (
-                <ProtectedRoute>
-                  <Index />
-                </ProtectedRoute>
-              )
+              <ProtectedRoute>
+                <Index />
+              </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />
           </Routes>
