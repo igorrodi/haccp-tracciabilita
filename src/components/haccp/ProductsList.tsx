@@ -109,6 +109,15 @@ export const ProductsList = () => {
     return lots.filter(l => l.product_id === productId).length;
   };
 
+  const getProductLots = (productId: string): PBLot[] => {
+    return lots.filter(l => l.product_id === productId);
+  };
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '—';
+    return format(new Date(dateStr), 'dd/MM/yyyy', { locale: it });
+  };
+
   const productForm = (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
