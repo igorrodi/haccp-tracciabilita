@@ -64,6 +64,13 @@ export const ProductsList = () => {
     pb.collection('allergens').getFullList<AllergenInfo>({ sort: 'number' })
       .then(setAllergens)
       .catch(() => {});
+    // Load printer settings
+    const user = currentUser();
+    if (user) {
+      pb.collection('printer_settings').getFirstListItem(`user_id = "${user.id}"`)
+        .then((s: any) => setPrinterSettings(s))
+        .catch(() => {});
+    }
   }, []);
 
   const resetForm = () => {
