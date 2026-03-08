@@ -6,12 +6,22 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Plus, Package, ScanBarcode, Camera, Crop, FileSearch } from 'lucide-react';
+import { Loader2, Plus, Package, ScanBarcode, Camera, Crop, FileSearch, X, ImagePlus } from 'lucide-react';
 import { useProducts, useSuppliers, useLots } from '@/hooks/usePocketBase';
+import { pb } from '@/lib/pocketbase';
 import { format } from 'date-fns';
 import { BarcodeScanner } from './BarcodeScanner';
 import { ImageCropper } from './ImageCropper';
 import { toast } from 'sonner';
+
+interface PhotoItem {
+  id: string;
+  dataUrl: string;
+  blob: Blob | null;
+  name: string;
+}
+
+let photoCounter = 0;
 
 export const LotForm = () => {
   const { data: products, loading: productsLoading } = useProducts();
@@ -31,12 +41,13 @@ export const LotForm = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   
-  // Photo/OCR state
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  // Multi-photo state
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
+  const [cropTarget, setCropTarget] = useState<PhotoItem | null>(null);
   const [showCropper, setShowCropper] = useState(false);
-  const [croppedImage, setCroppedImage] = useState<string | null>(null);
   const [ocrProcessing, setOcrProcessing] = useState(false);
   const [ocrResult, setOcrResult] = useState<string | null>(null);
+  const [ocrTargetId, setOcrTargetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleBarcodeScan = (barcode: string) => {
@@ -59,53 +70,69 @@ export const LotForm = () => {
     }
   }, [formData.product_id, formData.production_date, products]);
 
-  // Handle photo capture/upload
+  // Handle photo capture/upload - adds to gallery
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
     const reader = new FileReader();
     reader.onload = () => {
-      setCapturedImage(reader.result as string);
+      const id = `photo-${++photoCounter}`;
+      const newPhoto: PhotoItem = {
+        id,
+        dataUrl: reader.result as string,
+        blob: file,
+        name: file.name,
+      };
+      setPhotos(prev => [...prev, newPhoto]);
+      // Auto-open cropper for new photo
+      setCropTarget(newPhoto);
       setShowCropper(true);
-      setCroppedImage(null);
-      setOcrResult(null);
     };
     reader.readAsDataURL(file);
-    // Reset input so same file can be selected again
     e.target.value = '';
   };
 
-  // Handle crop complete
+  // Handle crop complete - update photo in gallery
   const handleCropComplete = (blob: Blob) => {
+    if (!cropTarget) return;
     const url = URL.createObjectURL(blob);
-    setCroppedImage(url);
+    setPhotos(prev => prev.map(p => 
+      p.id === cropTarget.id ? { ...p, dataUrl: url, blob } : p
+    ));
     setShowCropper(false);
-    toast.success('Immagine ritagliata con successo');
+    setCropTarget(null);
+    toast.success('Immagine ritagliata');
   };
 
-  // OCR: extract lot number from image
-  const handleOCR = async () => {
-    const imageToProcess = croppedImage || capturedImage;
-    if (!imageToProcess) return;
+  const removePhoto = (id: string) => {
+    setPhotos(prev => prev.filter(p => p.id !== id));
+    if (ocrTargetId === id) {
+      setOcrResult(null);
+      setOcrTargetId(null);
+    }
+  };
 
+  const startCrop = (photo: PhotoItem) => {
+    setCropTarget(photo);
+    setShowCropper(true);
+  };
+
+  // OCR on a specific photo
+  const handleOCR = async (photo: PhotoItem) => {
     setOcrProcessing(true);
     setOcrResult(null);
+    setOcrTargetId(photo.id);
 
     try {
       const Tesseract = await import('tesseract.js');
-      const { data } = await Tesseract.recognize(imageToProcess, 'ita+eng', {
-        logger: (m) => {
-          if (m.status === 'recognizing text') {
-            // Progress tracking if needed
-          }
-        }
+      const { data } = await Tesseract.recognize(photo.dataUrl, 'ita+eng', {
+        logger: () => {}
       });
       
       const text = data.text.trim();
       setOcrResult(text);
 
-      // Try to find a lot number pattern in the text
       const lotPatterns = [
         /(?:lotto?|lot|l\.?\s*n?\.?\s*):?\s*([A-Z0-9\-\/\.]+)/i,
         /(?:batch|partita):?\s*([A-Z0-9\-\/\.]+)/i,
@@ -126,9 +153,9 @@ export const LotForm = () => {
         setFormData(prev => ({ ...prev, lot_number: foundLot }));
         toast.success(`Lotto trovato: ${foundLot}`);
       } else if (text.length > 0) {
-        toast.info('Testo trovato ma nessun lotto riconosciuto. Controlla il testo estratto sotto.');
+        toast.info('Testo trovato ma nessun lotto riconosciuto automaticamente.');
       } else {
-        toast.warning('Nessun testo riconosciuto. Prova con un\'immagine più chiara.');
+        toast.warning("Nessun testo riconosciuto. Prova con un'immagine più chiara.");
       }
     } catch (error) {
       console.error('OCR error:', error);
@@ -138,6 +165,7 @@ export const LotForm = () => {
     }
   };
 
+  // Save lot + upload all photos to lot_images
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -150,9 +178,28 @@ export const LotForm = () => {
       product_id: formData.product_id || null,
     };
 
-    const { error } = await createLot(lotData);
+    const { data: newLot, error } = await createLot(lotData);
     
-    if (!error) {
+    if (!error && newLot) {
+      // Upload photos to lot_images collection
+      for (const photo of photos) {
+        if (photo.blob) {
+          try {
+            const formDataUpload = new FormData();
+            formDataUpload.append('lot_id', newLot.id);
+            formDataUpload.append('image', photo.blob, photo.name || 'photo.jpg');
+            await pb.collection('lot_images').create(formDataUpload);
+          } catch (uploadErr) {
+            console.error('Photo upload error:', uploadErr);
+          }
+        }
+      }
+
+      if (photos.length > 0) {
+        toast.success(`Lotto creato con ${photos.length} foto salvate`);
+      }
+
+      // Reset form
       setFormData({
         lot_number: '',
         product_id: '',
@@ -163,9 +210,9 @@ export const LotForm = () => {
         freezing_date: '',
         notes: '',
       });
-      setCapturedImage(null);
-      setCroppedImage(null);
+      setPhotos([]);
       setOcrResult(null);
+      setOcrTargetId(null);
     }
 
     setSubmitting(false);
@@ -192,12 +239,12 @@ export const LotForm = () => {
         )}
 
         {/* Image Cropper Dialog */}
-        {capturedImage && (
+        {cropTarget && (
           <ImageCropper
-            image={capturedImage}
+            image={cropTarget.dataUrl}
             isOpen={showCropper}
             onCropComplete={handleCropComplete}
-            onCancel={() => setShowCropper(false)}
+            onCancel={() => { setShowCropper(false); setCropTarget(null); }}
           />
         )}
 
@@ -225,9 +272,58 @@ export const LotForm = () => {
             </div>
           </div>
 
-          {/* Photo capture + OCR section */}
+          {/* Multi-photo section */}
           <div className="space-y-2">
-            <Label>📷 Foto Etichetta (OCR)</Label>
+            <Label>📷 Foto Etichette</Label>
+            
+            {/* Photo gallery */}
+            {photos.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {photos.map((photo) => (
+                  <div key={photo.id} className="relative group rounded-lg overflow-hidden border bg-muted">
+                    <img
+                      src={photo.dataUrl}
+                      alt="Etichetta"
+                      className="w-full h-24 object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-white hover:text-white hover:bg-white/20"
+                        onClick={() => startCrop(photo)}
+                        title="Ritaglia"
+                      >
+                        <Crop className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-white hover:text-white hover:bg-white/20"
+                        onClick={() => handleOCR(photo)}
+                        disabled={ocrProcessing}
+                        title="OCR"
+                      >
+                        <FileSearch className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-white hover:text-destructive hover:bg-white/20"
+                        onClick={() => removePhoto(photo.id)}
+                        title="Rimuovi"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="flex gap-2">
               <input
                 ref={fileInputRef}
@@ -243,51 +339,25 @@ export const LotForm = () => {
                 className="flex-1"
                 onClick={() => fileInputRef.current?.click()}
               >
-                <Camera className="h-4 w-4 mr-2" />
-                {capturedImage ? 'Cambia foto' : 'Scatta / Carica foto'}
+                {photos.length > 0 ? (
+                  <>
+                    <ImagePlus className="h-4 w-4 mr-2" />
+                    Aggiungi altra foto ({photos.length})
+                  </>
+                ) : (
+                  <>
+                    <Camera className="h-4 w-4 mr-2" />
+                    Scatta / Carica foto
+                  </>
+                )}
               </Button>
-              {capturedImage && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setShowCropper(true)}
-                  title="Ritaglia immagine"
-                >
-                  <Crop className="h-4 w-4" />
-                </Button>
-              )}
             </div>
 
-            {/* Image preview */}
-            {(croppedImage || capturedImage) && (
-              <div className="space-y-2">
-                <div className="relative rounded-lg overflow-hidden border bg-muted">
-                  <img
-                    src={croppedImage || capturedImage!}
-                    alt="Etichetta"
-                    className="w-full max-h-48 object-contain"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="w-full"
-                  onClick={handleOCR}
-                  disabled={ocrProcessing}
-                >
-                  {ocrProcessing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Analisi in corso...
-                    </>
-                  ) : (
-                    <>
-                      <FileSearch className="h-4 w-4 mr-2" />
-                      Estrai numero lotto (OCR)
-                    </>
-                  )}
-                </Button>
+            {/* OCR processing indicator */}
+            {ocrProcessing && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 bg-muted rounded-lg">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Analisi OCR in corso...
               </div>
             )}
 
@@ -298,6 +368,10 @@ export const LotForm = () => {
                 <p className="text-sm whitespace-pre-wrap break-all font-mono">{ocrResult}</p>
               </div>
             )}
+
+            <p className="text-xs text-muted-foreground">
+              💡 Passa il mouse sulle foto per ritagliare, estrarre il lotto (OCR) o rimuoverle. Le foto vengono salvate nel database.
+            </p>
           </div>
 
           <div className="space-y-2">
