@@ -1,0 +1,12 @@
+services:
+  haccp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
+    ports:
+      - "80:80"
+    volumes:
+      - ./pb_data:/pb/pb_data
+    restart: unless-stopped
