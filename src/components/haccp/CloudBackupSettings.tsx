@@ -68,6 +68,19 @@ export const CloudBackupSettings = () => {
     }
   };
 
+  const loadRcloneStatus = async () => {
+    try {
+      // Read rclone status from the exports directory (written by rclone-sync.sh)
+      const response = await fetch('/api/files/pb_data/exports/.rclone-status.json');
+      if (response.ok) {
+        const data = await response.json();
+        setRcloneStatus(data);
+      }
+    } catch {
+      // Rclone hasn't run yet
+    }
+  };
+
   const loadConfig = async () => {
     try {
       setLoading(true);
