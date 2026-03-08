@@ -22,14 +22,16 @@ RUN npm run build
 
 # Final image
 FROM alpine:3.19
-RUN apk add --no-cache ca-certificates wget
+RUN apk add --no-cache ca-certificates wget rclone dcron
 
 COPY --from=base /usr/local/bin/pocketbase /usr/local/bin/pocketbase
 COPY --from=frontend /app/dist /pb/pb_public
 COPY scripts/pocketbase/pb_schema.json /pb/pb_schema.json
 COPY scripts/pocketbase/pb_migrations /pb/pb_migrations
+COPY scripts/pocketbase/pb_hooks /pb/pb_hooks
+COPY scripts/rclone-sync.sh /pb/rclone-sync.sh
 COPY scripts/docker-entrypoint.sh /pb/entrypoint.sh
-RUN chmod +x /pb/entrypoint.sh
+RUN chmod +x /pb/entrypoint.sh /pb/rclone-sync.sh
 
 EXPOSE 80
 

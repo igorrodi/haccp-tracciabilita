@@ -135,5 +135,81 @@
     "createRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
     "updateRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
     "deleteRule": ""
+  },
+  {
+    "name": "temperature_logs",
+    "type": "base",
+    "schema": [
+      { "name": "date", "type": "date", "required": true },
+      { "name": "operator", "type": "text", "required": true },
+      { "name": "value", "type": "text", "required": true },
+      { "name": "notes", "type": "text" },
+      { "name": "user_id", "type": "relation", "options": { "collectionId": "users", "cascadeDelete": false, "maxSelect": 1 } }
+    ],
+    "listRule": "@request.auth.id != ''",
+    "viewRule": "@request.auth.id != ''",
+    "createRule": "@request.auth.id != ''",
+    "updateRule": "@request.auth.id != ''",
+    "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
+  },
+  {
+    "name": "reception_logs",
+    "type": "base",
+    "schema": [
+      { "name": "date", "type": "date", "required": true },
+      { "name": "operator", "type": "text", "required": true },
+      { "name": "value", "type": "text", "required": true },
+      { "name": "notes", "type": "text" },
+      { "name": "supplier_id", "type": "relation", "options": { "collectionId": "suppliers", "cascadeDelete": false, "maxSelect": 1 } },
+      { "name": "user_id", "type": "relation", "options": { "collectionId": "users", "cascadeDelete": false, "maxSelect": 1 } }
+    ],
+    "listRule": "@request.auth.id != ''",
+    "viewRule": "@request.auth.id != ''",
+    "createRule": "@request.auth.id != ''",
+    "updateRule": "@request.auth.id != ''",
+    "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
+  },
+  {
+    "name": "cleaning_logs",
+    "type": "base",
+    "schema": [
+      { "name": "date", "type": "date", "required": true },
+      { "name": "operator", "type": "text", "required": true },
+      { "name": "value", "type": "text", "required": true },
+      { "name": "notes", "type": "text" },
+      { "name": "user_id", "type": "relation", "options": { "collectionId": "users", "cascadeDelete": false, "maxSelect": 1 } }
+    ],
+    "listRule": "@request.auth.id != ''",
+    "viewRule": "@request.auth.id != ''",
+    "createRule": "@request.auth.id != ''",
+    "updateRule": "@request.auth.id != ''",
+    "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
+  },
+  {
+    "name": "cloud_settings",
+    "type": "base",
+    "schema": [
+      { "name": "provider", "type": "select", "options": { "values": ["none", "mega", "gdrive", "dropbox", "webdav"] } },
+      { "name": "enabled", "type": "bool" },
+      { "name": "auto_backup", "type": "bool" },
+      { "name": "backup_frequency", "type": "select", "options": { "values": ["daily", "weekly"] } },
+      { "name": "mega_email", "type": "text" },
+      { "name": "mega_password", "type": "text" },
+      { "name": "mega_2fa_secret", "type": "text" },
+      { "name": "gdrive_client_id", "type": "text" },
+      { "name": "gdrive_client_secret", "type": "text" },
+      { "name": "gdrive_refresh_token", "type": "text" },
+      { "name": "dropbox_access_token", "type": "text" },
+      { "name": "webdav_url", "type": "text" },
+      { "name": "webdav_username", "type": "text" },
+      { "name": "webdav_password", "type": "text" },
+      { "name": "last_backup", "type": "date" },
+      { "name": "last_backup_status", "type": "select", "options": { "values": ["success", "error"] } }
+    ],
+    "listRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "viewRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "createRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "updateRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "deleteRule": ""
   }
 ]
