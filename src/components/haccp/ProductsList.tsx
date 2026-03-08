@@ -356,6 +356,15 @@ export const ProductsList = () => {
           </div>
         )}
       </CardContent>
+
+      {/* Image lightbox */}
+      <Dialog open={!!zoomedImage} onOpenChange={() => setZoomedImage(null)}>
+        <DialogContent className="max-w-lg p-2">
+          {zoomedImage && (
+            <img src={zoomedImage} alt="Etichetta ingrandita" className="w-full h-auto rounded" />
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
