@@ -6,9 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useProducts, useLots, PBProduct } from '@/hooks/usePocketBase';
+import { useProducts, useLots, PBProduct, PBLot } from '@/hooks/usePocketBase';
 import { pb } from '@/lib/pocketbase';
-import { Plus, Package, Pencil, Trash2, Loader2, AlertTriangle, Hash } from 'lucide-react';
+import { Plus, Package, Pencil, Trash2, Loader2, AlertTriangle, Hash, ChevronDown, ChevronUp, Snowflake } from 'lucide-react';
+import { format } from 'date-fns';
+import { it } from 'date-fns/locale';
 import {
   Dialog,
   DialogContent,
