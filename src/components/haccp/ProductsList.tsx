@@ -6,11 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useProducts, useLots, PBProduct, PBLot } from '@/hooks/usePocketBase';
-import { pb } from '@/lib/pocketbase';
-import { Plus, Package, Pencil, Trash2, Loader2, AlertTriangle, Hash, ChevronDown, ChevronUp, Snowflake } from 'lucide-react';
+import { pb, isAdmin, currentUser } from '@/lib/pocketbase';
+import { printLabel, PrinterSettings, LotData } from '@/lib/labelPrinter';
+import { Plus, Package, Pencil, Trash2, Loader2, AlertTriangle, Hash, ChevronDown, ChevronUp, Snowflake, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
   DialogContent,
