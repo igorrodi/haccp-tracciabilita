@@ -30,7 +30,7 @@ interface CloudConfig {
   lastBackupStatus?: 'success' | 'error';
 }
 
-interface CsvExportStatus {
+interface ExportStatus {
   lastRun: string | null;
   status: 'success' | 'error' | null;
   error: string | null;
