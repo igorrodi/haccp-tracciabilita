@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useLots, useProducts, useSuppliers, PBLot } from '@/hooks/usePocketBase';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { Clock, Snowflake, Trash2, Package } from 'lucide-react';
+import { Clock, Snowflake, Trash2, Package, Printer } from 'lucide-react';
+import { pb, currentUser } from '@/lib/pocketbase';
+import { printLabel } from '@/lib/labelPrinter';
+import { toast } from 'sonner';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +26,26 @@ export const RecentLotsList = () => {
   const { data: lots, loading, error, remove } = useLots();
   const { data: products } = useProducts();
   const { data: suppliers } = useSuppliers();
+  const [printerEnabled, setPrinterEnabled] = useState(false);
+  const [printerSettings, setPrinterSettings] = useState<any>(null);
+
+  useEffect(() => {
+    const checkPrinter = async () => {
+      try {
+        const user = currentUser();
+        if (!user) return;
+        const data = await pb.collection('printer_settings').getFirstListItem(
+          `user_id = "${user.id}"`,
+          { requestKey: null }
+        ).catch(() => null);
+        if (data) {
+          setPrinterEnabled((data as any).printer_enabled);
+          setPrinterSettings(data);
+        }
+      } catch { /* ignore */ }
+    };
+    checkPrinter();
+  }, []);
 
   const getProductName = (productId?: string) => {
     if (!productId) return 'N/D';
@@ -42,6 +66,27 @@ export const RecentLotsList = () => {
 
   const handleDelete = async (id: string) => {
     await remove(id);
+  };
+
+  const handlePrint = async (lot: PBLot) => {
+    if (!printerSettings) return;
+    try {
+      await printLabel(
+        {
+          internal_lot_number: lot.internal_lot_number,
+          lot_number: lot.lot_number,
+          production_date: lot.production_date,
+          expiry_date: lot.expiry_date,
+          product_name: getProductName(lot.product_id),
+          is_frozen: lot.is_frozen,
+          freezing_date: lot.freezing_date,
+        },
+        printerSettings
+      );
+      toast.success('Etichetta inviata alla stampante');
+    } catch {
+      toast.error('Errore durante la stampa');
+    }
   };
 
   if (loading) {
@@ -129,6 +174,17 @@ export const RecentLotsList = () => {
                       <p className="text-xs text-muted-foreground">
                         Scad: {formatDate(lot.expiry_date)}
                       </p>
+                    )}
+                    {printerEnabled && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6" 
+                        onClick={() => handlePrint(lot)}
+                        title="Stampa etichetta"
+                      >
+                        <Printer className="h-3 w-3 text-primary" />
+                      </Button>
                     )}
                     <AlertDialog>
                       <AlertDialogTrigger asChild>

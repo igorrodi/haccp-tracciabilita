@@ -18,6 +18,12 @@ crond -b -l 8
 echo "Cron configurato: rclone sync alle 04:00"
 echo "Directory exports: /pb/pb_data/exports/"
 
+# Start CUPS daemon
+if command -v cupsd >/dev/null 2>&1; then
+  cupsd
+  echo "CUPS avviato (porta 631)"
+fi
+
 # Start PocketBase with migrations auto-apply and hooks
 exec pocketbase serve \
   --http=0.0.0.0:80 \

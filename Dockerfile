@@ -22,7 +22,11 @@ RUN npm run build
 
 # Final image
 FROM alpine:3.19
-RUN apk add --no-cache ca-certificates wget rclone dcron
+RUN apk add --no-cache ca-certificates wget rclone dcron \
+    cups cups-filters cups-pdf avahi avahi-tools \
+    && mkdir -p /etc/cups \
+    && echo "ServerAlias *" >> /etc/cups/cupsd.conf \
+    && echo "DefaultEncryption Never" >> /etc/cups/cupsd.conf
 
 COPY --from=base /usr/local/bin/pocketbase /usr/local/bin/pocketbase
 COPY --from=frontend /app/dist /pb/pb_public
@@ -33,6 +37,8 @@ COPY scripts/rclone-sync.sh /pb/rclone-sync.sh
 COPY scripts/docker-entrypoint.sh /pb/entrypoint.sh
 RUN chmod +x /pb/entrypoint.sh /pb/rclone-sync.sh
 
-EXPOSE 80
+COPY scripts/cups/cupsd.conf /etc/cups/cupsd.conf
+
+EXPOSE 80 631
 
 ENTRYPOINT ["/pb/entrypoint.sh"]

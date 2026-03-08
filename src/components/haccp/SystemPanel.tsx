@@ -4,8 +4,9 @@ import { UserManagement } from './UserManagement';
 import { CloudBackupSettings } from './CloudBackupSettings';
 import { DataExport } from './DataExport';
 import { AllergenManagement } from './AllergenManagement';
+import { PrinterSettings } from './PrinterSettings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ExternalLink, Database, Settings, Cloud, FileSpreadsheet, AlertTriangle, Truck, Users, Info } from 'lucide-react';
+import { ExternalLink, Database, Settings, Cloud, FileSpreadsheet, AlertTriangle, Truck, Users, Info, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isAdmin } from '@/lib/pocketbase';
 
@@ -31,7 +32,7 @@ export const SystemPanel = () => {
   return (
     <Tabs defaultValue="suppliers" className="w-full">
       <div className="w-full overflow-x-auto pb-2">
-        <TabsList className="inline-flex w-full min-w-max md:grid md:w-full md:grid-cols-7 gap-1">
+        <TabsList className="inline-flex w-full min-w-max md:grid md:w-full md:grid-cols-8 gap-1">
           <TabsTrigger value="suppliers" className="flex-shrink-0 flex items-center gap-1">
             <Truck className="w-3 h-3" />
             Fornitori
@@ -47,6 +48,10 @@ export const SystemPanel = () => {
           <TabsTrigger value="export" className="flex-shrink-0 flex items-center gap-1">
             <FileSpreadsheet className="w-3 h-3" />
             Export
+          </TabsTrigger>
+          <TabsTrigger value="printer" className="flex-shrink-0 flex items-center gap-1">
+            <Printer className="w-3 h-3" />
+            Stampante
           </TabsTrigger>
           <TabsTrigger value="backup" className="flex-shrink-0 flex items-center gap-1">
             <Cloud className="w-3 h-3" />
@@ -80,6 +85,11 @@ export const SystemPanel = () => {
       <TabsContent value="backup">
         <CloudBackupSettings />
       </TabsContent>
+
+      <TabsContent value="printer">
+        <PrinterSettings />
+      </TabsContent>
+
       <TabsContent value="allergens">
         <AllergenManagement />
       </TabsContent>
