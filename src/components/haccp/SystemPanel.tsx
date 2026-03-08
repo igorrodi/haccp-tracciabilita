@@ -123,6 +123,10 @@ export const SystemPanel = () => {
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-primary rounded-full" />
+                  <strong>lot_images</strong> - Foto etichette lotti
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-primary rounded-full" />
                   <strong>printer_settings</strong> - Impostazioni stampante
                 </li>
               </ul>
