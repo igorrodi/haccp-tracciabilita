@@ -48,7 +48,7 @@ export const GlobalSearch = ({ onSelectProduct }: GlobalSearchProps) => {
 
       const r: SearchResult[] = [
         ...products.items.map((p: any) => ({ type: 'product' as const, id: p.id, title: p.name, subtitle: `${p.shelf_life_days || '—'}g shelf life` })),
-        ...lots.items.map((l: any) => ({ type: 'lot' as const, id: l.id, title: l.lot_number, subtitle: l.internal_lot_number || '' })),
+        ...lots.items.map((l: any) => ({ type: 'lot' as const, id: l.id, title: l.internal_lot_number || l.lot_number, subtitle: l.internal_lot_number ? `Originali: ${l.lot_number}` : '' })),
         ...suppliers.items.map((s: any) => ({ type: 'supplier' as const, id: s.id, title: s.name, subtitle: s.contact_info || '' })),
       ];
       setResults(r);

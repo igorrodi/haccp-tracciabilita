@@ -149,7 +149,9 @@ export const RecentLotsList = () => {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <Package className="w-4 h-4 text-primary" />
-                      <span className="font-medium">{lot.lot_number}</span>
+                      <span className="font-mono font-bold text-primary tracking-wider">
+                        {lot.internal_lot_number || '—'}
+                      </span>
                       {lot.is_frozen && (
                         <Badge variant="secondary" className="text-xs">
                           <Snowflake className="w-3 h-3 mr-1" />
@@ -160,6 +162,11 @@ export const RecentLotsList = () => {
                     <p className="text-sm text-muted-foreground">
                       {getProductName(lot.product_id)}
                     </p>
+                    {lot.lot_number && (
+                      <p className="text-xs text-muted-foreground">
+                        Originali: {lot.lot_number}
+                      </p>
+                    )}
                     {getSupplierName(lot.supplier_id) && (
                       <p className="text-xs text-muted-foreground">
                         Fornitore: {getSupplierName(lot.supplier_id)}
