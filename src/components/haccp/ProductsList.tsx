@@ -41,7 +41,8 @@ interface AllergenInfo {
 
 export const ProductsList = () => {
   const { data: products, loading, error, create, update, remove } = useProducts();
-  const { data: lots } = useLots();
+  const { data: lots, refetch: refetchLots } = useLots();
+  const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -49,6 +50,9 @@ export const ProductsList = () => {
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
   const [lotImages, setLotImages] = useState<Record<string, { id: string; url: string }[]>>({});
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [lotUsers, setLotUsers] = useState<Record<string, { name: string; initials: string }>>({});
+  const [printerSettings, setPrinterSettings] = useState<PrinterSettings | null>(null);
+  const admin = isAdmin();
   const [formData, setFormData] = useState({
     name: '',
     shelf_life_days: '',
