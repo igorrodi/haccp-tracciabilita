@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { pb, currentUser } from '@/lib/pocketbase';
 import { toast } from 'sonner';
-import { Thermometer, Plus, TrendingUp } from 'lucide-react';
+import { Thermometer, Plus, TrendingUp, FileDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
@@ -74,10 +74,66 @@ export const TemperatureLog = () => {
     }
   };
 
+  const handleExportPDF = async () => {
+    try {
+      const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
+
+      const doc = new jsPDF();
+      const now = new Date();
+
+      // Title
+      doc.setFontSize(18);
+      doc.text('Registro Temperature HACCP', 14, 20);
+      doc.setFontSize(10);
+      doc.text(`Generato il ${format(now, 'dd/MM/yyyy HH:mm', { locale: it })}`, 14, 28);
+      if (filterLocation !== 'all') {
+        doc.text(`Filtro: ${filterLocation}`, 14, 34);
+      }
+
+      // Table
+      const tableData = filteredLogs.map(log => [
+        format(new Date(log.created), 'dd/MM/yyyy', { locale: it }),
+        format(new Date(log.created), 'HH:mm', { locale: it }),
+        log.location,
+        `${log.temperature}°C`,
+        isAnomalous(log.temperature, log.location) ? '⚠ ANOMALA' : 'OK',
+        log.notes || '',
+      ]);
+
+      autoTable(doc, {
+        startY: filterLocation !== 'all' ? 40 : 34,
+        head: [['Data', 'Ora', 'Posizione', 'Temp.', 'Stato', 'Note']],
+        body: tableData,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [22, 163, 74] },
+        didParseCell: (data: any) => {
+          if (data.column.index === 4 && data.cell.raw === '⚠ ANOMALA') {
+            data.cell.styles.textColor = [220, 38, 38];
+            data.cell.styles.fontStyle = 'bold';
+          }
+        },
+      });
+
+      // Footer
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.text(`HACCP Tracker - Pagina ${i}/${pageCount}`, 14, doc.internal.pageSize.height - 10);
+      }
+
+      doc.save(`temperature_${format(now, 'yyyy-MM-dd')}.pdf`);
+      toast.success('PDF esportato con successo');
+    } catch (err) {
+      console.error('PDF export error:', err);
+      toast.error('Errore nell\'esportazione PDF');
+    }
+  };
+
   const locations = [...new Set(logs.map(l => l.location))];
   const filteredLogs = filterLocation === 'all' ? logs : logs.filter(l => l.location === filterLocation);
 
-  // Chart data: last 30 entries reversed for chronological order
   const chartData = filteredLogs
     .slice(0, 30)
     .reverse()
@@ -95,15 +151,23 @@ export const TemperatureLog = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Thermometer className="w-5 h-5 text-primary" />
           <h3 className="text-lg font-semibold">Registro Temperature</h3>
         </div>
-        <Button size="sm" onClick={() => setShowForm(!showForm)}>
-          <Plus className="w-4 h-4 mr-1" />
-          Registra
-        </Button>
+        <div className="flex items-center gap-2">
+          {filteredLogs.length > 0 && (
+            <Button size="sm" variant="outline" onClick={handleExportPDF}>
+              <FileDown className="w-4 h-4 mr-1" />
+              Esporta PDF
+            </Button>
+          )}
+          <Button size="sm" onClick={() => setShowForm(!showForm)}>
+            <Plus className="w-4 h-4 mr-1" />
+            Registra
+          </Button>
+        </div>
       </div>
 
       {showForm && (
@@ -137,7 +201,6 @@ export const TemperatureLog = () => {
         </Card>
       )}
 
-      {/* Filter */}
       <div className="flex items-center gap-2">
         <Label className="text-sm">Filtra:</Label>
         <Select value={filterLocation} onValueChange={setFilterLocation}>
@@ -151,7 +214,6 @@ export const TemperatureLog = () => {
         </Select>
       </div>
 
-      {/* Chart */}
       {chartData.length > 1 && (
         <Card>
           <CardHeader className="pb-2">
@@ -179,7 +241,6 @@ export const TemperatureLog = () => {
         </Card>
       )}
 
-      {/* Recent logs table */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">Ultime rilevazioni</CardTitle>
