@@ -1,5 +1,6 @@
 services:
   haccp:
+    image: ghcr.io/USER/haccp-tracciabilita:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -7,6 +8,11 @@ services:
       - "80:80"
     volumes:
       - ./pb_data:/pb/pb_data
+      - ./pb_schema.json:/pb/pb_schema.json:ro
+    environment:
+      - POCKETBASE_PRAGMA_JOURNAL_MODE=wal
+      - POCKETBASE_PRAGMA_SYNCHRONOUS=normal
+      - POCKETBASE_PRAGMA_BUSY_TIMEOUT=5000
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/api/health"]
