@@ -53,6 +53,7 @@ export const CloudBackupSettings = () => {
   useEffect(() => {
     loadConfig();
     loadCsvStatus();
+    loadRcloneStatus();
   }, []);
 
   const loadCsvStatus = async () => {
