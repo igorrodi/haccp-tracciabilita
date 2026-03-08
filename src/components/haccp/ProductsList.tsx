@@ -203,8 +203,12 @@ export const ProductsList = () => {
               return (
                 <div
                   key={product.id}
-                  className="p-4 bg-muted/50 rounded-lg border border-border hover:border-primary/50 transition-colors"
+                  className="rounded-lg border border-border hover:border-primary/50 transition-colors overflow-hidden"
                 >
+                  <button
+                    className="w-full p-4 bg-muted/50 text-left"
+                    onClick={() => setExpandedProduct(expandedProduct === product.id ? null : product.id)}
+                  >
                   <div className="flex items-start justify-between">
                     <div className="space-y-1.5 flex-1 min-w-0">
                       <h3 className="font-medium">{product.name}</h3>
