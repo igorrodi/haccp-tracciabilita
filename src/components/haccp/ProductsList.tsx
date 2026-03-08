@@ -134,12 +134,14 @@ export const ProductsList = () => {
     return format(new Date(dateStr), 'dd/MM/yyyy', { locale: it });
   };
 
-  // Load images for lots when product is expanded
-  const loadLotImages = async (productId: string) => {
+  // Load images and users for lots when product is expanded
+  const loadLotData = async (productId: string) => {
     const productLots = lots.filter(l => l.product_id === productId);
     const images: Record<string, { id: string; url: string }[]> = {};
+    const userIds = new Set<string>();
     
     for (const lot of productLots) {
+      if (lot.user_id) userIds.add(lot.user_id);
       try {
         const lotImgs = await pb.collection('lot_images').getFullList({
           filter: `lot_id = "${lot.id}"`,
@@ -154,6 +156,22 @@ export const ProductsList = () => {
     }
     
     setLotImages(prev => ({ ...prev, ...images }));
+
+    // Load user info for admin view
+    if (admin) {
+      const users: Record<string, { name: string; initials: string }> = {};
+      for (const uid of userIds) {
+        if (!lotUsers[uid]) {
+          try {
+            const u = await pb.collection('users').getOne(uid);
+            const name = (u as any).name || (u as any).email || '?';
+            const initials = name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
+            users[uid] = { name, initials };
+          } catch { users[uid] = { name: '?', initials: '?' }; }
+        }
+      }
+      setLotUsers(prev => ({ ...prev, ...users }));
+    }
   };
 
   const handleExpandProduct = (productId: string) => {
@@ -161,7 +179,39 @@ export const ProductsList = () => {
       setExpandedProduct(null);
     } else {
       setExpandedProduct(productId);
-      loadLotImages(productId);
+      loadLotData(productId);
+    }
+  };
+
+  const handleDeleteLot = async (lotId: string) => {
+    try {
+      await pb.collection('lots').delete(lotId);
+      toast({ title: 'Lotto eliminato' });
+      refetchLots();
+    } catch {
+      toast({ title: 'Errore', description: 'Impossibile eliminare il lotto', variant: 'destructive' });
+    }
+  };
+
+  const handlePrintLot = async (lot: PBLot, productName: string) => {
+    if (!printerSettings) {
+      toast({ title: 'Stampante non configurata', description: 'Configura la stampante nelle impostazioni', variant: 'destructive' });
+      return;
+    }
+    try {
+      const lotData: LotData = {
+        internal_lot_number: lot.internal_lot_number,
+        lot_number: lot.lot_number,
+        production_date: lot.production_date,
+        expiry_date: lot.expiry_date,
+        product_name: productName,
+        is_frozen: lot.is_frozen,
+        freezing_date: lot.freezing_date,
+      };
+      await printLabel(lotData, printerSettings);
+      toast({ title: 'Etichetta inviata alla stampa' });
+    } catch {
+      toast({ title: 'Errore stampa', variant: 'destructive' });
     }
   };
 
