@@ -67,7 +67,15 @@ fi
 log "Sync database backup..."
 DB_SYNC_DIR="/tmp/haccp-db-sync"
 mkdir -p "$DB_SYNC_DIR"
-cp "$BACKUP_DIR/data.db" "$DB_SYNC_DIR/data.db" 2>/dev/null || true
+
+# Use sqlite3 .backup for WAL-safe copy if available
+if command -v sqlite3 >/dev/null 2>&1 && [ -f "$BACKUP_DIR/data.db" ]; then
+  sqlite3 "$BACKUP_DIR/data.db" ".backup '$DB_SYNC_DIR/data.db'"
+  log "Database copiato con sqlite3 .backup (WAL-safe)"
+elif [ -f "$BACKUP_DIR/data.db" ]; then
+  cp "$BACKUP_DIR/data.db" "$DB_SYNC_DIR/data.db" 2>/dev/null || true
+  log "Database copiato (file copy)"
+fi
 
 if [ -f "$DB_SYNC_DIR/data.db" ]; then
   if rclone sync "$DB_SYNC_DIR/" "$RCLONE_REMOTE/database/" \
@@ -85,6 +93,25 @@ if [ -f "$DB_SYNC_DIR/data.db" ]; then
   rm -rf "$DB_SYNC_DIR"
 else
   log "ATTENZIONE: data.db non trovato, skip sync database"
+fi
+
+# Sync database backups folder (pre-update snapshots)
+BACKUPS_DIR="/pb/pb_data/backups"
+if [ -d "$BACKUPS_DIR" ] && [ "$(ls -A "$BACKUPS_DIR" 2>/dev/null)" ]; then
+  log "Sync backup snapshots..."
+  if rclone sync "$BACKUPS_DIR/" "$RCLONE_REMOTE/backups/" \
+    --config "$SETTINGS_FILE" \
+    --log-file "$LOG_FILE" \
+    --log-level INFO \
+    --transfers 2; then
+    log "Backup snapshots sync completato"
+  else
+    log "ERRORE nel sync backup snapshots"
+    write_status "error" "Errore sync backup snapshots"
+    exit 1
+  fi
+else
+  log "Nessun backup snapshot da sincronizzare"
 fi
 
 write_status "success"
