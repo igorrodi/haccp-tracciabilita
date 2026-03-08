@@ -1,73 +1,55 @@
-# Welcome to your Lovable project
+# Tracker HACCP
 
-## Project info
+Sistema di tracciabilità HACCP per la ristorazione, ottimizzato per Raspberry Pi.
 
-**URL**: https://lovable.dev/projects/9f90a01b-00fe-4a9e-82ca-fadaa576a1b3
+## Installazione rapida
 
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/9f90a01b-00fe-4a9e-82ca-fadaa576a1b3) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```bash
+curl -sSL https://raw.githubusercontent.com/USER/haccp-tracciabilita/main/install.sh | sudo bash
 ```
 
-**Edit a file directly in GitHub**
+L'app sarà disponibile su `http://<IP-RASPBERRY>` e il pannello admin su `http://<IP-RASPBERRY>/_/`.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Aggiornamento
 
-**Use GitHub Codespaces**
+```bash
+sudo /opt/haccp-tracker/update.sh
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Aggiornamento automatico con Cronjob
 
-## What technologies are used for this project?
+Per aggiornare automaticamente ogni notte alle 3:00:
 
-This project is built with:
+```bash
+sudo crontab -e
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Aggiungi questa riga:
 
-## How can I deploy this project?
+```
+0 3 * * * /opt/haccp-tracker/update.sh >> /var/log/haccp-update.log 2>&1
+```
 
-Simply open [Lovable](https://lovable.dev/projects/9f90a01b-00fe-4a9e-82ca-fadaa576a1b3) and click on Share -> Publish.
+## Comandi utili
 
-## Can I connect a custom domain to my Lovable project?
+```bash
+cd /opt/haccp-tracker
 
-Yes, you can!
+docker compose logs -f        # Log in tempo reale
+docker compose restart         # Riavvia
+docker compose down            # Ferma
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Stack tecnologico
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- **Frontend**: React + TypeScript + Tailwind CSS + shadcn/ui
+- **Backend**: PocketBase (SQLite, ottimizzato WAL per SD card)
+- **Deploy**: Docker su Raspberry Pi (ARM64)
+
+## Dati
+
+I dati sono persistenti in `/opt/haccp-tracker/pb_data/`. Per un backup manuale:
+
+```bash
+sudo tar czf haccp-backup-$(date +%Y%m%d).tar.gz -C /opt/haccp-tracker pb_data
+```
