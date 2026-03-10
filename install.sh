@@ -6,7 +6,7 @@
 set -euo pipefail
 
 readonly APP_DIR="/opt/haccp-tracker"
-readonly GITHUB_REPO="USER/haccp-tracciabilita"
+readonly GITHUB_REPO="igorrodi/haccp-tracciabilita"
 readonly GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_REPO}/main"
 
 readonly GREEN='\033[0;32m'
