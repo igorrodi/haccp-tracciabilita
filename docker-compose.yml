@@ -1,6 +1,6 @@
 services:
   haccp:
-    image: ghcr.io/USER/haccp-tracciabilita:latest
+    image: ghcr.io/igorrodi/haccp-tracciabilita:latest
     platform: linux/arm64
     build:
       context: .
