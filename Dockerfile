@@ -23,10 +23,8 @@ RUN npm run build
 # Final image
 FROM alpine:3.19
 RUN apk add --no-cache ca-certificates wget rclone dcron \
-    cups cups-filters cups-pdf avahi avahi-tools \
-    && mkdir -p /etc/cups \
-    && echo "ServerAlias *" >> /etc/cups/cupsd.conf \
-    && echo "DefaultEncryption Never" >> /etc/cups/cupsd.conf
+    cups cups-filters avahi avahi-tools \
+    && mkdir -p /etc/cups
 
 COPY --from=base /usr/local/bin/pocketbase /usr/local/bin/pocketbase
 COPY --from=frontend /app/dist /pb/pb_public
