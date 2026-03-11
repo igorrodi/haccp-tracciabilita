@@ -15,8 +15,8 @@ RUN curl -sL "https://github.com/pocketbase/pocketbase/releases/download/v${PB_V
 # Frontend build stage
 FROM node:20-alpine AS frontend
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
+COPY package.json ./
+RUN npm install
 COPY . .
 RUN npm run build
 
