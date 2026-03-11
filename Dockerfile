@@ -23,7 +23,7 @@ RUN npm run build
 # Final image
 FROM alpine:3.19
 RUN apk add --no-cache ca-certificates wget rclone dcron \
-    cups cups-filters avahi avahi-tools \
+    cups avahi avahi-tools \
     && mkdir -p /etc/cups
 
 COPY --from=base /usr/local/bin/pocketbase /usr/local/bin/pocketbase
