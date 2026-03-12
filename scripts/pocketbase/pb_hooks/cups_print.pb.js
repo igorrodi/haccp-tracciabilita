@@ -81,7 +81,7 @@ routerAdd("POST", "/api/cups/print", (c) => {
   try {
     // Write HTML to temporary file
     const tmpFile = `/tmp/label_${Date.now()}.html`;
-    $os.writeFile(tmpFile, data.html, 0644);
+    $os.writeFile(tmpFile, data.html, 0o644);
     
     // Build lp command arguments
     const args = [tmpFile];
