@@ -1,9 +1,8 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 // Cron Hook: CSV Export every night at 03:30
-cronAdd("csv_export_nightly", "30 3 * * *", (e) => {
-  const exportDir = $os.getenv("PB_DATA_DIR") || "/pb/pb_data";
-  const csvDir = exportDir + "/exports";
+cronAdd("csv_export_nightly", "30 3 * * *", function(e) {
+  var csvDir = "/pb/pb_data/exports";
 
   console.log("[CSV Export] Avvio generazione CSV...");
 
@@ -11,117 +10,118 @@ cronAdd("csv_export_nightly", "30 3 * * *", (e) => {
 
   // Rotation: delete old CSV files
   try {
-    const files = $os.readDir(csvDir);
-    for (let f of files) {
-      if (f.name().endsWith(".csv")) {
-        $os.remove(csvDir + "/" + f.name());
+    var files = $os.readDir(csvDir);
+    for (var i = 0; i < files.length; i++) {
+      var fname = files[i].name();
+      if (fname.indexOf(".csv") === fname.length - 4) {
+        try { $os.remove(csvDir + "/" + fname); } catch (er) {}
       }
     }
   } catch (err) {}
 
-  const today = new Date().toISOString().split("T")[0];
-  const baseUrl = $app.settings().meta.appUrl || "";
-  let success = true;
-  let errorMsg = "";
+  var today = new Date().toISOString().split("T")[0];
+  var success = true;
+  var errorMsg = "";
 
-  const escapeCsv = (val) => {
+  function escapeCsv(val) {
     val = String(val || "");
-    if (val.includes(",") || val.includes('"') || val.includes("\n")) {
+    if (val.indexOf(",") >= 0 || val.indexOf('"') >= 0 || val.indexOf("\n") >= 0) {
       return '"' + val.replace(/"/g, '""') + '"';
     }
     return val;
-  };
+  }
 
   try {
     // Load lookup tables
-    const products = {};
+    var products = {};
     try {
-      const prods = $app.dao().findRecordsByFilter("products", "", "", 0, 0);
-      for (const p of prods) { products[p.getId()] = p.getString("name"); }
+      var prods = $app.findRecordsByFilter("products", "1=1", "", 0, 0);
+      for (var p = 0; p < prods.length; p++) {
+        products[prods[p].id] = prods[p].get("name");
+      }
     } catch (e) {}
 
-    const suppliers = {};
+    var suppliers = {};
     try {
-      const supps = $app.dao().findRecordsByFilter("suppliers", "", "", 0, 0);
-      for (const s of supps) { suppliers[s.getId()] = s.getString("name"); }
+      var supps = $app.findRecordsByFilter("suppliers", "1=1", "", 0, 0);
+      for (var s = 0; s < supps.length; s++) {
+        suppliers[supps[s].id] = supps[s].get("name");
+      }
     } catch (e) {}
 
     // Fetch all lots
-    const lots = $app.dao().findRecordsByFilter("lots", "", "-production_date", 0, 0);
+    var lots = $app.findRecordsByFilter("lots", "1=1", "-production_date", 0, 0);
 
-    // Fetch all lot_images grouped by lot_id
-    const lotPhotos = {};
+    // Fetch lot_images grouped by lot_id
+    var lotPhotos = {};
     try {
-      const images = $app.dao().findRecordsByFilter("lot_images", "", "", 0, 0);
-      for (const img of images) {
-        const lotId = img.getString("lot_id");
-        const filename = img.getString("image");
+      var images = $app.findRecordsByFilter("lot_images", "1=1", "", 0, 0);
+      for (var li = 0; li < images.length; li++) {
+        var lotId = images[li].get("lot_id");
+        var filename = images[li].get("image");
         if (lotId && filename) {
           if (!lotPhotos[lotId]) lotPhotos[lotId] = [];
-          if (baseUrl) {
-            lotPhotos[lotId].push(`${baseUrl}/api/files/lot_images/${img.getId()}/${filename}`);
-          } else {
-            lotPhotos[lotId].push(filename);
-          }
+          lotPhotos[lotId].push(filename);
         }
       }
     } catch (e) {}
 
-    // Build single CSV
-    let csv = "Prodotto,Numero Lotto,Fornitore,Data Produzione,Data Scadenza,Congelato,Data Congelamento,Note,Foto Etichette\n";
+    // Build CSV
+    var csv = "Prodotto,Numero Lotto,Fornitore,Data Produzione,Data Scadenza,Congelato,Data Congelamento,Note,Foto Etichette\n";
 
-    for (const r of lots) {
-      const productName = products[r.getString("product_id")] || "";
-      const supplierName = suppliers[r.getString("supplier_id")] || "";
-      const photos = lotPhotos[r.getId()] || [];
+    for (var l = 0; l < lots.length; l++) {
+      var r = lots[l];
+      var productName = products[r.get("product_id")] || "";
+      var supplierName = suppliers[r.get("supplier_id")] || "";
+      var photos = lotPhotos[r.id] || [];
 
       csv += [
         escapeCsv(productName),
-        escapeCsv(r.getString("lot_number")),
+        escapeCsv(r.get("lot_number")),
         escapeCsv(supplierName),
-        escapeCsv(r.getString("production_date")),
-        escapeCsv(r.getString("expiry_date")),
-        escapeCsv(r.getBool("is_frozen") ? "Sì" : "No"),
-        escapeCsv(r.getString("freezing_date")),
-        escapeCsv(r.getString("notes")),
-        escapeCsv(photos.join(" | ")),
+        escapeCsv(r.get("production_date")),
+        escapeCsv(r.get("expiry_date")),
+        r.get("is_frozen") ? "Si" : "No",
+        escapeCsv(r.get("freezing_date")),
+        escapeCsv(r.get("notes")),
+        escapeCsv(photos.join(" | "))
       ].join(",") + "\n";
     }
 
-    $os.writeFile(csvDir + `/Registro_Lotti_${today}.csv`, csv, 0o644);
-    console.log(`[CSV Export] Registro Lotti: ${lots.length} record`);
+    $os.writeFile(csvDir + "/Registro_Lotti_" + today + ".csv", csv, 0o644);
+    console.log("[CSV Export] Registro Lotti: " + lots.length + " record");
   } catch (err) {
-    console.log(`[CSV Export] Errore: ${err.message}`);
+    console.log("[CSV Export] Errore: " + err);
     success = false;
-    errorMsg = err.message;
+    errorMsg = String(err);
   }
 
   // Update export status
   try {
-    let statusRecord;
-    try {
-      statusRecord = $app.dao().findFirstRecordByFilter("app_settings", "key = 'csv_export_status'");
-    } catch (e) {}
-
-    const statusValue = JSON.stringify({
+    var statusValue = JSON.stringify({
       lastRun: new Date().toISOString(),
       status: success ? "success" : "error",
-      error: errorMsg || null,
+      error: errorMsg || null
     });
+
+    var statusRecord;
+    try {
+      statusRecord = $app.findFirstRecordByFilter("app_settings", "key = 'csv_export_status'");
+    } catch (e) {}
 
     if (statusRecord) {
       statusRecord.set("value", statusValue);
-      $app.dao().saveRecord(statusRecord);
+      $app.save(statusRecord);
     } else {
-      const collection = $app.dao().findCollectionByNameOrId("app_settings");
-      const record = new Record(collection);
+      var collection = $app.findCollectionByNameOrId("app_settings");
+      var record = new Record(collection);
       record.set("key", "csv_export_status");
       record.set("value", statusValue);
-      $app.dao().saveRecord(record);
+      $app.save(record);
     }
   } catch (err) {
-    console.log(`[CSV Export] Errore salvataggio stato: ${err.message}`);
+    console.log("[CSV Export] Errore salvataggio stato: " + err);
   }
 
-  console.log(`[CSV Export] Completato - Stato: ${success ? "SUCCESSO" : "ERRORE"}`);
+  console.log("[CSV Export] Completato - Stato: " + (success ? "SUCCESSO" : "ERRORE"));
 });
