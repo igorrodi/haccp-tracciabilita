@@ -1,21 +1,24 @@
-/// <reference path="../pb_data/types.d.ts" />
+migrate(function (app) {
+  var schemaPath = "/pb/pb_schema.json";
+  var rawData = "";
+  var collections = [];
 
-migrate((app) => {
-  const schemaPath = "/pb/pb_schema.json";
-
-  let rawData;
   try {
     rawData = $os.readFile(schemaPath);
-  } catch (e) {
+  } catch (err) {
     console.log("Schema file not found, skipping import");
     return;
   }
 
-  const collections = JSON.parse(rawData);
+  try {
+    collections = JSON.parse(rawData);
+  } catch (err) {
+    console.log("Invalid schema JSON, skipping import");
+    return;
+  }
 
   app.importCollections(collections, false);
-
   console.log("Schema imported successfully via migration");
-}, (app) => {
+}, function (app) {
   console.log("Revert not supported for initial schema import");
 });
