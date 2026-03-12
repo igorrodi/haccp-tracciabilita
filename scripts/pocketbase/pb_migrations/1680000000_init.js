@@ -1,24 +1,255 @@
-migrate(function (app) {
-  var schemaPath = "/pb/pb_schema.json";
-  var rawData = "";
-  var collections = [];
-
-  try {
-    rawData = $os.readFile(schemaPath);
-  } catch (err) {
-    console.log("Schema file not found, skipping import");
-    return;
-  }
-
-  try {
-    collections = JSON.parse(rawData);
-  } catch (err) {
-    console.log("Invalid schema JSON, skipping import");
-    return;
-  }
+migrate(function(app) {
+  var collections = [
+    {
+      "name": "users",
+      "type": "auth",
+      "schema": [
+        { "name": "name", "type": "text" },
+        { "name": "role", "type": "select", "required": true, "options": { "values": ["admin", "user"] } }
+      ],
+      "listRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+      "viewRule": "@request.auth.id != ''",
+      "createRule": "",
+      "updateRule": "@request.auth.id = id || @request.auth.role = 'admin'",
+      "deleteRule": "@request.auth.role = 'admin'"
+    },
+    {
+      "name": "products",
+      "type": "base",
+      "schema": [
+        { "name": "name", "type": "text", "required": true },
+        { "name": "shelf_life_days", "type": "number" },
+        { "name": "ingredients", "type": "text" },
+        { "name": "preparation_procedure", "type": "text" },
+        { "name": "user_id", "type": "relation", "options": { "collectionId": "users", "cascadeDelete": false, "maxSelect": 1 } }
+      ],
+      "listRule": "@request.auth.id != ''",
+      "viewRule": "@request.auth.id != ''",
+      "createRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+      "updateRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+      "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
+    },
+    {
+      "name": "product_images",
+      "type": "base",
+      "schema": [
+        { "name": "product_id", "type": "relation", "required": true, "options": { "collectionId": "products", "cascadeDelete": true, "maxSelect": 1 } },
+        { "name": "image", "type": "file", "required": true, "options": { "maxSelect": 1, "maxSize": 5242880, "mimeTypes": ["image/jpeg", "image/png", "image/webp"] } }
+      ],
+      "listRule": "@request.auth.id != ''",
+      "viewRule": "@request.auth.id != ''",
+      "createRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+      "updateRule": "",
+      "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
+    },
+    {
+      "name": "suppliers",
+      "type": "base",
+      "schema": [
+        { "name": "name", "type": "text", "required": true },
+        { "name": "contact_info", "type": "text" },
+        { "name": "notes", "type": "text" },
+        { "name": "user_id", "type": "relation", "options": { "collectionId": "users", "cascadeDelete": false, "maxSelect": 1 } }
+      ],
+      "listRule": "@request.auth.id != ''",
+      "viewRule": "@request.auth.id != ''",
+      "createRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+      "updateRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+      "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
+    },
+    {
+      "name": "seasons",
+      "type": "base",
+      "schema": [
+        { "name": "name", "type": "text", "required": true },
+        { "name": "start_date", "type": "date", "required": true },
+        { "name": "end_date", "type": "date" },
+        { "name": "status", "type": "select", "required": true, "options": { "values": ["active", "archived"] } },
+        { "name": "notes", "type": "text" },
+        { "name": "user_id", "type": "relation", "options": { "collectionId": "users", "cascadeDelete": false, "maxSelect": 1 } }
+      ],
+      "listRule": "@request.auth.id != ''",
+      "viewRule": "@request.auth.id != ''",
+      "createRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+      "updateRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+      "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
+    },
+    {
+      "name": "lots",
+      "type": "base",
+      "schema": [
+        { "name": "lot_number", "type": "text", "required": true },
+        { "name": "internal_lot_number", "type": "text" },
+        { "name": "product_id", "type": "relation", "options": { "collectionId": "products", "cascadeDelete": false, "maxSelect": 1 } },
+        { "name": "supplier_id", "type": "relation", "options": { "collectionId": "suppliers", "cascadeDelete": false, "maxSelect": 1 } },
+        { "name": "season_id", "type": "relation", "options": { "collectionId": "seasons", "cascadeDelete": false, "maxSelect": 1 } },
+        { "name": "production_date", "type": "date", "required": true },
+        { "name": "expiry_date", "type": "date" },
+        { "name": "freezing_date", "type": "date" },
+        { "name": "reception_date", "type": "date" },
+        { "name": "is_frozen", "type": "bool" },
+        { "name": "status", "type": "select", "options": { "values": ["active", "used", "expired", "discarded"] } },
+        { "name": "notes", "type": "text" },
+        { "name": "label_image", "type": "file", "options": { "maxSelect": 1, "maxSize": 5242880, "mimeTypes": ["image/jpeg", "image/png", "image/webp"] } },
+        { "name": "user_id", "type": "relation", "options": { "collectionId": "users", "cascadeDelete": false, "maxSelect": 1 } }
+      ],
+      "listRule": "@request.auth.id != ''",
+      "viewRule": "@request.auth.id != ''",
+      "createRule": "@request.auth.id != ''",
+      "updateRule": "@request.auth.id != ''",
+      "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
+    },
+    {
+      "name": "allergens",
+      "type": "base",
+      "schema": [
+        { "name": "number", "type": "number", "required": true },
+        { "name": "category_name", "type": "text", "required": true },
+        { "name": "official_ingredients", "type": "text" },
+        { "name": "common_examples", "type": "text" }
+      ],
+      "listRule": "",
+      "viewRule": "",
+      "createRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+      "updateRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+      "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
+    },
+    {
+      "name": "printer_settings",
+      "type": "base",
+      "schema": [
+        { "name": "user_id", "type": "relation", "required": true, "options": { "collectionId": "users", "cascadeDelete": true, "maxSelect": 1 } },
+        { "name": "printer_enabled", "type": "bool" },
+        { "name": "printer_name", "type": "text" },
+        { "name": "printer_type", "type": "select", "options": { "values": ["thermal", "inkjet", "laser"] } },
+        { "name": "printer_connection_type", "type": "select", "options": { "values": ["browser", "usb", "network"] } },
+        { "name": "printer_ip_address", "type": "text" },
+        { "name": "label_width", "type": "number" },
+        { "name": "label_height", "type": "number" },
+        { "name": "font_size", "type": "select", "options": { "values": ["small", "medium", "large"] } },
+        { "name": "include_qr_code", "type": "bool" },
+        { "name": "include_barcode", "type": "bool" },
+        { "name": "include_product_name", "type": "bool" },
+        { "name": "include_lot_number", "type": "bool" },
+        { "name": "include_expiry_date", "type": "bool" },
+        { "name": "include_production_date", "type": "bool" },
+        { "name": "include_freezing_date", "type": "bool" },
+        { "name": "custom_layout", "type": "json" }
+      ],
+      "listRule": "@request.auth.id != ''",
+      "viewRule": "@request.auth.id != ''",
+      "createRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+      "updateRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+      "deleteRule": ""
+    },
+    {
+      "name": "app_settings",
+      "type": "base",
+      "schema": [
+        { "name": "key", "type": "text", "required": true },
+        { "name": "value", "type": "text" }
+      ],
+      "listRule": "",
+      "viewRule": "",
+      "createRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+      "updateRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+      "deleteRule": ""
+    },
+    {
+      "name": "temperature_logs",
+      "type": "base",
+      "schema": [
+        { "name": "date", "type": "date", "required": true },
+        { "name": "operator", "type": "text", "required": true },
+        { "name": "value", "type": "text", "required": true },
+        { "name": "notes", "type": "text" },
+        { "name": "season_id", "type": "relation", "options": { "collectionId": "seasons", "cascadeDelete": false, "maxSelect": 1 } },
+        { "name": "user_id", "type": "relation", "options": { "collectionId": "users", "cascadeDelete": false, "maxSelect": 1 } }
+      ],
+      "listRule": "@request.auth.id != ''",
+      "viewRule": "@request.auth.id != ''",
+      "createRule": "@request.auth.id != ''",
+      "updateRule": "@request.auth.id != ''",
+      "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
+    },
+    {
+      "name": "reception_logs",
+      "type": "base",
+      "schema": [
+        { "name": "date", "type": "date", "required": true },
+        { "name": "operator", "type": "text", "required": true },
+        { "name": "value", "type": "text", "required": true },
+        { "name": "notes", "type": "text" },
+        { "name": "supplier_id", "type": "relation", "options": { "collectionId": "suppliers", "cascadeDelete": false, "maxSelect": 1 } },
+        { "name": "user_id", "type": "relation", "options": { "collectionId": "users", "cascadeDelete": false, "maxSelect": 1 } }
+      ],
+      "listRule": "@request.auth.id != ''",
+      "viewRule": "@request.auth.id != ''",
+      "createRule": "@request.auth.id != ''",
+      "updateRule": "@request.auth.id != ''",
+      "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
+    },
+    {
+      "name": "cleaning_logs",
+      "type": "base",
+      "schema": [
+        { "name": "date", "type": "date", "required": true },
+        { "name": "operator", "type": "text", "required": true },
+        { "name": "value", "type": "text", "required": true },
+        { "name": "notes", "type": "text" },
+        { "name": "user_id", "type": "relation", "options": { "collectionId": "users", "cascadeDelete": false, "maxSelect": 1 } }
+      ],
+      "listRule": "@request.auth.id != ''",
+      "viewRule": "@request.auth.id != ''",
+      "createRule": "@request.auth.id != ''",
+      "updateRule": "@request.auth.id != ''",
+      "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
+    },
+    {
+      "name": "cloud_settings",
+      "type": "base",
+      "schema": [
+        { "name": "provider", "type": "select", "options": { "values": ["none", "mega", "gdrive", "dropbox", "webdav"] } },
+        { "name": "enabled", "type": "bool" },
+        { "name": "auto_backup", "type": "bool" },
+        { "name": "backup_frequency", "type": "select", "options": { "values": ["daily", "weekly"] } },
+        { "name": "mega_email", "type": "text" },
+        { "name": "mega_password", "type": "text" },
+        { "name": "mega_2fa_secret", "type": "text" },
+        { "name": "gdrive_client_id", "type": "text" },
+        { "name": "gdrive_client_secret", "type": "text" },
+        { "name": "gdrive_refresh_token", "type": "text" },
+        { "name": "dropbox_access_token", "type": "text" },
+        { "name": "webdav_url", "type": "text" },
+        { "name": "webdav_username", "type": "text" },
+        { "name": "webdav_password", "type": "text" },
+        { "name": "last_backup", "type": "date" },
+        { "name": "last_backup_status", "type": "select", "options": { "values": ["success", "error"] } }
+      ],
+      "listRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+      "viewRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+      "createRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+      "updateRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+      "deleteRule": ""
+    },
+    {
+      "name": "lot_images",
+      "type": "base",
+      "schema": [
+        { "name": "lot_id", "type": "relation", "required": true, "options": { "collectionId": "lots", "cascadeDelete": true, "maxSelect": 1 } },
+        { "name": "image", "type": "file", "required": true, "options": { "maxSelect": 1, "maxSize": 5242880, "mimeTypes": ["image/jpeg", "image/png", "image/webp"] } },
+        { "name": "description", "type": "text" }
+      ],
+      "listRule": "@request.auth.id != ''",
+      "viewRule": "@request.auth.id != ''",
+      "createRule": "@request.auth.id != ''",
+      "updateRule": "@request.auth.id != ''",
+      "deleteRule": "@request.auth.id != ''"
+    }
+  ];
 
   app.importCollections(collections, false);
-  console.log("Schema imported successfully via migration");
-}, function (app) {
-  console.log("Revert not supported for initial schema import");
+  console.log("Schema imported successfully");
+}, function(app) {
+  console.log("Revert not supported");
 });
