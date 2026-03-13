@@ -1,21 +1,15 @@
 import PocketBase from 'pocketbase';
 
-// Dynamically determine PocketBase URL based on current location
 const getPocketBaseUrl = () => {
-  // Dev: PocketBase on port 8090
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return "http://localhost:8090";
   }
-  // Production: PocketBase serves everything (API + frontend) on same origin
   return window.location.origin;
 };
 
 export const pb = new PocketBase(getPocketBaseUrl());
-
-// Disable auto-cancellation for better UX
 pb.autoCancellation(false);
 
-// Types
 export interface PBUser {
   id: string;
   email: string;
@@ -29,14 +23,13 @@ export interface PBUser {
 export const isAuthenticated = () => pb.authStore.isValid;
 export const currentUser = () => pb.authStore.model as unknown as PBUser | null;
 
-// Check if user is admin — server-side role only, no client bypass
 export const isAdmin = () => {
   if (!pb.authStore.isValid) return false;
   const user = pb.authStore.model;
   return (user as any)?.role === 'admin';
 };
 
-// Login with email/password
+// Login
 export const login = async (email: string, password: string) => {
   try {
     const authData = await pb.collection('users').authWithPassword(email, password);
@@ -52,10 +45,10 @@ export const login = async (email: string, password: string) => {
   }
 };
 
-// Register new user
+// Register — used only for first-time setup and admin-invited users
 export const register = async (
-  email: string, 
-  password: string, 
+  email: string,
+  password: string,
   passwordConfirm: string,
   name?: string,
   role: 'admin' | 'user' = 'user'
@@ -69,10 +62,12 @@ export const register = async (
       role,
       emailVisibility: true,
     });
-    
-    // Auto-login after registration
-    await pb.collection('users').authWithPassword(email, password);
-    
+
+    // Auto-login only if not already authenticated (first-time setup)
+    if (!pb.authStore.isValid) {
+      await pb.collection('users').authWithPassword(email, password);
+    }
+
     return { data: user, error: null };
   } catch (error: any) {
     let errorMessage = 'Errore durante la registrazione';
@@ -99,13 +94,11 @@ export const onAuthChange = (callback: (isValid: boolean, model: any) => void) =
   });
 };
 
-// Check if this is first time setup (no admin exists)
+// Check if this is first time setup (no users at all)
 export const checkFirstTimeSetup = async (): Promise<boolean> => {
   try {
-    const admins = await pb.collection('users').getList(1, 1, {
-      filter: 'role = "admin"'
-    });
-    return admins.totalItems === 0;
+    const users = await pb.collection('users').getList(1, 1);
+    return users.totalItems === 0;
   } catch (error) {
     // If users collection doesn't exist, it's first time
     return true;
