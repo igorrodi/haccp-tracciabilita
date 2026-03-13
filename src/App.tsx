@@ -4,7 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { isAuthenticated, onAuthChange, checkFirstTimeSetup } from "@/lib/pocketbase";
+import { isAuthenticated, onAuthChange } from "@/lib/pocketbase";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import FirstTimeSetup from "./pages/FirstTimeSetup";
@@ -13,17 +13,14 @@ import { InstallPWA } from "./components/haccp/InstallPWA";
 
 const queryClient = new QueryClient();
 
-// Protected Route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
     setAuthenticated(isAuthenticated());
-
     const unsubscribe = onAuthChange((isValid) => {
       setAuthenticated(isValid);
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -42,29 +39,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Auth Router with First-Time Setup detection
-const AuthRouter = () => {
-  const [isFirstTime, setIsFirstTime] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    checkFirstTimeSetup().then(setIsFirstTime);
-  }, []);
-
-  if (isFirstTime === null) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (isFirstTime) {
-    return <FirstTimeSetup />;
-  }
-
-  return <Auth />;
-};
-
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
@@ -74,7 +48,7 @@ const App = () => {
         <InstallPWA />
         <BrowserRouter>
           <Routes>
-            <Route path="/auth" element={<AuthRouter />} />
+            <Route path="/auth" element={<Auth />} />
             <Route path="/setup" element={<FirstTimeSetup />} />
             <Route path="/" element={
               <ProtectedRoute>

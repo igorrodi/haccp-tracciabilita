@@ -1,66 +1,71 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { register } from '@/lib/pocketbase';
+import { register, checkFirstTimeSetup } from '@/lib/pocketbase';
 import { Loader2, Shield, Mail, Lock, User, CheckCircle2 } from 'lucide-react';
 
-const FirstTimeSetupPocketBase = () => {
+const FirstTimeSetup = () => {
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  useEffect(() => {
+    // Guard: if system already has users, redirect to login
+    checkFirstTimeSetup().then((isFirstTime) => {
+      if (!isFirstTime) {
+        navigate('/auth', { replace: true });
+      } else {
+        setChecking(false);
+      }
+    });
+  }, [navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    const trimmedEmail = email.trim();
+    const trimmedName = name.trim();
+
     if (password !== confirmPassword) {
-      toast({
-        title: 'Errore',
-        description: 'Le password non corrispondono',
-        variant: 'destructive',
-      });
+      toast({ title: 'Errore', description: 'Le password non corrispondono', variant: 'destructive' });
       return;
     }
-
     if (password.length < 8) {
-      toast({
-        title: 'Errore',
-        description: 'La password deve essere di almeno 8 caratteri',
-        variant: 'destructive',
-      });
+      toast({ title: 'Errore', description: 'La password deve essere di almeno 8 caratteri', variant: 'destructive' });
       return;
     }
 
     setLoading(true);
-
     try {
-      // Register as admin (first user is always admin)
-      const { error } = await register(email, password, confirmPassword, name, 'admin');
-      
+      const { error } = await register(trimmedEmail, password, confirmPassword, trimmedName, 'admin');
       if (error) {
-        toast({
-          title: 'Errore',
-          description: error,
-          variant: 'destructive',
-        });
+        toast({ title: 'Errore', description: error, variant: 'destructive' });
       } else {
-        setStep(3); // Success step
-        setTimeout(() => {
-          navigate('/', { replace: true });
-        }, 2000);
+        setStep(3);
+        setTimeout(() => navigate('/', { replace: true }), 2000);
       }
     } finally {
       setLoading(false);
     }
   };
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen haccp-gradient flex items-center justify-center p-4">
@@ -90,11 +95,11 @@ const FirstTimeSetupPocketBase = () => {
                 </div>
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-                  <p>Solo tu potrai invitare altri utenti</p>
+                  <p>La registrazione pubblica sarà disabilitata</p>
                 </div>
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-                  <p>Potrai assegnare ruoli admin o utente</p>
+                  <p>Solo l'admin potrà creare nuovi utenti</p>
                 </div>
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="w-5 h-5 text-primary mt-0.5 shrink-0" />
@@ -113,90 +118,34 @@ const FirstTimeSetupPocketBase = () => {
                 <Label htmlFor="name">Nome (opzionale)</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="Il tuo nome"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="pl-10"
-                    disabled={loading}
-                  />
+                  <Input id="name" type="text" placeholder="Il tuo nome" value={name} onChange={(e) => setName(e.target.value)} className="pl-10" disabled={loading} maxLength={100} />
                 </div>
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="email">Email *</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="admin@esempio.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10"
-                    required
-                    disabled={loading}
-                  />
+                  <Input id="email" type="email" placeholder="admin@esempio.com" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10" required disabled={loading} maxLength={255} />
                 </div>
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="password">Password *</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Minimo 8 caratteri"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10"
-                    required
-                    disabled={loading}
-                    minLength={8}
-                  />
+                  <Input id="password" type="password" placeholder="Minimo 8 caratteri" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-10" required disabled={loading} minLength={8} />
                 </div>
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Conferma Password *</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    placeholder="Ripeti la password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="pl-10"
-                    required
-                    disabled={loading}
-                    minLength={8}
-                  />
+                  <Input id="confirmPassword" type="password" placeholder="Ripeti la password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="pl-10" required disabled={loading} minLength={8} />
                 </div>
               </div>
-
               <div className="flex gap-2">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setStep(1)}
-                  disabled={loading}
-                  className="flex-1"
-                >
-                  Indietro
-                </Button>
+                <Button type="button" variant="outline" onClick={() => setStep(1)} disabled={loading} className="flex-1">Indietro</Button>
                 <Button type="submit" className="flex-1" disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creazione...
-                    </>
-                  ) : (
-                    'Crea Account Admin'
-                  )}
+                  {loading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creazione...</>) : 'Crea Account Admin'}
                 </Button>
               </div>
             </form>
@@ -207,9 +156,7 @@ const FirstTimeSetupPocketBase = () => {
               <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
                 <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
               </div>
-              <p className="text-muted-foreground">
-                Reindirizzamento alla dashboard...
-              </p>
+              <p className="text-muted-foreground">Reindirizzamento alla dashboard...</p>
               <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
             </div>
           )}
@@ -219,4 +166,4 @@ const FirstTimeSetupPocketBase = () => {
   );
 };
 
-export default FirstTimeSetupPocketBase;
+export default FirstTimeSetup;
