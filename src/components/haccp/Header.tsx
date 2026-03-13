@@ -42,11 +42,15 @@ export const Header = ({ activeTab, onTabChange }: HeaderProps) => {
     return email.slice(0, 2).toUpperCase();
   };
 
+  const admin = isAdmin();
+
   const tabs = [
     { key: "home" as const, label: "Home", icon: Home },
     { key: "products" as const, label: "Prodotti", icon: Package },
-    { key: "temperature" as const, label: "Temperature", icon: Thermometer },
-    { key: "system" as const, label: "Sistema", icon: Settings },
+    ...(admin ? [
+      { key: "temperature" as const, label: "Temperature", icon: Thermometer },
+      { key: "system" as const, label: "Sistema", icon: Settings },
+    ] : []),
   ];
 
   return (
