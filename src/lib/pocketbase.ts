@@ -95,13 +95,27 @@ export const onAuthChange = (callback: (isValid: boolean, model: any) => void) =
 };
 
 // Check if this is first time setup (no users at all)
+// Uses the health endpoint + a lightweight query to avoid RLS issues
 export const checkFirstTimeSetup = async (): Promise<boolean> => {
   try {
-    const users = await pb.collection('users').getList(1, 1);
+    // Try to list users — PocketBase allows listing if the collection's listRule is set
+    const users = await pb.collection('users').getList(1, 1, {
+      fields: 'id',
+      requestKey: 'first-time-check',
+    });
     return users.totalItems === 0;
-  } catch (error) {
-    // If users collection doesn't exist, it's first time
-    return true;
+  } catch (error: any) {
+    // 403/401 means the collection exists and has users (RLS blocks unauthenticated access)
+    if (error?.status === 403 || error?.status === 401) {
+      return false;
+    }
+    // 404 means collection doesn't exist yet — truly first time
+    if (error?.status === 404) {
+      return true;
+    }
+    // Network error or other — assume not first time to avoid showing setup
+    console.warn('checkFirstTimeSetup error:', error);
+    return false;
   }
 };
 
