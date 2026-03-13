@@ -7,9 +7,11 @@ import { SystemPanel } from "@/components/haccp/SystemPanel";
 import { Dashboard } from "@/components/haccp/Dashboard";
 import { TemperatureLog } from "@/components/haccp/TemperatureLog";
 import { AppFooter } from "@/components/haccp/AppFooter";
+import { isAdmin } from "@/lib/pocketbase";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<"home" | "products" | "system" | "temperature">("home");
+  const admin = isAdmin();
 
   return (
     <div className="min-h-screen haccp-gradient flex flex-col">
@@ -32,9 +34,9 @@ const Index = () => {
         
         {activeTab === "products" && <ProductsList />}
         
-        {activeTab === "temperature" && <TemperatureLog />}
+        {activeTab === "temperature" && admin && <TemperatureLog />}
         
-        {activeTab === "system" && <SystemPanel />}
+        {activeTab === "system" && admin && <SystemPanel />}
       </main>
 
       <AppFooter />
