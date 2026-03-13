@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Shield, LogOut, Home, Package, Settings, Thermometer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { pb, logout, currentUser } from "@/lib/pocketbase";
+import { pb, logout, currentUser, isAdmin } from "@/lib/pocketbase";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { NotificationBell } from "./NotificationBell";
