@@ -137,40 +137,47 @@ export const ProductsList = () => {
   // Load images and users for lots when product is expanded
   const loadLotData = async (productId: string) => {
     const productLots = lots.filter(l => l.product_id === productId);
+    if (productLots.length === 0) return;
+
+    // Batch load images for all lots in one query
+    const lotIds = productLots.map(l => l.id);
     const images: Record<string, { id: string; url: string }[]> = {};
-    const userIds = new Set<string>();
     
-    for (const lot of productLots) {
-      if (lot.user_id) userIds.add(lot.user_id);
-      try {
-        const lotImgs = await pb.collection('lot_images').getFullList({
-          filter: `lot_id = "${lot.id}"`,
+    try {
+      const filter = lotIds.map(id => `lot_id = "${id}"`).join(' || ');
+      const allImages = await pb.collection('lot_images').getFullList({
+        filter,
+        requestKey: null,
+      });
+      for (const img of allImages) {
+        const lotId = (img as any).lot_id;
+        if (!images[lotId]) images[lotId] = [];
+        images[lotId].push({
+          id: img.id,
+          url: pb.files.getURL(img, (img as any).image),
         });
-        if (lotImgs.length > 0) {
-          images[lot.id] = lotImgs.map((img: any) => ({
-            id: img.id,
-            url: pb.files.getURL(img, img.image),
-          }));
-        }
-      } catch { /* ignore */ }
-    }
+      }
+    } catch { /* ignore */ }
     
     setLotImages(prev => ({ ...prev, ...images }));
 
-    // Load user info for admin view
+    // Batch load user info for admin view
     if (admin) {
-      const users: Record<string, { name: string; initials: string }> = {};
-      for (const uid of userIds) {
-        if (!lotUsers[uid]) {
-          try {
-            const u = await pb.collection('users').getOne(uid);
+      const userIds = [...new Set(productLots.map(l => l.user_id).filter(Boolean))];
+      const newUserIds = userIds.filter(uid => !lotUsers[uid]);
+      if (newUserIds.length > 0) {
+        const users: Record<string, { name: string; initials: string }> = {};
+        try {
+          const filter = newUserIds.map(id => `id = "${id}"`).join(' || ');
+          const userRecords = await pb.collection('users').getFullList({ filter, requestKey: null });
+          for (const u of userRecords) {
             const name = (u as any).name || (u as any).email || '?';
             const initials = name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
-            users[uid] = { name, initials };
-          } catch { users[uid] = { name: '?', initials: '?' }; }
-        }
+            users[u.id] = { name, initials };
+          }
+        } catch { /* ignore */ }
+        setLotUsers(prev => ({ ...prev, ...users }));
       }
-      setLotUsers(prev => ({ ...prev, ...users }));
     }
   };
 
