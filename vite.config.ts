@@ -10,6 +10,21 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-tabs', '@radix-ui/react-select', '@radix-ui/react-toast'],
+          'vendor-charts': ['recharts'],
+          'vendor-pdf': ['jspdf', 'jspdf-autotable'],
+          'vendor-dates': ['date-fns'],
+        },
+      },
+    },
+    target: 'es2020',
+    minify: 'esbuild',
+  },
   plugins: [
     react(),
     mode === "development" && componentTagger(),
@@ -50,13 +65,30 @@ export default defineConfig(({ mode }) => ({
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.pockethost\.io\/.*/i,
+            // Cache local PocketBase API calls
+            urlPattern: /\/api\/collections\/.*\/records/,
             handler: "NetworkFirst",
             options: {
-              cacheName: "pocketbase-cache",
+              cacheName: "pocketbase-api",
               expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24, // 24 hours
+                maxEntries: 200,
+                maxAgeSeconds: 60 * 60, // 1 hour
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+              networkTimeoutSeconds: 5,
+            },
+          },
+          {
+            // Cache PocketBase file uploads (images)
+            urlPattern: /\/api\/files\//,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "pocketbase-files",
+              expiration: {
+                maxEntries: 500,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
               },
               cacheableResponse: {
                 statuses: [0, 200],
