@@ -95,38 +95,18 @@ export const onAuthChange = (callback: (isValid: boolean, model: any) => void) =
 };
 
 // Check if this is first time setup (no users at all)
+// Uses custom PocketBase hook that bypasses RLS
 export const checkFirstTimeSetup = async (): Promise<boolean> => {
   try {
-    const users = await pb.collection('users').getList(1, 1, {
-      fields: 'id',
-      requestKey: null, // disable auto-cancellation for this request
-    });
-    return users.totalItems === 0;
-  } catch (error: any) {
-    // Abort/auto-cancellation — retry once without requestKey
-    if (error?.isAbort) {
-      try {
-        const retry = await fetch(`${pb.baseURL}/api/collections/users/records?page=1&perPage=1&fields=id`);
-        if (retry.ok) {
-          const data = await retry.json();
-          return (data.totalItems ?? 0) === 0;
-        }
-        // 403/401 means users exist but RLS blocks access
-        if (retry.status === 403 || retry.status === 401) return false;
-        if (retry.status === 404) return true;
-      } catch {
-        // Network error on retry
-      }
-      return false;
+    const response = await fetch(`${pb.baseURL}/api/setup-check`);
+    if (response.ok) {
+      const data = await response.json();
+      return data.needsSetup === true;
     }
-    // 403/401 means the collection exists and has users (RLS blocks unauthenticated access)
-    if (error?.status === 403 || error?.status === 401) {
-      return false;
-    }
-    // 404 means collection doesn't exist yet — truly first time
-    if (error?.status === 404) {
-      return true;
-    }
+    // If endpoint doesn't exist (old PocketBase without hook), fallback
+    console.warn('setup-check endpoint not available, falling back');
+    return false;
+  } catch (error) {
     console.warn('checkFirstTimeSetup error:', error);
     return false;
   }
