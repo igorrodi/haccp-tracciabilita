@@ -94,11 +94,22 @@ export const onAuthChange = (callback: (isValid: boolean, model: any) => void) =
   });
 };
 
-// Check if this is first time setup (no users at all)
-// Uses custom PocketBase hook that bypasses RLS
+// Check if first-time setup is needed (no admin account yet)
+// Uses custom PocketBase hook that bypasses API rules
 export const checkFirstTimeSetup = async (): Promise<boolean> => {
+  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+  let endpoint = '/api/setup-check';
+  if (isLocalDev) {
+    try {
+      endpoint = new URL('/api/setup-check', pb.baseURL).toString();
+    } catch {
+      endpoint = 'http://localhost:8090/api/setup-check';
+    }
+  }
+
   try {
-    const response = await fetch(`${pb.baseURL}/api/setup-check`);
+    const response = await fetch(endpoint, { cache: 'no-store' });
     if (response.ok) {
       const data = await response.json();
       return data.needsSetup === true;

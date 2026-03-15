@@ -36,6 +36,27 @@ EOF
   echo "Version info inizializzata"
 fi
 
+# Bootstrap PocketBase dashboard superuser (first boot only)
+PB_SUPERUSER_EMAIL="${PB_SUPERUSER_EMAIL:-admin@haccp.local}"
+PB_SUPERUSER_PASSWORD="${PB_SUPERUSER_PASSWORD:-Admin123456!}"
+PB_SUPERUSER_MARKER="/pb/pb_data/.superuser_bootstrapped"
+
+if [ ! -f "$PB_SUPERUSER_MARKER" ]; then
+  echo "Bootstrap dashboard admin..."
+  if pocketbase superuser create "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD" --dir=/pb/pb_data >/tmp/pb-superuser.log 2>&1; then
+    echo "Superuser creato: ${PB_SUPERUSER_EMAIL}"
+    touch "$PB_SUPERUSER_MARKER"
+  else
+    if grep -qi "already exists" /tmp/pb-superuser.log; then
+      echo "Superuser già presente, bootstrap completato."
+      touch "$PB_SUPERUSER_MARKER"
+    else
+      echo "Attenzione: bootstrap superuser non riuscito."
+      cat /tmp/pb-superuser.log || true
+    fi
+  fi
+fi
+
 echo "Migrazioni automatiche abilitate (--automigrate)"
 
 # Start PocketBase with migrations auto-apply and hooks

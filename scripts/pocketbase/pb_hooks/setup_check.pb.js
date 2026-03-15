@@ -1,21 +1,12 @@
-// Public endpoint to check if any users exist (bypasses RLS)
+// Public endpoint to check if at least one admin exists (bypasses API rules)
 // GET /api/setup-check → { "needsSetup": true/false }
 routerAdd("GET", "/api/setup-check", function(e) {
-  var result = arrayOf(new DynamicModel({ "total": 0 }));
-
   try {
-    $app.dao().db()
-      .newQuery("SELECT COUNT(*) as total FROM users")
-      .all(result);
-  } catch(err) {
-    // Table doesn't exist yet — needs setup
+    var admins = $app.findRecordsByFilter("users", 'role = "admin"', "", 1, 0);
+    var hasAdmin = admins && admins.length > 0;
+    return e.json(200, { "needsSetup": !hasAdmin });
+  } catch (err) {
+    // Collection not initialized yet
     return e.json(200, { "needsSetup": true });
   }
-
-  var count = 0;
-  if (result.length > 0) {
-    count = result[0].total;
-  }
-
-  return e.json(200, { "needsSetup": count === 0 });
 });

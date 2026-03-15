@@ -21,6 +21,8 @@ services:
       - POCKETBASE_PRAGMA_JOURNAL_MODE=wal
       - POCKETBASE_PRAGMA_SYNCHRONOUS=normal
       - POCKETBASE_PRAGMA_BUSY_TIMEOUT=5000
+      - PB_SUPERUSER_EMAIL=admin@haccp.local
+      - PB_SUPERUSER_PASSWORD=Admin123456!
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/api/health"]

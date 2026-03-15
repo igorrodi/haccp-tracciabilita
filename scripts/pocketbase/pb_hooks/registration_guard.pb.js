@@ -1,28 +1,23 @@
-// Block user creation after the first admin exists
-// First user can register freely; after that, only admins can create users
+// Block public user creation once an admin exists.
+// If no admin exists yet, allow creation and force admin role.
 onRecordCreateRequest(function(e) {
-  var result = arrayOf(new DynamicModel({ "total": 0 }));
+  var hasAdmin = false;
 
   try {
-    $app.dao().db()
-      .newQuery("SELECT COUNT(*) as total FROM users")
-      .all(result);
-  } catch(err) {
-    // Table issue — allow creation (first time)
+    var admins = $app.findRecordsByFilter("users", 'role = "admin"', "", 1, 0);
+    hasAdmin = admins && admins.length > 0;
+  } catch (err) {
+    // Collection issue — allow creation on fresh install
     return;
   }
 
-  var count = 0;
-  if (result.length > 0) {
-    count = result[0].total;
-  }
-
-  // If no users exist, allow first registration
-  if (count === 0) {
+  // Bootstrap mode: first valid account becomes admin
+  if (!hasAdmin) {
+    e.record.set("role", "admin");
     return;
   }
 
-  // Users exist — only allow if requester is an authenticated admin
+  // Admin exists — only authenticated admins can create users
   var authRecord = e.httpContext.get("authRecord");
   if (!authRecord) {
     throw new ForbiddenError("La registrazione pubblica è disabilitata. Contatta l'amministratore.");
@@ -30,5 +25,9 @@ onRecordCreateRequest(function(e) {
 
   if (authRecord.get("role") !== "admin") {
     throw new ForbiddenError("Solo gli amministratori possono creare nuovi utenti.");
+  }
+
+  if (!e.record.get("role")) {
+    e.record.set("role", "user");
   }
 }, "users");
