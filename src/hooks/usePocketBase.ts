@@ -43,14 +43,20 @@ export function useCollection<T>(collectionName: string) {
   const create = useCallback(async (record: Partial<T>) => {
     try {
       const user = currentUser();
-      const newRecord = await pb.collection(collectionName).create({
-        ...record,
-        user_id: user?.id,
-      });
+      const newRecord = await pb.collection(collectionName).create(
+        {
+          ...record,
+          user_id: user?.id,
+        },
+        { requestKey: null }
+      );
       setData(prev => [newRecord as T, ...prev]);
       toastRef.current({ title: 'Successo', description: 'Record creato' });
       return { data: newRecord, error: null };
     } catch (err: any) {
+      if (err?.isAbort) {
+        return { data: null, error: 'Richiesta annullata, riprova.' };
+      }
       const message = err.message || 'Errore nella creazione';
       toastRef.current({ title: 'Errore', description: message, variant: 'destructive' });
       return { data: null, error: message };
@@ -59,13 +65,16 @@ export function useCollection<T>(collectionName: string) {
 
   const update = useCallback(async (id: string, record: Partial<T>) => {
     try {
-      const updatedRecord = await pb.collection(collectionName).update(id, record);
+      const updatedRecord = await pb.collection(collectionName).update(id, record, { requestKey: null });
       setData(prev => prev.map(item => 
         (item as any).id === id ? updatedRecord as T : item
       ));
       toastRef.current({ title: 'Successo', description: 'Record aggiornato' });
       return { data: updatedRecord, error: null };
     } catch (err: any) {
+      if (err?.isAbort) {
+        return { data: null, error: 'Richiesta annullata, riprova.' };
+      }
       const message = err.message || 'Errore nell\'aggiornamento';
       toastRef.current({ title: 'Errore', description: message, variant: 'destructive' });
       return { data: null, error: message };
@@ -74,11 +83,14 @@ export function useCollection<T>(collectionName: string) {
 
   const remove = useCallback(async (id: string) => {
     try {
-      await pb.collection(collectionName).delete(id);
+      await pb.collection(collectionName).delete(id, { requestKey: null });
       setData(prev => prev.filter(item => (item as any).id !== id));
       toastRef.current({ title: 'Successo', description: 'Record eliminato' });
       return { error: null };
     } catch (err: any) {
+      if (err?.isAbort) {
+        return { error: 'Richiesta annullata, riprova.' };
+      }
       const message = err.message || 'Errore nell\'eliminazione';
       toastRef.current({ title: 'Errore', description: message, variant: 'destructive' });
       return { error: message };

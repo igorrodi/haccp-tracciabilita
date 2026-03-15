@@ -109,14 +109,19 @@ export const checkFirstTimeSetup = async (): Promise<boolean> => {
   }
 
   try {
-    const response = await fetch(endpoint, { cache: 'no-store' });
-    if (response.ok) {
-      const data = await response.json();
-      return data.needsSetup === true;
+    const response = await fetch(endpoint, {
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!response.ok || !contentType.includes('application/json')) {
+      console.warn('setup-check endpoint non valido o non JSON');
+      return false;
     }
-    // If endpoint doesn't exist (old PocketBase without hook), fallback
-    console.warn('setup-check endpoint not available, falling back');
-    return false;
+
+    const data = await response.json();
+    return data.needsSetup === true;
   } catch (error) {
     console.warn('checkFirstTimeSetup error:', error);
     return false;
