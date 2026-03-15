@@ -46,6 +46,9 @@ if [ ! -f "$PB_SUPERUSER_MARKER" ]; then
   if pocketbase superuser create "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD" --dir=/pb/pb_data >/tmp/pb-superuser.log 2>&1; then
     echo "Superuser creato: ${PB_SUPERUSER_EMAIL}"
     touch "$PB_SUPERUSER_MARKER"
+  elif pocketbase superuser upsert "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD" --dir=/pb/pb_data >/tmp/pb-superuser.log 2>&1; then
+    echo "Superuser aggiornato/creato: ${PB_SUPERUSER_EMAIL}"
+    touch "$PB_SUPERUSER_MARKER"
   else
     if grep -qi "already exists" /tmp/pb-superuser.log; then
       echo "Superuser già presente, bootstrap completato."
