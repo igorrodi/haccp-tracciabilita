@@ -10,7 +10,7 @@ import { UpdatesBackupPanel } from './UpdatesBackupPanel';
 import { TemperatureLocationsSettings } from './TemperatureLocationsSettings';
 import { SeasonManager } from './SeasonManager';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ExternalLink, Database, Settings, FileSpreadsheet, AlertTriangle, Truck, Users, Info, Printer, ArrowUpCircle, Calendar } from 'lucide-react';
+import { ExternalLink, Database, Settings, FileSpreadsheet, AlertTriangle, Truck, Users, Info, Printer, ArrowUpCircle, Calendar, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isAdmin } from '@/lib/pocketbase';
 import { useAppVersion } from '@/hooks/useAppVersion';
