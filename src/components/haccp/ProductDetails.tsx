@@ -122,7 +122,7 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
         const usersMap: Record<string, any> = {};
         for (const userId of userIds) {
           try {
-            const userData = await pb.collection('users').getOne(userId);
+            const userData = await pb.collection('users').getOne(userId, { requestKey: null });
             usersMap[userId] = userData;
           } catch (e) {
             // User might not exist
