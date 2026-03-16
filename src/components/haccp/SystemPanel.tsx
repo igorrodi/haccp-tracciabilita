@@ -71,6 +71,10 @@ export const SystemPanel = () => {
             <Info className="w-3 h-3" />
             Info
           </TabsTrigger>
+          <TabsTrigger value="account" className="flex-shrink-0 flex items-center gap-1">
+            <KeyRound className="w-3 h-3" />
+            Account
+          </TabsTrigger>
         </TabsList>
       </div>
       
