@@ -192,7 +192,7 @@ export const ProductsList = () => {
 
   const handleDeleteLot = async (lotId: string) => {
     try {
-      await pb.collection('lots').delete(lotId);
+      await pb.collection('lots').delete(lotId, { requestKey: null });
       toast({ title: 'Lotto eliminato' });
       refetchLots();
     } catch {

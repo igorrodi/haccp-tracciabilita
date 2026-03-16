@@ -107,7 +107,7 @@ export const DataExport = () => {
       if (config.id) {
         await pb.collection('export_settings').update(config.id, data, { requestKey: null });
       } else {
-        const record = await pb.collection('export_settings').create(data);
+        const record = await pb.collection('export_settings').create(data, { requestKey: null });
         setConfig(prev => ({ ...prev, id: record.id }));
       }
 

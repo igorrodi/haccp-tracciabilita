@@ -77,7 +77,7 @@ export const EditCategoryDialog = ({
         ingredients: validatedData.ingredients || null,
         preparation_procedure: validatedData.preparation_procedure || null,
         shelf_life_days: validatedData.shelf_life_days || null
-      });
+      }, { requestKey: null });
 
       toast.success('Categoria aggiornata con successo!');
       onCategoryUpdated();
