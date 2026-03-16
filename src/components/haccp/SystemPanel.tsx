@@ -1,4 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ChangePassword } from './ChangePassword';
 import { Suppliers } from './Suppliers';
 import { UserManagement } from './UserManagement';
 import { CloudBackupSettings } from './CloudBackupSettings';
