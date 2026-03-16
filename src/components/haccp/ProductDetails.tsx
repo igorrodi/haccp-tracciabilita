@@ -96,6 +96,7 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
       const data = await pb.collection('lots').getFullList<Lot>({
         filter: `product_id = "${product.id}"`,
         sort: '-created',
+        requestKey: null,
       });
 
       setLots(data || []);
