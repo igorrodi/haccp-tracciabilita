@@ -41,6 +41,7 @@ export const TemperatureLog = () => {
     try {
       const data = await pb.collection('temperature_logs').getFullList<TempLog>({
         sort: '-created',
+        requestKey: null,
       });
       setLogs(data);
     } catch (err) {
