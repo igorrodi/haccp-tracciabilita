@@ -64,7 +64,7 @@ export const DataExport = () => {
 
   const loadConfig = async () => {
     try {
-      const records = await pb.collection('export_settings').getList(1, 1);
+      const records = await pb.collection('export_settings').getList(1, 1, { requestKey: null });
       if (records.items.length > 0) {
         const record = records.items[0];
         setConfig({
@@ -84,7 +84,8 @@ export const DataExport = () => {
   const loadCategories = async () => {
     try {
       const records = await pb.collection('products').getFullList<PBCategory>({
-        sort: 'name'
+        sort: 'name',
+        requestKey: null,
       });
       setCategories(records);
     } catch (error) {
@@ -104,9 +105,9 @@ export const DataExport = () => {
       };
 
       if (config.id) {
-        await pb.collection('export_settings').update(config.id, data);
+        await pb.collection('export_settings').update(config.id, data, { requestKey: null });
       } else {
-        const record = await pb.collection('export_settings').create(data);
+        const record = await pb.collection('export_settings').create(data, { requestKey: null });
         setConfig(prev => ({ ...prev, id: record.id }));
       }
 
@@ -162,7 +163,8 @@ export const DataExport = () => {
       const lots = await pb.collection('lots').getFullList<PBLot>({
         filter,
         sort: '-production_date',
-        expand: 'category_id,supplier_id'
+        expand: 'category_id,supplier_id',
+        requestKey: null,
       });
 
       if (lots.length === 0) {
@@ -241,7 +243,7 @@ export const DataExport = () => {
       if (config.id) {
         await pb.collection('export_settings').update(config.id, {
           last_export: new Date().toISOString()
-        });
+        }, { requestKey: null });
         setConfig(prev => ({ ...prev, lastExport: new Date().toISOString() }));
       }
 
@@ -273,7 +275,8 @@ export const DataExport = () => {
       const lots = await pb.collection('lots').getFullList<PBLot>({
         filter,
         sort: 'category_id,-production_date',
-        expand: 'category_id,supplier_id'
+        expand: 'category_id,supplier_id',
+        requestKey: null,
       });
 
       if (lots.length === 0) {

@@ -61,13 +61,13 @@ export const ProductsList = () => {
   });
 
   useEffect(() => {
-    pb.collection('allergens').getFullList<AllergenInfo>({ sort: 'number' })
+    pb.collection('allergens').getFullList<AllergenInfo>({ sort: 'number', requestKey: null })
       .then(setAllergens)
       .catch(() => {});
     // Load printer settings
     const user = currentUser();
     if (user) {
-      pb.collection('printer_settings').getFirstListItem(`user_id = "${user.id}"`)
+      pb.collection('printer_settings').getFirstListItem(`user_id = "${user.id}"`, { requestKey: null })
         .then((s: any) => setPrinterSettings(s))
         .catch(() => {});
     }
@@ -192,7 +192,7 @@ export const ProductsList = () => {
 
   const handleDeleteLot = async (lotId: string) => {
     try {
-      await pb.collection('lots').delete(lotId);
+      await pb.collection('lots').delete(lotId, { requestKey: null });
       toast({ title: 'Lotto eliminato' });
       refetchLots();
     } catch {

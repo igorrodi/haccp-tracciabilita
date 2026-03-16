@@ -1,4 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ChangePassword } from './ChangePassword';
 import { Suppliers } from './Suppliers';
 import { UserManagement } from './UserManagement';
 import { CloudBackupSettings } from './CloudBackupSettings';
@@ -9,7 +10,7 @@ import { UpdatesBackupPanel } from './UpdatesBackupPanel';
 import { TemperatureLocationsSettings } from './TemperatureLocationsSettings';
 import { SeasonManager } from './SeasonManager';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ExternalLink, Database, Settings, FileSpreadsheet, AlertTriangle, Truck, Users, Info, Printer, ArrowUpCircle, Calendar } from 'lucide-react';
+import { ExternalLink, Database, Settings, FileSpreadsheet, AlertTriangle, Truck, Users, Info, Printer, ArrowUpCircle, Calendar, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isAdmin } from '@/lib/pocketbase';
 import { useAppVersion } from '@/hooks/useAppVersion';
@@ -70,6 +71,10 @@ export const SystemPanel = () => {
             <Info className="w-3 h-3" />
             Info
           </TabsTrigger>
+          <TabsTrigger value="account" className="flex-shrink-0 flex items-center gap-1">
+            <KeyRound className="w-3 h-3" />
+            Account
+          </TabsTrigger>
         </TabsList>
       </div>
       
@@ -108,6 +113,10 @@ export const SystemPanel = () => {
 
       <TabsContent value="updates">
         <UpdatesBackupPanel />
+      </TabsContent>
+
+      <TabsContent value="account">
+        <ChangePassword />
       </TabsContent>
 
       <TabsContent value="info">

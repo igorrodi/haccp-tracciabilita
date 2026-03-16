@@ -41,6 +41,7 @@ export const TemperatureLog = () => {
     try {
       const data = await pb.collection('temperature_logs').getFullList<TempLog>({
         sort: '-created',
+        requestKey: null,
       });
       setLogs(data);
     } catch (err) {
@@ -62,7 +63,7 @@ export const TemperatureLog = () => {
         notes: notes || undefined,
         user_id: user.id,
         season_id: activeSeason?.id || null,
-      });
+      }, { requestKey: null });
       toast.success('Temperatura registrata');
       setShowForm(false);
       setTemperature('');

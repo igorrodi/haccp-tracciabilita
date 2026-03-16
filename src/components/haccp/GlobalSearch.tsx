@@ -44,9 +44,9 @@ export const GlobalSearch = ({ onSelectProduct }: GlobalSearchProps) => {
     setLoading(true);
     try {
       const [products, lots, suppliers] = await Promise.all([
-        pb.collection('products').getList(1, 5, { filter: `name ~ "${q}"` }).catch(() => ({ items: [] })),
-        pb.collection('lots').getList(1, 5, { filter: `lot_number ~ "${q}" || internal_lot_number ~ "${q}"` }).catch(() => ({ items: [] })),
-        pb.collection('suppliers').getList(1, 5, { filter: `name ~ "${q}"` }).catch(() => ({ items: [] })),
+        pb.collection('products').getList(1, 5, { filter: `name ~ "${q}"`, requestKey: null }).catch(() => ({ items: [] })),
+        pb.collection('lots').getList(1, 5, { filter: `lot_number ~ "${q}" || internal_lot_number ~ "${q}"`, requestKey: null }).catch(() => ({ items: [] })),
+        pb.collection('suppliers').getList(1, 5, { filter: `name ~ "${q}"`, requestKey: null }).catch(() => ({ items: [] })),
       ]);
 
       const r: SearchResult[] = [

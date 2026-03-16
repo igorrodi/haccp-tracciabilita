@@ -96,6 +96,7 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
       const data = await pb.collection('lots').getFullList<Lot>({
         filter: `product_id = "${product.id}"`,
         sort: '-created',
+        requestKey: null,
       });
 
       setLots(data || []);
@@ -105,6 +106,7 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
       if (supplierIds.length > 0) {
         const suppliersData = await pb.collection('suppliers').getFullList<Supplier>({
           filter: supplierIds.map(id => `id = "${id}"`).join(' || '),
+          requestKey: null,
         });
 
         const suppliersMap: Record<string, string> = {};
@@ -120,7 +122,7 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
         const usersMap: Record<string, any> = {};
         for (const userId of userIds) {
           try {
-            const userData = await pb.collection('users').getOne(userId);
+            const userData = await pb.collection('users').getOne(userId, { requestKey: null });
             usersMap[userId] = userData;
           } catch (e) {
             // User might not exist
@@ -165,7 +167,7 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
     }
 
     try {
-      await pb.collection('lots').delete(id);
+      await pb.collection('lots').delete(id, { requestKey: null });
       toast.success('Lotto eliminato con successo');
       fetchLots();
     } catch (error) {
