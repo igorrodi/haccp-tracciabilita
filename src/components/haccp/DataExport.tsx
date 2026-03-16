@@ -243,7 +243,7 @@ export const DataExport = () => {
       if (config.id) {
         await pb.collection('export_settings').update(config.id, {
           last_export: new Date().toISOString()
-        });
+        }, { requestKey: null });
         setConfig(prev => ({ ...prev, lastExport: new Date().toISOString() }));
       }
 
