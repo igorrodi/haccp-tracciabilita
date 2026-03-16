@@ -106,6 +106,7 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
       if (supplierIds.length > 0) {
         const suppliersData = await pb.collection('suppliers').getFullList<Supplier>({
           filter: supplierIds.map(id => `id = "${id}"`).join(' || '),
+          requestKey: null,
         });
 
         const suppliersMap: Record<string, string> = {};
