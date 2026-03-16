@@ -84,7 +84,8 @@ export const DataExport = () => {
   const loadCategories = async () => {
     try {
       const records = await pb.collection('products').getFullList<PBCategory>({
-        sort: 'name'
+        sort: 'name',
+        requestKey: null,
       });
       setCategories(records);
     } catch (error) {
