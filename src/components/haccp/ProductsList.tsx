@@ -67,7 +67,7 @@ export const ProductsList = () => {
     // Load printer settings
     const user = currentUser();
     if (user) {
-      pb.collection('printer_settings').getFirstListItem(`user_id = "${user.id}"`)
+      pb.collection('printer_settings').getFirstListItem(`user_id = "${user.id}"`, { requestKey: null })
         .then((s: any) => setPrinterSettings(s))
         .catch(() => {});
     }
