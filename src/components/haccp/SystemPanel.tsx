@@ -111,6 +111,10 @@ export const SystemPanel = () => {
         <UpdatesBackupPanel />
       </TabsContent>
 
+      <TabsContent value="account">
+        <ChangePassword />
+      </TabsContent>
+
       <TabsContent value="info">
         <div className="space-y-4">
           {/* System Info */}
