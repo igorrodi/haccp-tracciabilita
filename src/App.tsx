@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { isAuthenticated, onAuthChange } from "@/lib/pocketbase";
 import { InstallPWA } from "./components/haccp/InstallPWA";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 // Lazy load pages for code splitting
 const Index = lazy(() => import("./pages/Index"));
