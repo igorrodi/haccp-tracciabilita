@@ -61,7 +61,7 @@ export const ProductsList = () => {
   });
 
   useEffect(() => {
-    pb.collection('allergens').getFullList<AllergenInfo>({ sort: 'number' })
+    pb.collection('allergens').getFullList<AllergenInfo>({ sort: 'number', requestKey: null })
       .then(setAllergens)
       .catch(() => {});
     // Load printer settings
