@@ -64,7 +64,7 @@ export const DataExport = () => {
 
   const loadConfig = async () => {
     try {
-      const records = await pb.collection('export_settings').getList(1, 1);
+      const records = await pb.collection('export_settings').getList(1, 1, { requestKey: null });
       if (records.items.length > 0) {
         const record = records.items[0];
         setConfig({
