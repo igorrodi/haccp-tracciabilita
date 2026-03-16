@@ -275,7 +275,8 @@ export const DataExport = () => {
       const lots = await pb.collection('lots').getFullList<PBLot>({
         filter,
         sort: 'category_id,-production_date',
-        expand: 'category_id,supplier_id'
+        expand: 'category_id,supplier_id',
+        requestKey: null,
       });
 
       if (lots.length === 0) {
