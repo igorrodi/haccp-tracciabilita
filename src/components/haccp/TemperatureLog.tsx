@@ -63,7 +63,7 @@ export const TemperatureLog = () => {
         notes: notes || undefined,
         user_id: user.id,
         season_id: activeSeason?.id || null,
-      });
+      }, { requestKey: null });
       toast.success('Temperatura registrata');
       setShowForm(false);
       setTemperature('');

@@ -236,7 +236,7 @@ export const LotForm = () => {
             const formDataUpload = new FormData();
             formDataUpload.append('lot_id', newLot.id);
             formDataUpload.append('image', photo.blob, photo.name || 'photo.jpg');
-            await pb.collection('lot_images').create(formDataUpload);
+            await pb.collection('lot_images').create(formDataUpload, { requestKey: null });
           } catch (uploadErr) {
             console.error('Photo upload error:', uploadErr);
           }

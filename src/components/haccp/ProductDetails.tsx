@@ -167,7 +167,7 @@ export const ProductDetails = ({ product, onBack }: ProductDetailsProps) => {
     }
 
     try {
-      await pb.collection('lots').delete(id);
+      await pb.collection('lots').delete(id, { requestKey: null });
       toast.success('Lotto eliminato con successo');
       fetchLots();
     } catch (error) {
