@@ -120,6 +120,12 @@ export const SystemPanel = () => {
         <UpdatesBackupPanel />
       </TabsContent>
 
+      {admin && (
+        <TabsContent value="wifi">
+          <WiFiSettings />
+        </TabsContent>
+      )}
+
       <TabsContent value="account">
         <ChangePassword />
       </TabsContent>
