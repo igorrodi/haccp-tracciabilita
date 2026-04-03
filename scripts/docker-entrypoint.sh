@@ -34,6 +34,9 @@ if [ ! -f /pb/pb_data/version.json ]; then
 }
 EOF
   echo "Version info inizializzata"
+  # Mark as first run for the wizard
+  touch /pb/pb_data/first_run.flag
+  echo "First-run flag creato — wizard attivo"
 fi
 
 # Bootstrap PocketBase dashboard superuser (first boot only)

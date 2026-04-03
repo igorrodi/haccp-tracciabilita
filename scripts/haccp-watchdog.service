@@ -1,0 +1,13 @@
+[Unit]
+Description=HACCP App Watchdog
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c 'cd /opt/haccp-tracker && while true; do if docker compose ps 2>/dev/null | grep -q unhealthy; then echo "[$(date)] Container unhealthy — riavvio..." >> /var/log/haccp-watchdog.log; docker compose restart; fi; sleep 30; done'
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

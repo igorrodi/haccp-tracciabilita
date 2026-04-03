@@ -9,8 +9,9 @@ import { PrinterSettings } from './PrinterSettings';
 import { UpdatesBackupPanel } from './UpdatesBackupPanel';
 import { TemperatureLocationsSettings } from './TemperatureLocationsSettings';
 import { SeasonManager } from './SeasonManager';
+import { WiFiSettings } from './WiFiSettings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ExternalLink, Database, Settings, FileSpreadsheet, AlertTriangle, Truck, Users, Info, Printer, ArrowUpCircle, Calendar, KeyRound } from 'lucide-react';
+import { ExternalLink, Database, Settings, FileSpreadsheet, AlertTriangle, Truck, Users, Info, Printer, ArrowUpCircle, Calendar, KeyRound, Wifi } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isAdmin } from '@/lib/pocketbase';
 import { useAppVersion } from '@/hooks/useAppVersion';
@@ -38,7 +39,7 @@ export const SystemPanel = () => {
   return (
     <Tabs defaultValue="suppliers" className="w-full">
       <div className="w-full overflow-x-auto pb-2">
-        <TabsList className="inline-flex w-full min-w-max md:grid md:w-full md:grid-cols-8 gap-1">
+        <TabsList className="inline-flex w-full min-w-max md:grid md:w-full md:grid-cols-10 gap-1">
           <TabsTrigger value="suppliers" className="flex-shrink-0 flex items-center gap-1">
             <Truck className="w-3 h-3" />
             Fornitori
@@ -71,6 +72,10 @@ export const SystemPanel = () => {
             <Info className="w-3 h-3" />
             Info
           </TabsTrigger>
+          {admin && <TabsTrigger value="wifi" className="flex-shrink-0 flex items-center gap-1">
+            <Wifi className="w-3 h-3" />
+            Wi-Fi
+          </TabsTrigger>}
           <TabsTrigger value="account" className="flex-shrink-0 flex items-center gap-1">
             <KeyRound className="w-3 h-3" />
             Account
@@ -114,6 +119,12 @@ export const SystemPanel = () => {
       <TabsContent value="updates">
         <UpdatesBackupPanel />
       </TabsContent>
+
+      {admin && (
+        <TabsContent value="wifi">
+          <WiFiSettings />
+        </TabsContent>
+      )}
 
       <TabsContent value="account">
         <ChangePassword />

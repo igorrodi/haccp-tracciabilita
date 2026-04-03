@@ -25,16 +25,38 @@ Sistema di tracciabilità HACCP per la ristorazione, ottimizzato per Raspberry P
 ## Installazione rapida
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/USER/haccp-tracciabilita/main/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/igorrodi/haccp-tracciabilita/main/install.sh | sudo bash
 ```
 
 L'installer:
+- Verifica Raspberry Pi OS Bookworm, connessione internet e spazio disco
 - Installa Docker se mancante
 - Verifica architettura ARM64
 - Chiede le credenziali Google Drive per il backup cloud
-- Avvia l'app sulla porta 80
+- Installa il watchdog systemd per il riavvio automatico
+- Se è la prima installazione, avvia un **hotspot Wi-Fi aperto** per il wizard
 
-L'app sarà disponibile su `http://<IP-RASPBERRY>` e il pannello admin su `http://<IP-RASPBERRY>/_/`.
+## Prima Configurazione (Wizard Hotspot)
+
+Al primo avvio dopo l'installazione:
+
+1. Il Raspberry Pi crea una rete Wi-Fi aperta: **HACCP-Setup-XXXXXX**
+2. Connettiti a questa rete dal tuo smartphone/tablet/PC
+3. Apri il browser e vai a: `http://haccp.local/setup` oppure `http://192.168.4.1/setup`
+4. Il wizard ti guiderà nella creazione dell'account admin e nella configurazione del Wi-Fi
+5. Dopo il setup, l'hotspot si riavvia **protetto con password WPA2**
+6. Riconnettiti alla nuova rete con la password che hai scelto
+
+> **Nota sicurezza**: la rete hotspot è isolata (nessun accesso a internet). Il Raspberry Pi usa la porta Ethernet per internet (aggiornamenti, backup cloud).
+
+## Gestione Wi-Fi dalla Dashboard Admin
+
+Dopo la configurazione iniziale, l'admin può modificare SSID e password Wi-Fi da:
+**App → Sistema → Wi-Fi**
+
+Le modifiche vengono applicate immediatamente: hostapd e dnsmasq vengono riavviati automaticamente.
+
+L'app sarà disponibile su `http://haccp.local` e il pannello admin PocketBase su `http://<IP>/_/`.
 
 ## Aggiornamento
 

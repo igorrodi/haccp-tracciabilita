@@ -17,6 +17,8 @@ services:
     devices:
       - /dev/bus/usb:/dev/bus/usb
     privileged: true
+    mem_limit: 512m
+    cpu_shares: 512
     environment:
       - POCKETBASE_PRAGMA_JOURNAL_MODE=wal
       - POCKETBASE_PRAGMA_SYNCHRONOUS=normal
@@ -25,7 +27,13 @@ services:
       - PB_SUPERUSER_PASSWORD=Admin123456!
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/api/health"]
-      interval: 30s
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/api/health"]
+      interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 6
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
