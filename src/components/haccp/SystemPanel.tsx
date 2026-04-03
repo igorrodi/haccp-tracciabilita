@@ -72,6 +72,10 @@ export const SystemPanel = () => {
             <Info className="w-3 h-3" />
             Info
           </TabsTrigger>
+          {admin && <TabsTrigger value="wifi" className="flex-shrink-0 flex items-center gap-1">
+            <Wifi className="w-3 h-3" />
+            Wi-Fi
+          </TabsTrigger>}
           <TabsTrigger value="account" className="flex-shrink-0 flex items-center gap-1">
             <KeyRound className="w-3 h-3" />
             Account
