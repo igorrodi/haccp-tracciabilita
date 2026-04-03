@@ -244,5 +244,19 @@
     "createRule": "@request.auth.id != ''",
     "updateRule": "@request.auth.id != ''",
     "deleteRule": "@request.auth.id != ''"
+  },
+  {
+    "name": "wifi_settings",
+    "type": "base",
+    "schema": [
+      { "name": "wifi_ssid", "type": "text", "required": true },
+      { "name": "wifi_password", "type": "text" },
+      { "name": "restaurant_name", "type": "text" }
+    ],
+    "listRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "viewRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "createRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "updateRule": "@request.auth.id != '' && @request.auth.role = 'admin'",
+    "deleteRule": "@request.auth.id != '' && @request.auth.role = 'admin'"
   }
 ]
