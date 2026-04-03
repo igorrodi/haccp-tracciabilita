@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Tracker HACCP - Installazione Automatica
-# Usage: curl -sSL https://raw.githubusercontent.com/USER/haccp-tracciabilita/main/install.sh | sudo bash
+# Usage: curl -sSL https://raw.githubusercontent.com/igorrodi/haccp-tracciabilita/main/install.sh | sudo bash
 #
 set -euo pipefail
 
@@ -21,17 +21,41 @@ log_error() { echo -e "${RED}[✗]${NC} $1"; exit 1; }
 log_info()  { echo -e "${CYAN}[i]${NC} $1"; }
 
 # ============================================================================
-# CHECKS
+# PRE-FLIGHT CHECKS
 # ============================================================================
 
 [[ $EUID -eq 0 ]] || log_error "Esegui come root: curl ... | sudo bash"
 
+# Check Raspberry Pi OS Bookworm
+if [ -f /etc/os-release ]; then
+  if ! grep -qi "bookworm\|trixie" /etc/os-release; then
+    log_warn "OS non è Raspberry Pi OS Bookworm/Trixie"
+    read -rp "Continuare comunque? [y/N]: " confirm
+    [[ "$confirm" =~ ^[yY]$ ]] || exit 0
+  fi
+else
+  log_warn "Impossibile verificare la versione del sistema operativo"
+fi
+
+# Check internet connectivity
+if ! ping -c 2 -W 5 8.8.8.8 &>/dev/null; then
+  log_error "Nessuna connessione internet. Collega il cavo Ethernet e riprova."
+fi
+log_ok "Connessione internet verificata"
+
+# Check disk space (minimum 500MB free)
+FREE_KB=$(df -k / | tail -1 | awk '{print $4}')
+if [ "$FREE_KB" -lt 500000 ]; then
+  log_error "Spazio su disco insufficiente ($(( FREE_KB / 1024 )) MB liberi, minimo 500 MB)"
+fi
+log_ok "Spazio su disco sufficiente ($(( FREE_KB / 1024 )) MB liberi)"
+
 # Verify ARM64 architecture
 ARCH=$(uname -m)
 if [[ "$ARCH" != "aarch64" && "$ARCH" != "arm64" ]]; then
-    log_warn "Architettura rilevata: $ARCH — questa app è ottimizzata per ARM64 (Raspberry Pi)"
-    read -rp "Continuare comunque? [y/N]: " confirm
-    [[ "$confirm" =~ ^[yY]$ ]] || exit 0
+  log_warn "Architettura rilevata: $ARCH — questa app è ottimizzata per ARM64 (Raspberry Pi)"
+  read -rp "Continuare comunque? [y/N]: " confirm
+  [[ "$confirm" =~ ^[yY]$ ]] || exit 0
 fi
 
 echo ""
@@ -45,19 +69,19 @@ echo ""
 # ============================================================================
 
 if command -v docker &>/dev/null; then
-    log_ok "Docker già installato ($(docker --version | awk '{print $3}' | tr -d ','))"
+  log_ok "Docker già installato ($(docker --version | awk '{print $3}' | tr -d ','))"
 else
-    echo "Installazione Docker..."
-    curl -fsSL https://get.docker.com | sh
-    systemctl enable --now docker
-    log_ok "Docker installato"
+  echo "Installazione Docker..."
+  curl -fsSL https://get.docker.com | sh
+  systemctl enable --now docker
+  log_ok "Docker installato"
 fi
 
 # Verifica Docker Compose (plugin v2)
 if docker compose version &>/dev/null; then
-    log_ok "Docker Compose disponibile"
+  log_ok "Docker Compose disponibile"
 else
-    log_error "Docker Compose non trovato. Aggiorna Docker: curl -fsSL https://get.docker.com | sh"
+  log_error "Docker Compose non trovato. Aggiorna Docker: curl -fsSL https://get.docker.com | sh"
 fi
 
 # ============================================================================
@@ -87,6 +111,11 @@ curl -sSL "${GITHUB_RAW}/update.sh" -o "${APP_DIR}/update.sh" \
 chmod +x "${APP_DIR}/update.sh" 2>/dev/null || true
 log_ok "update.sh scaricato"
 
+curl -sSL "${GITHUB_RAW}/scripts/setup-hotspot.sh" -o "${APP_DIR}/setup-hotspot.sh" \
+    || log_warn "setup-hotspot.sh non scaricato (opzionale)"
+chmod +x "${APP_DIR}/setup-hotspot.sh" 2>/dev/null || true
+log_ok "setup-hotspot.sh scaricato"
+
 # ============================================================================
 # GOOGLE DRIVE / RCLONE CONFIGURATION
 # ============================================================================
@@ -100,31 +129,31 @@ echo ""
 RCLONE_CONF="${APP_DIR}/rclone.conf"
 
 if [ -f "$RCLONE_CONF" ]; then
-    log_ok "Configurazione rclone esistente trovata"
-    read -rp "Vuoi riconfigurare Google Drive? [y/N]: " reconfig
-    SETUP_GDRIVE=false
-    [[ "$reconfig" =~ ^[yY]$ ]] && SETUP_GDRIVE=true
+  log_ok "Configurazione rclone esistente trovata"
+  read -rp "Vuoi riconfigurare Google Drive? [y/N]: " reconfig
+  SETUP_GDRIVE=false
+  [[ "$reconfig" =~ ^[yY]$ ]] && SETUP_GDRIVE=true
 else
-    read -rp "Vuoi configurare il backup su Google Drive? [Y/n]: " setup_gdrive
-    SETUP_GDRIVE=true
-    [[ "$setup_gdrive" =~ ^[nN]$ ]] && SETUP_GDRIVE=false
+  read -rp "Vuoi configurare il backup su Google Drive? [Y/n]: " setup_gdrive
+  SETUP_GDRIVE=true
+  [[ "$setup_gdrive" =~ ^[nN]$ ]] && SETUP_GDRIVE=false
 fi
 
 if [ "$SETUP_GDRIVE" = true ]; then
-    echo ""
-    log_info "Crea le credenziali OAuth2 su https://console.cloud.google.com"
-    log_info "Abilita l'API Google Drive e crea credenziali di tipo 'OAuth 2.0 Client ID'"
-    echo ""
+  echo ""
+  log_info "Crea le credenziali OAuth2 su https://console.cloud.google.com"
+  log_info "Abilita l'API Google Drive e crea credenziali di tipo 'OAuth 2.0 Client ID'"
+  echo ""
 
-    read -rp "  Google Client ID: " GDRIVE_CLIENT_ID
-    read -rp "  Google Client Secret: " GDRIVE_CLIENT_SECRET
-    read -rp "  Google Refresh Token: " GDRIVE_REFRESH_TOKEN
+  read -rp "  Google Client ID: " GDRIVE_CLIENT_ID
+  read -rp "  Google Client Secret: " GDRIVE_CLIENT_SECRET
+  read -rp "  Google Refresh Token: " GDRIVE_REFRESH_TOKEN
 
-    if [[ -z "$GDRIVE_CLIENT_ID" || -z "$GDRIVE_CLIENT_SECRET" || -z "$GDRIVE_REFRESH_TOKEN" ]]; then
-        log_warn "Credenziali incomplete — backup cloud disabilitato"
-        log_warn "Puoi configurarlo dopo dall'interfaccia web (Sistema → Cloud)"
-    else
-        cat > "$RCLONE_CONF" <<EOF
+  if [[ -z "$GDRIVE_CLIENT_ID" || -z "$GDRIVE_CLIENT_SECRET" || -z "$GDRIVE_REFRESH_TOKEN" ]]; then
+    log_warn "Credenziali incomplete — backup cloud disabilitato"
+    log_warn "Puoi configurarlo dopo dall'interfaccia web (Sistema → Cloud)"
+  else
+    cat > "$RCLONE_CONF" <<EOF
 [gdrive]
 type = drive
 client_id = ${GDRIVE_CLIENT_ID}
@@ -133,17 +162,33 @@ scope = drive.file
 token = {"access_token":"","token_type":"Bearer","refresh_token":"${GDRIVE_REFRESH_TOKEN}","expiry":"2000-01-01T00:00:00.000Z"}
 root_folder_id =
 EOF
-        chmod 600 "$RCLONE_CONF"
-        log_ok "Configurazione rclone salvata (${RCLONE_CONF})"
-    fi
+    chmod 600 "$RCLONE_CONF"
+    log_ok "Configurazione rclone salvata (${RCLONE_CONF})"
+  fi
 else
-    log_info "Backup cloud saltato — configurabile dopo dall'interfaccia web"
-    # Create empty rclone.conf to avoid docker volume mount error
-    touch "$RCLONE_CONF"
+  log_info "Backup cloud saltato — configurabile dopo dall'interfaccia web"
+  # Create empty rclone.conf to avoid docker volume mount error
+  touch "$RCLONE_CONF"
 fi
 
 # ============================================================================
-# START
+# SYSTEMD WATCHDOG
+# ============================================================================
+
+echo ""
+log_info "Installazione watchdog systemd..."
+
+curl -sSL "${GITHUB_RAW}/scripts/haccp-watchdog.service" -o /etc/systemd/system/haccp-watchdog.service \
+    || log_warn "Watchdog non installato (opzionale)"
+
+if [ -f /etc/systemd/system/haccp-watchdog.service ]; then
+  systemctl daemon-reload
+  systemctl enable haccp-watchdog.service
+  log_ok "Watchdog systemd installato e abilitato"
+fi
+
+# ============================================================================
+# START CONTAINER
 # ============================================================================
 
 echo ""
@@ -155,15 +200,58 @@ log_ok "Container avviato"
 # Attendi che PocketBase sia pronto
 echo -n "Attesa avvio PocketBase"
 for i in $(seq 1 30); do
-    if curl -sf http://localhost/api/health &>/dev/null; then
-        echo ""
-        log_ok "PocketBase pronto"
-        break
-    fi
-    echo -n "."
-    sleep 2
+  if curl -sf http://localhost/api/health &>/dev/null; then
+    echo ""
+    log_ok "PocketBase pronto"
+    break
+  fi
+  echo -n "."
+  sleep 2
 done
 echo ""
+
+# ============================================================================
+# FIRST-BOOT WIZARD (HOTSPOT)
+# ============================================================================
+
+FIRST_RUN_FLAG="${APP_DIR}/pb_data/first_run.flag"
+
+# Create first_run.flag if no admin user exists yet
+# We check via the setup-check API endpoint
+NEEDS_SETUP=false
+SETUP_RESPONSE=$(curl -sf http://localhost/api/setup-check 2>/dev/null || echo '{}')
+if echo "$SETUP_RESPONSE" | grep -q '"needsSetup":true'; then
+  NEEDS_SETUP=true
+fi
+
+if [ "$NEEDS_SETUP" = true ] || [ -f "$FIRST_RUN_FLAG" ]; then
+  # Mark first run
+  touch "$FIRST_RUN_FLAG"
+
+  echo ""
+  echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+  echo -e "${CYAN}  PRIMA CONFIGURAZIONE — Wizard Hotspot Wi-Fi${NC}"
+  echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+  echo ""
+  log_info "Avvio hotspot Wi-Fi aperto per il wizard di configurazione..."
+  log_info "Dopo la configurazione, l'hotspot verrà protetto con password."
+  echo ""
+
+  if [ -x "${APP_DIR}/setup-hotspot.sh" ]; then
+    "${APP_DIR}/setup-hotspot.sh" --mode=setup
+  else
+    log_warn "setup-hotspot.sh non trovato — wizard hotspot saltato"
+    log_warn "Configura il Wi-Fi manualmente dopo l'installazione"
+  fi
+else
+  log_info "Sistema già configurato — wizard hotspot saltato"
+
+  # Start hotspot in normal mode if hostapd is installed
+  if command -v hostapd &>/dev/null && [ -x "${APP_DIR}/setup-hotspot.sh" ]; then
+    log_info "Avvio hotspot in modalità normale..."
+    "${APP_DIR}/setup-hotspot.sh" --mode=normal 2>/dev/null || true
+  fi
+fi
 
 # ============================================================================
 # DONE
@@ -175,8 +263,17 @@ echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━
 echo -e "${GREEN}  ✓ TRACKER HACCP INSTALLATO${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo "  App:       http://${IP}"
-echo "  Admin:     http://${IP}/_/"
+
+if [ -f "$FIRST_RUN_FLAG" ]; then
+  echo "  ⚡ PRIMA CONFIGURAZIONE:"
+  echo "    1. Connettiti al Wi-Fi 'HACCP-Setup-XXXXXX' (aperto)"
+  echo "    2. Apri http://haccp.local/setup  o  http://192.168.4.1/setup"
+  echo "    3. Crea l'account admin e configura il Wi-Fi"
+  echo ""
+fi
+
+echo "  App:       http://${IP}  o  http://haccp.local"
+echo "  Admin PB:  http://${IP}/_/"
 echo "  CUPS:      http://${IP}:631"
 echo "  Dati:      ${APP_DIR}/pb_data/"
 echo "  Exports:   ${APP_DIR}/pb_data/exports/"
