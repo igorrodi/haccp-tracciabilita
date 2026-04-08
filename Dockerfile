@@ -15,8 +15,8 @@ RUN curl -sL "https://github.com/pocketbase/pocketbase/releases/download/v${PB_V
 # Frontend build stage
 FROM node:20-alpine AS frontend
 WORKDIR /app
-COPY package.json ./
-RUN npm install
+COPY package.json bun.lock* bun.lockb* package-lock.json* ./
+RUN npm install --ignore-scripts || npm install
 COPY . .
 RUN npm run build
 
@@ -29,7 +29,6 @@ RUN apk add --no-cache ca-certificates wget rclone dcron \
 COPY --from=base /usr/local/bin/pocketbase /usr/local/bin/pocketbase
 COPY --from=frontend /app/dist /pb/pb_public
 COPY scripts/pocketbase/pb_schema.json /pb/pb_schema.json
-COPY scripts/pocketbase/pb_migrations /pb/pb_migrations
 COPY scripts/pocketbase/pb_hooks /pb/pb_hooks
 COPY scripts/rclone-sync.sh /pb/rclone-sync.sh
 COPY scripts/docker-entrypoint.sh /pb/entrypoint.sh

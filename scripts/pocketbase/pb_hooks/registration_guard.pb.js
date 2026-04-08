@@ -1,5 +1,6 @@
 // Block public user creation once an admin exists.
 // If no admin exists yet, allow creation and force admin role.
+// PocketBase 0.36+ API (Goja ES5)
 onRecordCreateRequest(function(e) {
   var hasAdmin = false;
 
@@ -18,7 +19,7 @@ onRecordCreateRequest(function(e) {
   }
 
   // Admin exists — only authenticated admins can create users
-  var authRecord = e.httpContext.get("authRecord");
+  var authRecord = e.auth;
   if (!authRecord) {
     throw new ForbiddenError("La registrazione pubblica è disabilitata. Contatta l'amministratore.");
   }
