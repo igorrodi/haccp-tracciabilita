@@ -65,11 +65,9 @@ fi
 
 echo "Migrazioni automatiche abilitate (--automigrate)"
 
-# Start PocketBase with migrations auto-apply and hooks
+# Start PocketBase with hooks (schema managed via pb_schema.json)
 exec pocketbase serve \
   --http=0.0.0.0:80 \
   --dir=/pb/pb_data \
   --publicDir=/pb/pb_public \
-  --migrationsDir=/pb/pb_migrations \
-  --hooksDir=/pb/pb_hooks \
-  --automigrate
+  --hooksDir=/pb/pb_hooks
