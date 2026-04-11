@@ -1,6 +1,7 @@
 #!/bin/bash
 #
 # setup-hotspot.sh — Gestione hotspot Wi-Fi per HACCP Tracker
+# Compatible with Raspberry Pi OS Bookworm (NetworkManager) and legacy (dhcpcd)
 # Usage: sudo setup-hotspot.sh --mode=setup|normal [--ssid=NAME] [--password=PASS]
 #
 set -euo pipefail
@@ -43,7 +44,8 @@ if [ "$MODE" = "setup" ]; then
     MAC_SUFFIX=$(cat /sys/class/net/wlan0/address | tr -d ':' | tail -c 7 | head -c 6 | tr '[:lower:]' '[:upper:]')
   fi
   if [ -z "$MAC_SUFFIX" ]; then
-    MAC_SUFFIX=$(head -c 3 /dev/urandom | xxd -p | head -c 6 | tr '[:lower:]' '[:upper:]')
+    # Fallback: use random hex (xxd may not be installed on Lite)
+    MAC_SUFFIX=$(od -An -tx1 -N3 /dev/urandom | tr -d ' \n' | head -c 6 | tr '[:lower:]' '[:upper:]')
   fi
   SSID="HACCP-Setup-${MAC_SUFFIX}"
   PASSWORD=""
@@ -56,22 +58,46 @@ else
 fi
 
 # ============================================================================
+# DETECT NETWORK MANAGER (Bookworm uses NetworkManager, not dhcpcd)
+# ============================================================================
+
+USE_NM=false
+if command -v nmcli &>/dev/null && systemctl is-active --quiet NetworkManager 2>/dev/null; then
+  USE_NM=true
+  log_info "Rilevato NetworkManager (RPi OS Bookworm)"
+elif command -v dhcpcd &>/dev/null; then
+  log_info "Rilevato dhcpcd (RPi OS legacy)"
+else
+  log_warn "Nessun network manager rilevato — configurazione manuale IP"
+fi
+
+# ============================================================================
 # INSTALL DEPENDENCIES
 # ============================================================================
 
 log_info "Verifica dipendenze..."
 
 PACKAGES_NEEDED=""
-for pkg in hostapd dnsmasq ufw; do
+for pkg in hostapd dnsmasq; do
   if ! dpkg -l "$pkg" 2>/dev/null | grep -q "^ii"; then
     PACKAGES_NEEDED="$PACKAGES_NEEDED $pkg"
   fi
 done
 
+# UFW is optional — don't fail if not installable
+UFW_AVAILABLE=false
+if dpkg -l ufw 2>/dev/null | grep -q "^ii"; then
+  UFW_AVAILABLE=true
+elif [ -n "$PACKAGES_NEEDED" ]; then
+  PACKAGES_NEEDED="$PACKAGES_NEEDED ufw"
+fi
+
 if [ -n "$PACKAGES_NEEDED" ]; then
   log_info "Installazione:${PACKAGES_NEEDED}"
   apt-get update -qq
   apt-get install -y -qq $PACKAGES_NEEDED
+  # Re-check UFW after install
+  dpkg -l ufw 2>/dev/null | grep -q "^ii" && UFW_AVAILABLE=true
   log_ok "Dipendenze installate"
 else
   log_ok "Tutte le dipendenze presenti"
@@ -90,12 +116,33 @@ systemctl stop dnsmasq 2>/dev/null || true
 
 log_info "Configurazione IP statico su wlan0..."
 
-# Remove any existing wlan0 static config
-if [ -f /etc/dhcpcd.conf ]; then
-  sed -i '/^# HACCP-HOTSPOT-START/,/^# HACCP-HOTSPOT-END/d' /etc/dhcpcd.conf
-fi
+if [ "$USE_NM" = true ]; then
+  # NetworkManager (RPi OS Bookworm Lite)
+  # Remove existing HACCP hotspot connection if present
+  nmcli connection delete "HACCP-Hotspot" 2>/dev/null || true
 
-cat >> /etc/dhcpcd.conf <<'DHCP'
+  # Disable wifi management by NM for wlan0 so hostapd can control it
+  cat > /etc/NetworkManager/conf.d/haccp-hotspot.conf <<'NMCONF'
+[keyfile]
+unmanaged-devices=interface-name:wlan0
+NMCONF
+
+  # Restart NM to release wlan0
+  systemctl restart NetworkManager
+  sleep 2
+
+  # Manually assign static IP
+  ip addr flush dev wlan0 2>/dev/null || true
+  ip addr add 192.168.4.1/24 dev wlan0 2>/dev/null || true
+  ip link set wlan0 up
+  log_ok "wlan0 → 192.168.4.1/24 (NetworkManager: wlan0 unmanaged)"
+else
+  # Legacy dhcpcd
+  if [ -f /etc/dhcpcd.conf ]; then
+    sed -i '/^# HACCP-HOTSPOT-START/,/^# HACCP-HOTSPOT-END/d' /etc/dhcpcd.conf
+  fi
+
+  cat >> /etc/dhcpcd.conf <<'DHCP'
 # HACCP-HOTSPOT-START
 interface wlan0
     static ip_address=192.168.4.1/24
@@ -103,7 +150,9 @@ interface wlan0
 # HACCP-HOTSPOT-END
 DHCP
 
-log_ok "wlan0 → 192.168.4.1/24"
+  systemctl restart dhcpcd 2>/dev/null || true
+  log_ok "wlan0 → 192.168.4.1/24 (dhcpcd)"
+fi
 
 # ============================================================================
 # CONFIGURE DNSMASQ
@@ -166,29 +215,37 @@ HOSTAPD
   log_ok "hostapd configurato (WPA2)"
 fi
 
-# Point hostapd to config
-sed -i 's|^#DAEMON_CONF=.*|DAEMON_CONF="/etc/hostapd/hostapd.conf"|' /etc/default/hostapd 2>/dev/null || true
+# Point hostapd to config (works on both Bookworm and older)
+if [ -f /etc/default/hostapd ]; then
+  sed -i 's|^#\?DAEMON_CONF=.*|DAEMON_CONF="/etc/hostapd/hostapd.conf"|' /etc/default/hostapd
+fi
 
 # ============================================================================
-# CONFIGURE UFW FIREWALL
+# CONFIGURE FIREWALL (optional — UFW)
 # ============================================================================
 
-log_info "Configurazione firewall..."
+if [ "$UFW_AVAILABLE" = true ]; then
+  log_info "Configurazione firewall..."
 
-ufw --force reset >/dev/null 2>&1 || true
-ufw default deny incoming >/dev/null 2>&1
-ufw default allow outgoing >/dev/null 2>&1
+  ufw --force reset >/dev/null 2>&1 || true
+  ufw default deny incoming >/dev/null 2>&1
+  ufw default allow outgoing >/dev/null 2>&1
 
-# Allow HTTP from hotspot subnet only
-ufw allow from 192.168.4.0/24 to any port 80 proto tcp >/dev/null 2>&1
-# Allow DHCP/DNS on hotspot
-ufw allow from 192.168.4.0/24 to any port 53 proto udp >/dev/null 2>&1
-ufw allow from 192.168.4.0/24 to any port 67 proto udp >/dev/null 2>&1
-# Allow SSH from anywhere (management)
-ufw allow 22/tcp >/dev/null 2>&1
+  # Allow HTTP from hotspot subnet
+  ufw allow from 192.168.4.0/24 to any port 80 proto tcp >/dev/null 2>&1
+  # Allow CUPS from hotspot subnet
+  ufw allow from 192.168.4.0/24 to any port 631 proto tcp >/dev/null 2>&1
+  # Allow DHCP/DNS on hotspot
+  ufw allow from 192.168.4.0/24 to any port 53 proto udp >/dev/null 2>&1
+  ufw allow from 192.168.4.0/24 to any port 67 proto udp >/dev/null 2>&1
+  # Allow SSH from anywhere (management)
+  ufw allow 22/tcp >/dev/null 2>&1
 
-ufw --force enable >/dev/null 2>&1
-log_ok "Firewall configurato (HTTP solo da 192.168.4.0/24)"
+  ufw --force enable >/dev/null 2>&1
+  log_ok "Firewall configurato (HTTP + CUPS da 192.168.4.0/24)"
+else
+  log_warn "UFW non disponibile — firewall non configurato"
+fi
 
 # ============================================================================
 # ENABLE AND START SERVICES
@@ -198,7 +255,10 @@ log_info "Avvio servizi..."
 
 systemctl unmask hostapd 2>/dev/null || true
 systemctl enable hostapd dnsmasq
-systemctl restart dhcpcd 2>/dev/null || true
+
+if [ "$USE_NM" = false ]; then
+  systemctl restart dhcpcd 2>/dev/null || true
+fi
 sleep 2
 systemctl start dnsmasq
 systemctl start hostapd

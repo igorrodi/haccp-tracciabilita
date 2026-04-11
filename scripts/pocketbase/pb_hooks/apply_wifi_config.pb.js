@@ -1,4 +1,5 @@
-// Hook: when wifi_settings record is updated, apply the new config
+// Hook: when wifi_settings record is updated, write config request to shared volume
+// The host-side haccp-wifi-watcher.service picks up the file and applies it
 // PocketBase Goja engine — ES5 only, no const/let/arrow/template literals
 
 onRecordAfterUpdateRequest(function(e) {
@@ -10,30 +11,18 @@ onRecordAfterUpdateRequest(function(e) {
     return;
   }
 
-  // Build hostapd.conf content
-  var hostapdConf = "interface=wlan0\n";
-  hostapdConf = hostapdConf + "driver=nl80211\n";
-  hostapdConf = hostapdConf + "ssid=" + ssid + "\n";
-  hostapdConf = hostapdConf + "hw_mode=g\n";
-  hostapdConf = hostapdConf + "channel=6\n";
-  hostapdConf = hostapdConf + "wmm_enabled=0\n";
-  hostapdConf = hostapdConf + "macaddr_acl=0\n";
-  hostapdConf = hostapdConf + "auth_algs=1\n";
-  hostapdConf = hostapdConf + "ignore_broadcast_ssid=0\n";
-
-  if (password && password.length >= 8) {
-    hostapdConf = hostapdConf + "wpa=2\n";
-    hostapdConf = hostapdConf + "wpa_passphrase=" + password + "\n";
-    hostapdConf = hostapdConf + "wpa_key_mgmt=WPA-PSK\n";
-    hostapdConf = hostapdConf + "rsn_pairwise=CCMP\n";
-  }
+  // Write wifi config request to shared volume (pb_data is mounted from host)
+  // The host-side watcher will read this file and run setup-hotspot.sh
+  var configContent = JSON.stringify({
+    ssid: ssid,
+    password: password || "",
+    timestamp: new Date().toISOString()
+  });
 
   try {
-    $os.writeFile("/etc/hostapd/hostapd.conf", hostapdConf, 0o644);
-    $os.exec("systemctl", "restart", "hostapd");
-    $os.exec("systemctl", "restart", "dnsmasq");
-    console.log("Wi-Fi config applicata: SSID=" + ssid);
+    $os.writeFile("/pb/pb_data/.wifi_config_request.json", configContent, 0o644);
+    console.log("Wi-Fi config request scritto: SSID=" + ssid);
   } catch (err) {
-    console.log("Errore applicazione Wi-Fi config: " + err);
+    console.log("Errore scrittura Wi-Fi config request: " + err);
   }
 }, "wifi_settings");

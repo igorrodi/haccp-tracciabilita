@@ -1,0 +1,35 @@
+[Unit]
+Description=HACCP WiFi Config Watcher
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c '\
+  WATCH_FILE="/opt/haccp-tracker/pb_data/.wifi_config_request.json"; \
+  HOTSPOT_SCRIPT="/opt/haccp-tracker/setup-hotspot.sh"; \
+  LAST_HASH=""; \
+  while true; do \
+    if [ -f "$WATCH_FILE" ]; then \
+      CURRENT_HASH=$(md5sum "$WATCH_FILE" 2>/dev/null | cut -d" " -f1); \
+      if [ "$CURRENT_HASH" != "$LAST_HASH" ]; then \
+        echo "[$(date)] Nuova configurazione WiFi rilevata"; \
+        SSID=$(grep -o "\"ssid\":\"[^\"]*\"" "$WATCH_FILE" | cut -d"\"" -f4); \
+        PASS=$(grep -o "\"password\":\"[^\"]*\"" "$WATCH_FILE" | cut -d"\"" -f4); \
+        if [ -n "$SSID" ] && [ -x "$HOTSPOT_SCRIPT" ]; then \
+          ARGS="--mode=normal --ssid=$SSID"; \
+          [ -n "$PASS" ] && [ ${#PASS} -ge 8 ] && ARGS="$ARGS --password=$PASS"; \
+          echo "[$(date)] Applicazione config: SSID=$SSID"; \
+          $HOTSPOT_SCRIPT $ARGS >> /var/log/haccp-wifi-watcher.log 2>&1 || true; \
+        fi; \
+        LAST_HASH="$CURRENT_HASH"; \
+        rm -f "$WATCH_FILE"; \
+      fi; \
+    fi; \
+    sleep 5; \
+  done'
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
