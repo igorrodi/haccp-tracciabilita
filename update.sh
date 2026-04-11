@@ -155,7 +155,7 @@ else
   cat > "$VERSION_FILE" <<EOF
 {
   "last_check": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
-  "last_update": "$(jq -r '.last_update // empty' "$VERSION_FILE" 2>/dev/null || echo "unknown")",
+  "last_update": "$(grep -o '"last_update":"[^"]*"' "$VERSION_FILE" 2>/dev/null | cut -d'"' -f4 || echo "unknown")",
   "status": "rollback",
   "error": "Riavvio fallito, rollback effettuato"
 }
@@ -194,7 +194,7 @@ else
   cat > "$VERSION_FILE" <<EOF
 {
   "last_check": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
-  "last_update": "$(jq -r '.last_update // empty' "$VERSION_FILE" 2>/dev/null || echo "unknown")",
+  "last_update": "$(grep -o '"last_update":"[^"]*"' "$VERSION_FILE" 2>/dev/null | cut -d'"' -f4 || echo "unknown")",
   "status": "failed",
   "error": "Health check fallito post-aggiornamento"
 }
