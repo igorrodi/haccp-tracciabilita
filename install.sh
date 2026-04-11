@@ -172,19 +172,28 @@ else
 fi
 
 # ============================================================================
-# SYSTEMD WATCHDOG
+# SYSTEMD SERVICES (Watchdog + WiFi Watcher)
 # ============================================================================
 
 echo ""
-log_info "Installazione watchdog systemd..."
+log_info "Installazione servizi systemd..."
 
 curl -sSL "${GITHUB_RAW}/scripts/haccp-watchdog.service" -o /etc/systemd/system/haccp-watchdog.service \
     || log_warn "Watchdog non installato (opzionale)"
 
+curl -sSL "${GITHUB_RAW}/scripts/haccp-wifi-watcher.service" -o /etc/systemd/system/haccp-wifi-watcher.service \
+    || log_warn "WiFi watcher non installato (opzionale)"
+
+systemctl daemon-reload
+
 if [ -f /etc/systemd/system/haccp-watchdog.service ]; then
-  systemctl daemon-reload
   systemctl enable haccp-watchdog.service
   log_ok "Watchdog systemd installato e abilitato"
+fi
+
+if [ -f /etc/systemd/system/haccp-wifi-watcher.service ]; then
+  systemctl enable --now haccp-wifi-watcher.service
+  log_ok "WiFi watcher systemd installato e avviato"
 fi
 
 # ============================================================================

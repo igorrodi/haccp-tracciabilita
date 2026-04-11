@@ -63,9 +63,63 @@ if [ ! -f "$PB_SUPERUSER_MARKER" ]; then
   fi
 fi
 
-echo "Migrazioni automatiche abilitate (--automigrate)"
+# Auto-import schema on first boot (creates collections from pb_schema.json)
+SCHEMA_MARKER="/pb/pb_data/.schema_imported"
+if [ ! -f "$SCHEMA_MARKER" ] && [ -f /pb/pb_schema.json ]; then
+  echo "Importazione schema collezioni..."
+  # Start PocketBase temporarily to import schema
+  pocketbase serve --http=127.0.0.1:8091 --dir=/pb/pb_data --hooksDir=/pb/pb_hooks &
+  PB_PID=$!
 
-# Start PocketBase with hooks (schema managed via pb_schema.json)
+  # Wait for PocketBase to be ready
+  for i in $(seq 1 30); do
+    if wget -q --spider http://127.0.0.1:8091/api/health 2>/dev/null; then
+      break
+    fi
+    sleep 1
+  done
+
+  # Import schema via admin API
+  if wget -q --spider http://127.0.0.1:8091/api/health 2>/dev/null; then
+    # Authenticate as superuser
+    AUTH_RESPONSE=$(wget -qO- --post-data="{\"identity\":\"${PB_SUPERUSER_EMAIL}\",\"password\":\"${PB_SUPERUSER_PASSWORD}\"}" \
+      --header="Content-Type: application/json" \
+      "http://127.0.0.1:8091/api/admins/auth-with-password" 2>/dev/null || echo "")
+
+    if echo "$AUTH_RESPONSE" | grep -q "token"; then
+      TOKEN=$(echo "$AUTH_RESPONSE" | sed 's/.*"token":"\([^"]*\)".*/\1/')
+
+      # Import collections
+      SCHEMA_CONTENT=$(cat /pb/pb_schema.json)
+      IMPORT_RESULT=$(wget -qO- --method=PUT \
+        --body-data="{\"collections\":${SCHEMA_CONTENT},\"deleteMissing\":false}" \
+        --header="Content-Type: application/json" \
+        --header="Authorization: ${TOKEN}" \
+        "http://127.0.0.1:8091/api/collections/import" 2>/dev/null || echo "error")
+
+      if echo "$IMPORT_RESULT" | grep -qi "error"; then
+        echo "Attenzione: importazione schema parziale o fallita"
+        echo "$IMPORT_RESULT"
+      else
+        echo "Schema collezioni importato con successo"
+        touch "$SCHEMA_MARKER"
+      fi
+    else
+      echo "Attenzione: autenticazione superuser fallita per import schema"
+    fi
+  else
+    echo "Attenzione: PocketBase non raggiungibile per import schema"
+  fi
+
+  # Stop temporary PocketBase
+  kill $PB_PID 2>/dev/null || true
+  wait $PB_PID 2>/dev/null || true
+  sleep 1
+fi
+
+echo "Schema gestito via pb_schema.json"
+
+# Start PocketBase with hooks
 exec pocketbase serve \
   --http=0.0.0.0:80 \
   --dir=/pb/pb_data \
