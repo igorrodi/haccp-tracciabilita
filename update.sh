@@ -79,9 +79,18 @@ log_ok "Pulizia backup vecchi completata (max 5 conservati)"
 
 SCHEMA_TMP="${SCHEMA_FILE}.tmp"
 if curl -sSL --fail "${GITHUB_RAW}/scripts/pocketbase/pb_schema.json" -o "$SCHEMA_TMP" 2>/dev/null; then
-  # Validate JSON
-  if python3 -c "import json; json.load(open('${SCHEMA_TMP}'))" 2>/dev/null || \
-     python -c "import json; json.load(open('${SCHEMA_TMP}'))" 2>/dev/null; then
+  # Validate JSON — try jq, python3, or basic grep as fallback
+  JSON_VALID=false
+  if command -v jq &>/dev/null && jq empty "$SCHEMA_TMP" 2>/dev/null; then
+    JSON_VALID=true
+  elif command -v python3 &>/dev/null && python3 -c "import json; json.load(open('${SCHEMA_TMP}'))" 2>/dev/null; then
+    JSON_VALID=true
+  elif head -c 1 "$SCHEMA_TMP" | grep -q '^\[' && tail -c 2 "$SCHEMA_TMP" | grep -q '\]'; then
+    # Basic sanity check: starts with [ and ends with ]
+    JSON_VALID=true
+  fi
+
+  if [ "$JSON_VALID" = true ]; then
     mv "$SCHEMA_TMP" "$SCHEMA_FILE"
     log_ok "Schema aggiornato"
   else
@@ -113,10 +122,11 @@ if [ "$OLD_DIGEST" = "$NEW_DIGEST" ] && [ "$OLD_DIGEST" != "none" ]; then
   log_info "Nessun aggiornamento disponibile (stessa immagine)"
   
   # Update version file with check timestamp
+  PREV_UPDATE=$(grep -o '"last_update":"[^"]*"' "$VERSION_FILE" 2>/dev/null | cut -d'"' -f4 || date -u '+%Y-%m-%dT%H:%M:%SZ')
   cat > "$VERSION_FILE" <<EOF
 {
   "last_check": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
-  "last_update": "$(jq -r '.last_update // empty' "$VERSION_FILE" 2>/dev/null || date -u '+%Y-%m-%dT%H:%M:%SZ')",
+  "last_update": "${PREV_UPDATE}",
   "status": "up_to_date",
   "image_digest": "${NEW_DIGEST}"
 }
