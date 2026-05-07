@@ -2,7 +2,8 @@
 // The host-side haccp-wifi-watcher.service picks up the file and applies it
 // PocketBase Goja engine — ES5 only, no const/let/arrow/template literals
 
-onRecordAfterUpdateRequest(function(e) {
+onRecordAfterUpdateSuccess(function(e) {
+  e.next();
   var record = e.record;
   var ssid = record.getString("wifi_ssid");
   var password = record.getString("wifi_password");
