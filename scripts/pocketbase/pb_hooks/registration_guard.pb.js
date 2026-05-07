@@ -9,13 +9,13 @@ onRecordCreateRequest(function(e) {
     hasAdmin = admins && admins.length > 0;
   } catch (err) {
     // Collection issue — allow creation on fresh install
-    return;
+    return e.next();
   }
 
   // Bootstrap mode: first valid account becomes admin
   if (!hasAdmin) {
     e.record.set("role", "admin");
-    return;
+    return e.next();
   }
 
   // Admin exists — only authenticated admins can create users
@@ -31,4 +31,6 @@ onRecordCreateRequest(function(e) {
   if (!e.record.get("role")) {
     e.record.set("role", "user");
   }
+
+  return e.next();
 }, "users");
