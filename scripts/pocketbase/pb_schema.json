@@ -22,7 +22,8 @@
         ],
         "maxSelect": 1
       }
-    ]
+    ],
+    "id": "_pb_users_auth_"
   },
   {
     "name": "products",
@@ -53,11 +54,12 @@
       {
         "name": "user_id",
         "type": "relation",
-        "collectionId": "users",
+        "collectionId": "_pb_users_auth_",
         "cascadeDelete": false,
         "maxSelect": 1
       }
-    ]
+    ],
+    "id": "haccp_products"
   },
   {
     "name": "product_images",
@@ -72,7 +74,7 @@
         "name": "product_id",
         "type": "relation",
         "required": true,
-        "collectionId": "products",
+        "collectionId": "haccp_products",
         "cascadeDelete": true,
         "maxSelect": 1
       },
@@ -88,7 +90,8 @@
           "image/webp"
         ]
       }
-    ]
+    ],
+    "id": "haccp_product_images"
   },
   {
     "name": "suppliers",
@@ -115,11 +118,12 @@
       {
         "name": "user_id",
         "type": "relation",
-        "collectionId": "users",
+        "collectionId": "_pb_users_auth_",
         "cascadeDelete": false,
         "maxSelect": 1
       }
-    ]
+    ],
+    "id": "haccp_suppliers"
   },
   {
     "name": "seasons",
@@ -161,11 +165,12 @@
       {
         "name": "user_id",
         "type": "relation",
-        "collectionId": "users",
+        "collectionId": "_pb_users_auth_",
         "cascadeDelete": false,
         "maxSelect": 1
       }
-    ]
+    ],
+    "id": "haccp_seasons"
   },
   {
     "name": "lots",
@@ -188,21 +193,21 @@
       {
         "name": "product_id",
         "type": "relation",
-        "collectionId": "products",
+        "collectionId": "haccp_products",
         "cascadeDelete": false,
         "maxSelect": 1
       },
       {
         "name": "supplier_id",
         "type": "relation",
-        "collectionId": "suppliers",
+        "collectionId": "haccp_suppliers",
         "cascadeDelete": false,
         "maxSelect": 1
       },
       {
         "name": "season_id",
         "type": "relation",
-        "collectionId": "seasons",
+        "collectionId": "haccp_seasons",
         "cascadeDelete": false,
         "maxSelect": 1
       },
@@ -256,11 +261,12 @@
       {
         "name": "user_id",
         "type": "relation",
-        "collectionId": "users",
+        "collectionId": "_pb_users_auth_",
         "cascadeDelete": false,
         "maxSelect": 1
       }
-    ]
+    ],
+    "id": "haccp_lots"
   },
   {
     "name": "allergens",
@@ -289,7 +295,8 @@
         "name": "common_examples",
         "type": "text"
       }
-    ]
+    ],
+    "id": "haccp_allergens"
   },
   {
     "name": "printer_settings",
@@ -304,7 +311,7 @@
         "name": "user_id",
         "type": "relation",
         "required": true,
-        "collectionId": "users",
+        "collectionId": "_pb_users_auth_",
         "cascadeDelete": true,
         "maxSelect": 1
       },
@@ -390,7 +397,8 @@
         "name": "custom_layout",
         "type": "json"
       }
-    ]
+    ],
+    "id": "haccp_printer_settings"
   },
   {
     "name": "app_settings",
@@ -410,7 +418,8 @@
         "name": "value",
         "type": "text"
       }
-    ]
+    ],
+    "id": "haccp_app_settings"
   },
   {
     "name": "temperature_logs",
@@ -443,18 +452,19 @@
       {
         "name": "season_id",
         "type": "relation",
-        "collectionId": "seasons",
+        "collectionId": "haccp_seasons",
         "cascadeDelete": false,
         "maxSelect": 1
       },
       {
         "name": "user_id",
         "type": "relation",
-        "collectionId": "users",
+        "collectionId": "_pb_users_auth_",
         "cascadeDelete": false,
         "maxSelect": 1
       }
-    ]
+    ],
+    "id": "haccp_temperature_logs"
   },
   {
     "name": "reception_logs",
@@ -487,18 +497,19 @@
       {
         "name": "supplier_id",
         "type": "relation",
-        "collectionId": "suppliers",
+        "collectionId": "haccp_suppliers",
         "cascadeDelete": false,
         "maxSelect": 1
       },
       {
         "name": "user_id",
         "type": "relation",
-        "collectionId": "users",
+        "collectionId": "_pb_users_auth_",
         "cascadeDelete": false,
         "maxSelect": 1
       }
-    ]
+    ],
+    "id": "haccp_reception_logs"
   },
   {
     "name": "cleaning_logs",
@@ -531,11 +542,12 @@
       {
         "name": "user_id",
         "type": "relation",
-        "collectionId": "users",
+        "collectionId": "_pb_users_auth_",
         "cascadeDelete": false,
         "maxSelect": 1
       }
-    ]
+    ],
+    "id": "haccp_cleaning_logs"
   },
   {
     "name": "cloud_settings",
@@ -628,7 +640,8 @@
         ],
         "maxSelect": 1
       }
-    ]
+    ],
+    "id": "haccp_cloud_settings"
   },
   {
     "name": "lot_images",
@@ -643,7 +656,7 @@
         "name": "lot_id",
         "type": "relation",
         "required": true,
-        "collectionId": "lots",
+        "collectionId": "haccp_lots",
         "cascadeDelete": true,
         "maxSelect": 1
       },
@@ -663,7 +676,8 @@
         "name": "description",
         "type": "text"
       }
-    ]
+    ],
+    "id": "haccp_lot_images"
   },
   {
     "name": "wifi_settings",
@@ -687,6 +701,7 @@
         "name": "restaurant_name",
         "type": "text"
       }
-    ]
+    ],
+    "id": "haccp_wifi_settings"
   }
 ]
