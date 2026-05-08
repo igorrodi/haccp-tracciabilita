@@ -2,6 +2,7 @@
 // GET /api/setup-check → { "needsSetup": true/false }
 routerAdd("GET", "/api/setup-check", function(e) {
   try {
+    $app.findCollectionByNameOrId("users");
     var admins = $app.findRecordsByFilter("users", 'role = "admin"', "", 1, 0);
     var hasAdmin = admins && admins.length > 0;
     return e.json(200, { "needsSetup": !hasAdmin });
