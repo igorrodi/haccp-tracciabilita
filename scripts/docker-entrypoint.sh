@@ -65,7 +65,18 @@ fi
 
 # Auto-import schema on first boot (creates collections from pb_schema.json)
 SCHEMA_MARKER="/pb/pb_data/.schema_imported"
-if [ ! -f "$SCHEMA_MARKER" ] && [ -f /pb/pb_schema.json ]; then
+if [ -f /pb/pb_schema.json ]; then
+  SCHEMA_HASH=$(sha256sum /pb/pb_schema.json 2>/dev/null | awk '{print $1}')
+  IMPORT_SCHEMA=false
+
+  if [ ! -f "$SCHEMA_MARKER" ]; then
+    IMPORT_SCHEMA=true
+  elif [ "$(cat "$SCHEMA_MARKER" 2>/dev/null || true)" != "$SCHEMA_HASH" ]; then
+    IMPORT_SCHEMA=true
+  fi
+fi
+
+if [ "$IMPORT_SCHEMA" = "true" ] && [ -f /pb/pb_schema.json ]; then
   echo "Importazione schema collezioni..."
   # Start PocketBase temporarily to import schema
   pocketbase serve --http=127.0.0.1:8091 --dir=/pb/pb_data --hooksDir=/pb/pb_hooks &
@@ -84,7 +95,7 @@ if [ ! -f "$SCHEMA_MARKER" ] && [ -f /pb/pb_schema.json ]; then
     # Authenticate as superuser
     AUTH_RESPONSE=$(wget -qO- --post-data="{\"identity\":\"${PB_SUPERUSER_EMAIL}\",\"password\":\"${PB_SUPERUSER_PASSWORD}\"}" \
       --header="Content-Type: application/json" \
-      "http://127.0.0.1:8091/api/admins/auth-with-password" 2>/dev/null || echo "")
+      "http://127.0.0.1:8091/api/collections/_superusers/auth-with-password" 2>/dev/null || echo "")
 
     if echo "$AUTH_RESPONSE" | grep -q "token"; then
       TOKEN=$(echo "$AUTH_RESPONSE" | sed 's/.*"token":"\([^"]*\)".*/\1/')
@@ -94,7 +105,7 @@ if [ ! -f "$SCHEMA_MARKER" ] && [ -f /pb/pb_schema.json ]; then
       IMPORT_RESULT=$(wget -qO- --method=PUT \
         --body-data="{\"collections\":${SCHEMA_CONTENT},\"deleteMissing\":false}" \
         --header="Content-Type: application/json" \
-        --header="Authorization: ${TOKEN}" \
+        --header="Authorization: Bearer ${TOKEN}" \
         "http://127.0.0.1:8091/api/collections/import" 2>/dev/null || echo "error")
 
       if echo "$IMPORT_RESULT" | grep -qi "error"; then
@@ -102,7 +113,7 @@ if [ ! -f "$SCHEMA_MARKER" ] && [ -f /pb/pb_schema.json ]; then
         echo "$IMPORT_RESULT"
       else
         echo "Schema collezioni importato con successo"
-        touch "$SCHEMA_MARKER"
+        echo "$SCHEMA_HASH" > "$SCHEMA_MARKER"
       fi
     else
       echo "Attenzione: autenticazione superuser fallita per import schema"
