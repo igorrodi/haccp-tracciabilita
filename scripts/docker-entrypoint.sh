@@ -84,7 +84,7 @@ if [ ! -f "$SCHEMA_MARKER" ] && [ -f /pb/pb_schema.json ]; then
     # Authenticate as superuser
     AUTH_RESPONSE=$(wget -qO- --post-data="{\"identity\":\"${PB_SUPERUSER_EMAIL}\",\"password\":\"${PB_SUPERUSER_PASSWORD}\"}" \
       --header="Content-Type: application/json" \
-      "http://127.0.0.1:8091/api/admins/auth-with-password" 2>/dev/null || echo "")
+      "http://127.0.0.1:8091/api/collections/_superusers/auth-with-password" 2>/dev/null || echo "")
 
     if echo "$AUTH_RESPONSE" | grep -q "token"; then
       TOKEN=$(echo "$AUTH_RESPONSE" | sed 's/.*"token":"\([^"]*\)".*/\1/')
@@ -94,7 +94,7 @@ if [ ! -f "$SCHEMA_MARKER" ] && [ -f /pb/pb_schema.json ]; then
       IMPORT_RESULT=$(wget -qO- --method=PUT \
         --body-data="{\"collections\":${SCHEMA_CONTENT},\"deleteMissing\":false}" \
         --header="Content-Type: application/json" \
-        --header="Authorization: ${TOKEN}" \
+        --header="Authorization: Bearer ${TOKEN}" \
         "http://127.0.0.1:8091/api/collections/import" 2>/dev/null || echo "error")
 
       if echo "$IMPORT_RESULT" | grep -qi "error"; then
