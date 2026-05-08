@@ -23,7 +23,7 @@ routerAdd("POST", "/api/complete-setup", function(e) {
   }
 
   // Write WiFi config request to shared volume for host-side watcher
-  var body = $apis.requestInfo(e).body;
+  var body = e.requestInfo().body;
   var ssid = "";
   var password = "";
 
