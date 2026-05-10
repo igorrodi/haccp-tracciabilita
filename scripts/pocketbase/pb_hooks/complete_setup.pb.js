@@ -3,7 +3,7 @@
 // removes first_run.flag and returns an auth token for immediate login.
 // PocketBase Goja engine — ES5 only
 
-function writeWifiConfigRequest(ssid, password) {
+var writeWifiConfigRequest = function(ssid, password) {
   if (!ssid) return;
 
   var configContent = JSON.stringify({
@@ -20,9 +20,9 @@ function writeWifiConfigRequest(ssid, password) {
   } catch (err) {
     console.log("Errore scrittura WiFi config request: " + err);
   }
-}
+};
 
-function saveWifiSettings(ssid, password, restaurantName) {
+var saveWifiSettings = function(ssid, password, restaurantName) {
   if (!ssid) return;
 
   try {
@@ -37,9 +37,9 @@ function saveWifiSettings(ssid, password, restaurantName) {
   } catch (err) {
     console.log("Errore salvataggio wifi_settings: " + err);
   }
-}
+};
 
-function markSetupComplete() {
+var markSetupComplete = function() {
   try {
     $os.remove("/pb/pb_data/first_run.flag");
     console.log("first_run.flag rimosso");
@@ -55,7 +55,7 @@ function markSetupComplete() {
   } catch (err) {
     console.log("Errore scrittura setup_complete.json: " + err);
   }
-}
+};
 
 routerAdd("POST", "/api/complete-setup", function(e) {
   var body = e.requestInfo().body || {};
