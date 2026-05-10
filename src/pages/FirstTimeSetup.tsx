@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { register, checkFirstTimeSetup, pb } from '@/lib/pocketbase';
+import { checkFirstTimeSetup, pb } from '@/lib/pocketbase';
 import { Loader2, Shield, Mail, Lock, User, CheckCircle2, Wifi, Store } from 'lucide-react';
 
 const FirstTimeSetup = () => {
@@ -61,42 +61,33 @@ const FirstTimeSetup = () => {
 
     setLoading(true);
     try {
-      // 1. Create admin account
-      const { error } = await register(trimmedEmail, password, confirmPassword, trimmedName, 'admin');
-      if (error) {
-        toast({ title: 'Errore', description: error, variant: 'destructive' });
+      const baseUrl = pb.baseURL || window.location.origin;
+      const response = await fetch(baseUrl + '/api/complete-setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: trimmedEmail,
+          password,
+          name: trimmedName,
+          restaurant_name: restaurantName.trim() || '',
+          wifi_ssid: wifiSsid.trim() || 'HACCP-Tracciabilita',
+          wifi_password: wifiPassword || '',
+        }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) {
+        toast({
+          title: 'Errore configurazione',
+          description: result.error || 'Impossibile completare la configurazione',
+          variant: 'destructive',
+        });
         setLoading(false);
         return;
       }
 
-      // 2. Save WiFi settings
-      try {
-        await pb.collection('wifi_settings').create({
-          wifi_ssid: wifiSsid.trim() || 'HACCP-Tracciabilita',
-          wifi_password: wifiPassword || '',
-          restaurant_name: restaurantName.trim() || '',
-        }, { requestKey: null });
-      } catch (wifiErr: any) {
-        console.warn('WiFi settings save warning:', wifiErr?.message);
-        // Non-blocking: WiFi settings collection might not exist yet
-      }
-
-      // 3. Try to remove the first_run flag via custom endpoint
-      try {
-        const baseUrl = pb.baseURL || window.location.origin;
-        await fetch(baseUrl + '/api/complete-setup', {
-          method: 'POST',
-          headers: {
-            'Authorization': pb.authStore.token ? ('Bearer ' + pb.authStore.token) : '',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            wifi_ssid: wifiSsid.trim() || 'HACCP-Tracciabilita',
-            wifi_password: wifiPassword || '',
-          }),
-        });
-      } catch (setupErr) {
-        console.warn('complete-setup endpoint not available:', setupErr);
+      if (result.token && result.record) {
+        pb.authStore.save(result.token, result.record);
       }
 
       setStep(4);
