@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Camera, X, SwitchCamera, Flashlight } from "lucide-react";
+import { Camera, X, SwitchCamera, Flashlight, ImageUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface BarcodeScannerProps {
@@ -16,6 +16,7 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
   const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
   const [torchEnabled, setTorchEnabled] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -49,6 +50,15 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
   }, []);
 
   const startScanning = async () => {
+    if (!window.isSecureContext && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+      toast({
+        title: "Fotocamera bloccata",
+        description: "Il browser richiede HTTPS per lo scanner live. Usa Scansiona foto o installa la PWA.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (cameras.length === 0) {
       toast({
         title: "Nessuna fotocamera",
@@ -91,6 +101,20 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
         description: "Impossibile avviare lo scanner. Riprova.",
         variant: "destructive",
       });
+    }
+  };
+
+  const scanImageFile = async (file: File) => {
+    try {
+      const html5QrCode = scannerRef.current || new Html5Qrcode("barcode-reader");
+      scannerRef.current = html5QrCode;
+      const decodedText = await html5QrCode.scanFile(file, true);
+      toast({ title: "Codice rilevato!", description: decodedText });
+      onScan(decodedText);
+      onClose();
+    } catch (err) {
+      console.error("Error scanning image file:", err);
+      toast({ title: "Codice non trovato", description: "Riprova con una foto più nitida.", variant: "destructive" });
     }
   };
 
@@ -161,10 +185,27 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
 
         <div className="flex gap-2 justify-center">
           {!isScanning ? (
-            <Button onClick={startScanning} className="flex-1">
-              <Camera className="h-4 w-4 mr-2" />
-              Avvia Scansione
-            </Button>
+            <>
+              <Button onClick={startScanning} className="flex-1">
+                <Camera className="h-4 w-4 mr-2" />
+                Avvia Scansione
+              </Button>
+              <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                <ImageUp className="h-4 w-4" />
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) scanImageFile(file);
+                  event.target.value = "";
+                }}
+              />
+            </>
           ) : (
             <>
               <Button variant="destructive" onClick={stopScanning}>
@@ -187,7 +228,7 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
         </div>
 
         <p className="text-xs text-muted-foreground text-center">
-          Inquadra il codice a barre o QR code. Supporta EAN-13, EAN-8, UPC, Code-128, QR.
+          Inquadra il codice a barre o QR code, oppure usa il pulsante foto se il browser blocca la fotocamera.
         </p>
       </CardContent>
     </Card>
