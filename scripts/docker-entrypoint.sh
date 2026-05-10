@@ -39,6 +39,11 @@ EOF
   echo "First-run flag creato — wizard attivo"
 fi
 
+if [ -f /pb/pb_data/setup_complete.json ] && [ -f /pb/pb_data/first_run.flag ]; then
+  rm -f /pb/pb_data/first_run.flag
+  echo "Setup già completato — first_run.flag rimosso"
+fi
+
 # Bootstrap PocketBase dashboard superuser (first boot only)
 PB_SUPERUSER_EMAIL="${PB_SUPERUSER_EMAIL:-admin@haccp.local}"
 PB_SUPERUSER_PASSWORD="${PB_SUPERUSER_PASSWORD:-Admin123456!}"
