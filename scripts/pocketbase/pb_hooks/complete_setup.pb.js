@@ -100,9 +100,46 @@ routerAdd("POST", "/api/complete-setup", function(e) {
     }
   }
 
-  saveWifiSettings(ssid, wifiPassword, restaurantName);
-  writeWifiConfigRequest(ssid, wifiPassword);
-  markSetupComplete();
+  try {
+    var wifiCollection = $app.findCollectionByNameOrId("wifi_settings");
+    var wifiRecords = $app.findRecordsByFilter("wifi_settings", 'id != ""', "", 1, 0);
+    var wifiRecord = wifiRecords && wifiRecords.length > 0 ? wifiRecords[0] : new Record(wifiCollection);
+    wifiRecord.set("wifi_ssid", ssid);
+    wifiRecord.set("wifi_password", wifiPassword || "");
+    wifiRecord.set("restaurant_name", restaurantName || "");
+    $app.save(wifiRecord);
+  } catch (err) {
+    console.log("Errore salvataggio wifi_settings: " + err);
+  }
+
+  try {
+    $os.writeFile("/pb/pb_data/.wifi_config_request.json", JSON.stringify({
+      ssid: ssid,
+      password: wifiPassword || "",
+      mode: "normal",
+      timestamp: new Date().toISOString(),
+      source: "complete-setup"
+    }), 0o644);
+    console.log("WiFi config request scritto per host-side: SSID=" + ssid);
+  } catch (err) {
+    console.log("Errore scrittura WiFi config request: " + err);
+  }
+
+  try {
+    $os.remove("/pb/pb_data/first_run.flag");
+    console.log("first_run.flag rimosso");
+  } catch (err) {
+    console.log("first_run.flag già assente o non rimovibile: " + err);
+  }
+
+  try {
+    $os.writeFile("/pb/pb_data/setup_complete.json", JSON.stringify({
+      completed: true,
+      timestamp: new Date().toISOString()
+    }), 0o644);
+  } catch (err) {
+    console.log("Errore scrittura setup_complete.json: " + err);
+  }
 
   return e.json(200, {
     "success": true,
