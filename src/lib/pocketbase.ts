@@ -1,10 +1,22 @@
 import PocketBase from 'pocketbase';
 
 const getPocketBaseUrl = () => {
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return "http://localhost:8090";
-  }
-  return window.location.origin;
+  // 1) Explicit override via env (build-time)
+  const envUrl = (import.meta as any).env?.VITE_PB_URL as string | undefined;
+  if (envUrl && envUrl.trim().length > 0) return envUrl.trim();
+
+  if (typeof window === 'undefined') return 'http://127.0.0.1:8090';
+
+  const { hostname, origin, protocol, port } = window.location;
+
+  // Local dev via Vite (separate PB on :8090)
+  const isViteDev =
+    (hostname === 'localhost' || hostname === '127.0.0.1') &&
+    port !== '' && port !== '80' && port !== '443';
+  if (isViteDev) return `${protocol}//${hostname}:8090`;
+
+  // Production (Raspberry Pi LAN / any deploy): same origin as the page
+  return origin;
 };
 
 export const pb = new PocketBase(getPocketBaseUrl());
