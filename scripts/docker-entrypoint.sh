@@ -70,10 +70,6 @@ fi
 
 # Auto-import schema on first boot (creates collections from pb_schema.json)
 SCHEMA_MARKER="/pb/pb_data/.schema_imported"
-if [ -f /pb/pb_schema.json ]; then
-  SCHEMA_HASH=$(sha256sum /pb/pb_schema.json 2>/dev/null | awk '{print $1}')
-# Auto-import schema on first boot (creates collections from pb_schema.json)
-SCHEMA_MARKER="/pb/pb_data/.schema_imported"
 IMPORT_SCHEMA=false
 SCHEMA_HASH=""
 if [ -f /pb/pb_schema.json ]; then
