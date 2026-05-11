@@ -72,8 +72,12 @@ fi
 SCHEMA_MARKER="/pb/pb_data/.schema_imported"
 if [ -f /pb/pb_schema.json ]; then
   SCHEMA_HASH=$(sha256sum /pb/pb_schema.json 2>/dev/null | awk '{print $1}')
-  IMPORT_SCHEMA=false
-
+# Auto-import schema on first boot (creates collections from pb_schema.json)
+SCHEMA_MARKER="/pb/pb_data/.schema_imported"
+IMPORT_SCHEMA=false
+SCHEMA_HASH=""
+if [ -f /pb/pb_schema.json ]; then
+  SCHEMA_HASH=$(sha256sum /pb/pb_schema.json 2>/dev/null | awk '{print $1}')
   if [ ! -f "$SCHEMA_MARKER" ]; then
     IMPORT_SCHEMA=true
   elif [ "$(cat "$SCHEMA_MARKER" 2>/dev/null || true)" != "$SCHEMA_HASH" ]; then
@@ -81,50 +85,58 @@ if [ -f /pb/pb_schema.json ]; then
   fi
 fi
 
-if [ "$IMPORT_SCHEMA" = "true" ] && [ -f /pb/pb_schema.json ]; then
+if [ "$IMPORT_SCHEMA" = "true" ]; then
   echo "Importazione schema collezioni..."
-  # Start PocketBase temporarily to import schema
-  pocketbase serve --http=127.0.0.1:8091 --dir=/pb/pb_data --hooksDir=/pb/pb_hooks &
+  pocketbase serve --http=127.0.0.1:8091 --dir=/pb/pb_data --hooksDir=/pb/pb_hooks >/tmp/pb-import.log 2>&1 &
   PB_PID=$!
 
   # Wait for PocketBase to be ready
+  PB_READY=false
   for i in $(seq 1 30); do
-    if wget -q --spider http://127.0.0.1:8091/api/health 2>/dev/null; then
+    if curl -sf http://127.0.0.1:8091/api/health >/dev/null 2>&1; then
+      PB_READY=true
       break
     fi
     sleep 1
   done
 
-  # Import schema via admin API
-  if wget -q --spider http://127.0.0.1:8091/api/health 2>/dev/null; then
+  if [ "$PB_READY" = "true" ]; then
     # Authenticate as superuser
-    AUTH_RESPONSE=$(wget -qO- --post-data="{\"identity\":\"${PB_SUPERUSER_EMAIL}\",\"password\":\"${PB_SUPERUSER_PASSWORD}\"}" \
-      --header="Content-Type: application/json" \
-      "http://127.0.0.1:8091/api/collections/_superusers/auth-with-password" 2>/dev/null || echo "")
+    AUTH_BODY="{\"identity\":\"${PB_SUPERUSER_EMAIL}\",\"password\":\"${PB_SUPERUSER_PASSWORD}\"}"
+    AUTH_RESPONSE=$(curl -s -X POST \
+      -H "Content-Type: application/json" \
+      -d "$AUTH_BODY" \
+      "http://127.0.0.1:8091/api/collections/_superusers/auth-with-password" || echo "")
 
-    if echo "$AUTH_RESPONSE" | grep -q "token"; then
-      TOKEN=$(echo "$AUTH_RESPONSE" | sed 's/.*"token":"\([^"]*\)".*/\1/')
+    TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.token // empty' 2>/dev/null)
 
-      # Import collections
-      SCHEMA_CONTENT=$(cat /pb/pb_schema.json)
-      IMPORT_RESULT=$(wget -qO- --method=PUT \
-        --body-data="{\"collections\":${SCHEMA_CONTENT},\"deleteMissing\":false}" \
-        --header="Content-Type: application/json" \
-        --header="Authorization: Bearer ${TOKEN}" \
-        "http://127.0.0.1:8091/api/collections/import" 2>/dev/null || echo "error")
+    if [ -n "$TOKEN" ]; then
+      # Build import payload to a file (avoids shell quoting issues)
+      jq -n --slurpfile cols /pb/pb_schema.json \
+        '{collections: $cols[0], deleteMissing: false}' > /tmp/import-payload.json
 
-      if echo "$IMPORT_RESULT" | grep -qi "error"; then
-        echo "Attenzione: importazione schema parziale o fallita"
-        echo "$IMPORT_RESULT"
-      else
-        echo "Schema collezioni importato con successo"
+      HTTP_CODE=$(curl -s -o /tmp/import-result.json -w "%{http_code}" \
+        -X PUT \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer ${TOKEN}" \
+        --data-binary @/tmp/import-payload.json \
+        "http://127.0.0.1:8091/api/collections/import")
+
+      if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
+        echo "Schema collezioni importato con successo (HTTP $HTTP_CODE)"
         echo "$SCHEMA_HASH" > "$SCHEMA_MARKER"
+      else
+        echo "ERRORE importazione schema (HTTP $HTTP_CODE):"
+        cat /tmp/import-result.json || true
+        echo ""
       fi
     else
-      echo "Attenzione: autenticazione superuser fallita per import schema"
+      echo "ERRORE: autenticazione superuser fallita per import schema"
+      echo "Response: $AUTH_RESPONSE"
     fi
   else
-    echo "Attenzione: PocketBase non raggiungibile per import schema"
+    echo "ERRORE: PocketBase non raggiungibile per import schema"
+    tail -20 /tmp/pb-import.log || true
   fi
 
   # Stop temporary PocketBase

@@ -22,7 +22,7 @@ RUN npm run build
 
 # Final image
 FROM alpine:3.19
-RUN apk add --no-cache ca-certificates wget rclone dcron sqlite \
+RUN apk add --no-cache ca-certificates curl wget rclone dcron sqlite jq \
     cups cups-filters avahi avahi-tools \
     && mkdir -p /etc/cups
 
