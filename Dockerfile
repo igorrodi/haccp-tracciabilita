@@ -32,7 +32,8 @@ COPY scripts/pocketbase/pb_schema.json /pb/pb_schema.json
 COPY scripts/pocketbase/pb_hooks /pb/pb_hooks
 COPY scripts/rclone-sync.sh /pb/rclone-sync.sh
 COPY scripts/docker-entrypoint.sh /pb/entrypoint.sh
-RUN chmod +x /pb/entrypoint.sh /pb/rclone-sync.sh
+COPY scripts/healthcheck.sh /pb/healthcheck.sh
+RUN chmod +x /pb/entrypoint.sh /pb/rclone-sync.sh /pb/healthcheck.sh
 
 COPY scripts/cups/cupsd.conf /etc/cups/cupsd.conf
 
