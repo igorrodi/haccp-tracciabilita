@@ -159,7 +159,7 @@ echo -e "${CYAN}  Configurazione Backup Cloud (Google Drive)${NC}"
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-RCLONE_CONF="${APP_DIR}/rclone.conf"
+RCLONE_CONF="${APP_DIR}/data/rclone.conf"
 
 if [ -f "$RCLONE_CONF" ]; then
   log_ok "Configurazione rclone esistente trovata"
