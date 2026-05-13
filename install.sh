@@ -26,13 +26,22 @@ log_info()  { echo -e "${CYAN}[i]${NC} $1"; }
 
 [[ $EUID -eq 0 ]] || log_error "Esegui come root: curl ... | sudo bash"
 
-# Check Raspberry Pi OS Bookworm
+# Check OS compatibility (RaspberryPi OS, Debian, Ubuntu, Armbian)
 if [ -f /etc/os-release ]; then
-  if ! grep -qi "bookworm\|trixie" /etc/os-release; then
-    log_warn "OS non è Raspberry Pi OS Bookworm/Trixie"
-    read -rp "Continuare comunque? [y/N]: " confirm
-    [[ "$confirm" =~ ^[yY]$ ]] || exit 0
-  fi
+  . /etc/os-release
+  OS_ID="${ID:-unknown}"
+  OS_LIKE="${ID_LIKE:-}"
+  OS_NAME="${PRETTY_NAME:-$OS_ID}"
+  case "$OS_ID $OS_LIKE" in
+    *raspbian*|*debian*|*ubuntu*|*armbian*)
+      log_ok "OS compatibile rilevato: $OS_NAME"
+      ;;
+    *)
+      log_warn "OS non testato ufficialmente: $OS_NAME (supportati: RaspiOS, Debian, Ubuntu, Armbian)"
+      read -rp "Continuare comunque? [y/N]: " confirm
+      [[ "$confirm" =~ ^[yY]$ ]] || exit 0
+      ;;
+  esac
 else
   log_warn "Impossibile verificare la versione del sistema operativo"
 fi
@@ -88,9 +97,33 @@ fi
 # APP DIRECTORY & PERMISSIONS
 # ============================================================================
 
-mkdir -p "${APP_DIR}/pb_data/exports"
+# Nuova struttura: separa codice (${APP_DIR}) dai dati (${APP_DIR}/data)
+mkdir -p "${APP_DIR}/data/pb_data/exports" "${APP_DIR}/data/backups"
 cd "${APP_DIR}"
-log_ok "Cartelle create: ${APP_DIR}/pb_data/exports/"
+log_ok "Struttura cartelle creata:"
+log_ok "  Codice:  ${APP_DIR}/"
+log_ok "  Dati:    ${APP_DIR}/data/pb_data/"
+log_ok "  Backup:  ${APP_DIR}/data/backups/"
+
+# Migrazione automatica da vecchia struttura (./pb_data → ./data/pb_data)
+if [ -d "${APP_DIR}/pb_data" ] && [ -z "$(ls -A "${APP_DIR}/data/pb_data" 2>/dev/null)" ]; then
+  log_warn "Trovata vecchia struttura ./pb_data — migrazione in corso..."
+  # Stop container se attivo
+  (cd "${APP_DIR}" && docker compose down 2>/dev/null) || true
+  # Sposta contenuto preservando attributi
+  if cp -a "${APP_DIR}/pb_data/." "${APP_DIR}/data/pb_data/"; then
+    mv "${APP_DIR}/pb_data" "${APP_DIR}/pb_data.old.$(date +%s)"
+    log_ok "Migrazione completata. Vecchia cartella rinominata in pb_data.old.*"
+  else
+    log_warn "Migrazione fallita — verifica manualmente ${APP_DIR}/pb_data"
+  fi
+fi
+
+# Migrazione rclone.conf nella nuova posizione
+if [ -f "${APP_DIR}/rclone.conf" ] && [ ! -f "${APP_DIR}/data/rclone.conf" ]; then
+  mv "${APP_DIR}/rclone.conf" "${APP_DIR}/data/rclone.conf"
+  log_ok "rclone.conf spostato in ${APP_DIR}/data/"
+fi
 
 # ============================================================================
 # DOWNLOAD FILES

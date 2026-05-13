@@ -11,9 +11,11 @@ services:
       - "80:80"
       - "631:631"
     volumes:
-      - ./pb_data:/pb/pb_data
+      # Separazione codice/dati: tutti i dati persistenti vivono in ./data
+      - ./data/pb_data:/pb/pb_data
+      - ./data/backups:/pb/pb_data/backups
       - ./pb_schema.json:/pb/pb_schema.json:ro
-      - ./rclone.conf:/pb/pb_data/rclone.conf:ro
+      - ./data/rclone.conf:/pb/pb_data/rclone.conf:ro
     devices:
       - /dev/bus/usb:/dev/bus/usb
     privileged: true
