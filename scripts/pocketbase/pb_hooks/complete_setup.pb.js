@@ -93,6 +93,21 @@ routerAdd("POST", "/api/complete-setup", function(e) {
     } catch (err) {
       return e.json(400, { "error": "Errore creazione admin: " + err });
     }
+
+    // Sync con il superuser PocketBase: usa stessa email/password del wizard
+    // per accedere alla dashboard /_/ con le credenziali appena create.
+    try {
+      var suCollection = $app.findCollectionByNameOrId("_superusers");
+      var existingSu = null;
+      try { existingSu = $app.findAuthRecordByEmail("_superusers", email); } catch (e2) { existingSu = null; }
+      var suRecord = existingSu || new Record(suCollection);
+      suRecord.setEmail(email);
+      suRecord.setPassword(adminPassword);
+      $app.save(suRecord);
+      console.log("Superuser PocketBase sincronizzato: " + email);
+    } catch (err) {
+      console.log("Errore sync superuser PocketBase: " + err);
+    }
   } else {
     authRecord = e.auth;
     if (!authRecord || authRecord.getString("role") !== "admin") {
