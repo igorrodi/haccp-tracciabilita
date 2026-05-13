@@ -12,13 +12,23 @@
 set -uo pipefail
 
 readonly APP_DIR="/opt/haccp-tracker"
-readonly BACKUP_DIR="${APP_DIR}/pb_data/backups"
-readonly DB_FILE="${APP_DIR}/pb_data/data.db"
+readonly DATA_DIR="${APP_DIR}/data"
+readonly PB_DATA="${DATA_DIR}/pb_data"
+readonly BACKUP_DIR="${DATA_DIR}/backups"
+readonly DB_FILE="${PB_DATA}/data.db"
 readonly SCHEMA_FILE="${APP_DIR}/pb_schema.json"
 readonly GITHUB_REPO="igorrodi/haccp-tracciabilita"
 readonly GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_REPO}/main"
-readonly VERSION_FILE="${APP_DIR}/pb_data/version.json"
-readonly LOG_FILE="${APP_DIR}/pb_data/update.log"
+readonly VERSION_FILE="${PB_DATA}/version.json"
+readonly LOG_FILE="${PB_DATA}/update.log"
+
+# Migrazione automatica vecchia struttura → nuova
+if [ -d "${APP_DIR}/pb_data" ] && [ ! -d "${PB_DATA}" ]; then
+  mkdir -p "${DATA_DIR}"
+  mv "${APP_DIR}/pb_data" "${PB_DATA}"
+  echo "Migrazione dati: ${APP_DIR}/pb_data → ${PB_DATA}"
+fi
+mkdir -p "${PB_DATA}" "${BACKUP_DIR}"
 
 readonly GREEN='\033[0;32m'
 readonly RED='\033[0;31m'

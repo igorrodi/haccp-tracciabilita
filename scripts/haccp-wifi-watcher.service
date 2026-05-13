@@ -6,7 +6,8 @@ Requires=docker.service
 [Service]
 Type=simple
 ExecStart=/bin/bash -c '\
-  WATCH_FILE="/opt/haccp-tracker/pb_data/.wifi_config_request.json"; \
+  WATCH_FILE="/opt/haccp-tracker/data/pb_data/.wifi_config_request.json"; \
+  [ -f "$WATCH_FILE" ] || WATCH_FILE="/opt/haccp-tracker/pb_data/.wifi_config_request.json"; \
   HOTSPOT_SCRIPT="/opt/haccp-tracker/setup-hotspot.sh"; \
   LAST_HASH=""; \
   while true; do \
