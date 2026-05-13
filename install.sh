@@ -256,7 +256,7 @@ echo ""
 # FIRST-BOOT WIZARD (HOTSPOT)
 # ============================================================================
 
-FIRST_RUN_FLAG="${APP_DIR}/pb_data/first_run.flag"
+FIRST_RUN_FLAG="${APP_DIR}/data/pb_data/first_run.flag"
 
 # Create first_run.flag if no admin user exists yet
 # We check via the setup-check API endpoint
@@ -317,9 +317,10 @@ fi
 echo "  App:       http://${IP}  o  http://haccp.local"
 echo "  Admin PB:  http://${IP}/_/"
 echo "  CUPS:      http://${IP}:631"
-echo "  Dati:      ${APP_DIR}/pb_data/"
-echo "  Exports:   ${APP_DIR}/pb_data/exports/"
-echo "  Rclone:    ${APP_DIR}/rclone.conf"
+echo "  Dati:      ${APP_DIR}/data/pb_data/"
+echo "  Exports:   ${APP_DIR}/data/pb_data/exports/"
+echo "  Backup:    ${APP_DIR}/data/backups/"
+echo "  Rclone:    ${APP_DIR}/data/rclone.conf"
 echo ""
 echo "  Stampante:"
 echo "    Configura la stampante da: App → Sistema → Stampante"

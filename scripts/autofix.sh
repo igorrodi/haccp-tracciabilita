@@ -18,7 +18,14 @@ set -u
 
 # ---------- Config ----------
 APP_DIR="${APP_DIR:-/opt/haccp-tracker}"
-PB_DATA="${APP_DIR}/pb_data"
+# Nuova struttura: i dati vivono sotto ./data/. Fallback alla vecchia per compat.
+if [ -d "${APP_DIR}/data/pb_data" ]; then
+  PB_DATA="${APP_DIR}/data/pb_data"
+elif [ -d "${APP_DIR}/pb_data" ]; then
+  PB_DATA="${APP_DIR}/pb_data"
+else
+  PB_DATA="${APP_DIR}/data/pb_data"
+fi
 SCHEMA_FILE="${APP_DIR}/scripts/pocketbase/pb_schema.json"
 [ ! -f "$SCHEMA_FILE" ] && SCHEMA_FILE="${APP_DIR}/pb_schema.json"
 COMPOSE_FILE="${APP_DIR}/docker-compose.yml"
@@ -27,6 +34,15 @@ ADMIN_PASSWORD="${PB_SUPERUSER_PASSWORD:-Admin123456!}"
 PB_URL="http://127.0.0.1"
 WIFI_REQ="${PB_DATA}/.wifi_config_request.json"
 WIFI_APPLIED="${PB_DATA}/.wifi_config_applied.json"
+
+# Auto-migrazione: ./pb_data → ./data/pb_data se la nuova è vuota
+if [ -d "${APP_DIR}/pb_data" ] && [ ! -d "${APP_DIR}/data/pb_data" ]; then
+  mkdir -p "${APP_DIR}/data"
+  mv "${APP_DIR}/pb_data" "${APP_DIR}/data/pb_data" 2>/dev/null && \
+    printf "[INFO] Migrazione dati: ./pb_data → ./data/pb_data completata\n"
+  PB_DATA="${APP_DIR}/data/pb_data"
+fi
+mkdir -p "${APP_DIR}/data/backups" 2>/dev/null || true
 
 CHECK_ONLY=0; RESET_SCHEMA=0
 for arg in "$@"; do
