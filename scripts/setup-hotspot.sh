@@ -24,14 +24,45 @@ log_info()  { echo -e "${CYAN}[i]${NC} $1"; }
 MODE="normal"
 SSID=""
 PASSWORD=""
+WIFI_IFACE=""
 
 for arg in "$@"; do
   case "$arg" in
     --mode=*)    MODE="${arg#*=}" ;;
     --ssid=*)    SSID="${arg#*=}" ;;
     --password=*) PASSWORD="${arg#*=}" ;;
+    --iface=*)   WIFI_IFACE="${arg#*=}" ;;
   esac
 done
+
+# ============================================================================
+# AUTO-DETECT WI-FI INTERFACE
+# ============================================================================
+# Su Armbian/Ubuntu su Pi5 l'interfaccia può chiamarsi wld0, wlx*, wlp*…
+# Rileviamo dinamicamente invece di assumere wlan0.
+
+if [ -z "$WIFI_IFACE" ] && command -v iw &>/dev/null; then
+  WIFI_IFACE=$(iw dev 2>/dev/null | awk '$1=="Interface"{print $2; exit}')
+fi
+if [ -z "$WIFI_IFACE" ]; then
+  # Fallback: cerca prima interfaccia wireless in /sys/class/net
+  for iface in /sys/class/net/*/wireless; do
+    [ -d "$iface" ] || continue
+    WIFI_IFACE=$(basename "$(dirname "$iface")")
+    break
+  done
+fi
+if [ -z "$WIFI_IFACE" ]; then
+  # Ultimo fallback: pattern comuni
+  for cand in wlan0 wld0 wlp2s0 wlp3s0; do
+    if [ -d "/sys/class/net/$cand" ]; then
+      WIFI_IFACE="$cand"
+      break
+    fi
+  done
+fi
+[ -z "$WIFI_IFACE" ] && log_error "Nessuna interfaccia Wi-Fi trovata (iw dev / /sys/class/net)"
+log_ok "Interfaccia Wi-Fi rilevata: ${WIFI_IFACE}"
 
 # ============================================================================
 # GENERATE SETUP SSID (if mode=setup)
