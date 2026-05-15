@@ -69,20 +69,18 @@ log_ok "Interfaccia Wi-Fi rilevata: ${WIFI_IFACE}"
 # ============================================================================
 
 if [ "$MODE" = "setup" ]; then
-  # Generate SSID from wlan0 MAC last 6 hex chars
+  # Generate SSID from interface MAC last 6 hex chars
   MAC_SUFFIX=""
-  if [ -f /sys/class/net/wlan0/address ]; then
-    MAC_SUFFIX=$(cat /sys/class/net/wlan0/address | tr -d ':' | tail -c 7 | head -c 6 | tr '[:lower:]' '[:upper:]')
+  if [ -f "/sys/class/net/${WIFI_IFACE}/address" ]; then
+    MAC_SUFFIX=$(cat "/sys/class/net/${WIFI_IFACE}/address" | tr -d ':' | tail -c 7 | head -c 6 | tr '[:lower:]' '[:upper:]')
   fi
   if [ -z "$MAC_SUFFIX" ]; then
-    # Fallback: use random hex (xxd may not be installed on Lite)
     MAC_SUFFIX=$(od -An -tx1 -N3 /dev/urandom | tr -d ' \n' | head -c 6 | tr '[:lower:]' '[:upper:]')
   fi
   SSID="HACCP-Setup-${MAC_SUFFIX}"
   PASSWORD=""
   log_info "Modalità SETUP — SSID aperto: ${SSID}"
 else
-  # Normal mode: use provided or defaults
   [ -z "$SSID" ] && SSID="HACCP-Tracciabilita"
   [ -z "$PASSWORD" ] && PASSWORD="cambia123"
   log_info "Modalità NORMALE — SSID: ${SSID}"
