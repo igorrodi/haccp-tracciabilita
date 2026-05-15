@@ -240,7 +240,7 @@ log_info "Configurazione hostapd..."
 if [ "$MODE" = "setup" ] || [ -z "$PASSWORD" ]; then
   # Open network (no WPA)
   cat > /etc/hostapd/hostapd.conf <<HOSTAPD
-interface=wlan0
+interface=${WIFI_IFACE}
 driver=nl80211
 ssid=${SSID}
 hw_mode=g
@@ -255,7 +255,7 @@ HOSTAPD
 else
   # WPA2 protected
   cat > /etc/hostapd/hostapd.conf <<HOSTAPD
-interface=wlan0
+interface=${WIFI_IFACE}
 driver=nl80211
 ssid=${SSID}
 hw_mode=g
