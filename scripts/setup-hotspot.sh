@@ -24,34 +24,63 @@ log_info()  { echo -e "${CYAN}[i]${NC} $1"; }
 MODE="normal"
 SSID=""
 PASSWORD=""
+WIFI_IFACE=""
 
 for arg in "$@"; do
   case "$arg" in
     --mode=*)    MODE="${arg#*=}" ;;
     --ssid=*)    SSID="${arg#*=}" ;;
     --password=*) PASSWORD="${arg#*=}" ;;
+    --iface=*)   WIFI_IFACE="${arg#*=}" ;;
   esac
 done
+
+# ============================================================================
+# AUTO-DETECT WI-FI INTERFACE
+# ============================================================================
+# Su Armbian/Ubuntu su Pi5 l'interfaccia può chiamarsi wld0, wlx*, wlp*…
+# Rileviamo dinamicamente invece di assumere wlan0.
+
+if [ -z "$WIFI_IFACE" ] && command -v iw &>/dev/null; then
+  WIFI_IFACE=$(iw dev 2>/dev/null | awk '$1=="Interface"{print $2; exit}')
+fi
+if [ -z "$WIFI_IFACE" ]; then
+  # Fallback: cerca prima interfaccia wireless in /sys/class/net
+  for iface in /sys/class/net/*/wireless; do
+    [ -d "$iface" ] || continue
+    WIFI_IFACE=$(basename "$(dirname "$iface")")
+    break
+  done
+fi
+if [ -z "$WIFI_IFACE" ]; then
+  # Ultimo fallback: pattern comuni
+  for cand in wlan0 wld0 wlp2s0 wlp3s0; do
+    if [ -d "/sys/class/net/$cand" ]; then
+      WIFI_IFACE="$cand"
+      break
+    fi
+  done
+fi
+[ -z "$WIFI_IFACE" ] && log_error "Nessuna interfaccia Wi-Fi trovata (iw dev / /sys/class/net)"
+log_ok "Interfaccia Wi-Fi rilevata: ${WIFI_IFACE}"
 
 # ============================================================================
 # GENERATE SETUP SSID (if mode=setup)
 # ============================================================================
 
 if [ "$MODE" = "setup" ]; then
-  # Generate SSID from wlan0 MAC last 6 hex chars
+  # Generate SSID from interface MAC last 6 hex chars
   MAC_SUFFIX=""
-  if [ -f /sys/class/net/wlan0/address ]; then
-    MAC_SUFFIX=$(cat /sys/class/net/wlan0/address | tr -d ':' | tail -c 7 | head -c 6 | tr '[:lower:]' '[:upper:]')
+  if [ -f "/sys/class/net/${WIFI_IFACE}/address" ]; then
+    MAC_SUFFIX=$(cat "/sys/class/net/${WIFI_IFACE}/address" | tr -d ':' | tail -c 7 | head -c 6 | tr '[:lower:]' '[:upper:]')
   fi
   if [ -z "$MAC_SUFFIX" ]; then
-    # Fallback: use random hex (xxd may not be installed on Lite)
     MAC_SUFFIX=$(od -An -tx1 -N3 /dev/urandom | tr -d ' \n' | head -c 6 | tr '[:lower:]' '[:upper:]')
   fi
   SSID="HACCP-Setup-${MAC_SUFFIX}"
   PASSWORD=""
   log_info "Modalità SETUP — SSID aperto: ${SSID}"
 else
-  # Normal mode: use provided or defaults
   [ -z "$SSID" ] && SSID="HACCP-Tracciabilita"
   [ -z "$PASSWORD" ] && PASSWORD="cambia123"
   log_info "Modalità NORMALE — SSID: ${SSID}"
@@ -111,47 +140,63 @@ systemctl stop hostapd 2>/dev/null || true
 systemctl stop dnsmasq 2>/dev/null || true
 
 # ============================================================================
-# CONFIGURE STATIC IP ON wlan0
+# CONFIGURE STATIC IP ON ${WIFI_IFACE}
 # ============================================================================
 
-log_info "Configurazione IP statico su wlan0..."
+log_info "Configurazione IP statico su ${WIFI_IFACE}..."
 
 if [ "$USE_NM" = true ]; then
-  # NetworkManager (RPi OS Bookworm Lite)
-  # Remove existing HACCP hotspot connection if present
+  # NetworkManager (Bookworm / Armbian / Ubuntu)
   nmcli connection delete "HACCP-Hotspot" 2>/dev/null || true
 
-  # Disable wifi management by NM for wlan0 so hostapd can control it
-  cat > /etc/NetworkManager/conf.d/haccp-hotspot.conf <<'NMCONF'
+  # Disable NM management on the wifi iface so hostapd can drive it
+  cat > /etc/NetworkManager/conf.d/haccp-hotspot.conf <<NMCONF
 [keyfile]
-unmanaged-devices=interface-name:wlan0
+unmanaged-devices=interface-name:${WIFI_IFACE}
 NMCONF
 
-  # Restart NM to release wlan0
   systemctl restart NetworkManager
   sleep 2
 
-  # Manually assign static IP
-  ip addr flush dev wlan0 2>/dev/null || true
-  ip addr add 192.168.4.1/24 dev wlan0 2>/dev/null || true
-  ip link set wlan0 up
-  log_ok "wlan0 → 192.168.4.1/24 (NetworkManager: wlan0 unmanaged)"
+  # Manual static IP via iproute2
+  ip addr flush dev "${WIFI_IFACE}" 2>/dev/null || true
+  ip addr add 192.168.4.1/24 dev "${WIFI_IFACE}" 2>/dev/null || true
+  ip link set "${WIFI_IFACE}" up
+  log_ok "${WIFI_IFACE} → 192.168.4.1/24 (NetworkManager: ${WIFI_IFACE} unmanaged)"
+
+  # Netplan (Ubuntu/Armbian): scrivi config se presente
+  if [ -d /etc/netplan ]; then
+    cat > /etc/netplan/99-haccp-hotspot.yaml <<NETPLAN
+network:
+  version: 2
+  renderer: NetworkManager
+  wifis:
+    ${WIFI_IFACE}:
+      dhcp4: false
+      addresses: [192.168.4.1/24]
+      optional: true
+NETPLAN
+    chmod 600 /etc/netplan/99-haccp-hotspot.yaml
+    netplan apply 2>/dev/null || true
+  fi
 else
   # Legacy dhcpcd
   if [ -f /etc/dhcpcd.conf ]; then
     sed -i '/^# HACCP-HOTSPOT-START/,/^# HACCP-HOTSPOT-END/d' /etc/dhcpcd.conf
   fi
 
-  cat >> /etc/dhcpcd.conf <<'DHCP'
+  cat >> /etc/dhcpcd.conf <<DHCP
 # HACCP-HOTSPOT-START
-interface wlan0
+interface ${WIFI_IFACE}
     static ip_address=192.168.4.1/24
     nohook wpa_supplicant
 # HACCP-HOTSPOT-END
 DHCP
 
   systemctl restart dhcpcd 2>/dev/null || true
-  log_ok "wlan0 → 192.168.4.1/24 (dhcpcd)"
+  ip addr add 192.168.4.1/24 dev "${WIFI_IFACE}" 2>/dev/null || true
+  ip link set "${WIFI_IFACE}" up 2>/dev/null || true
+  log_ok "${WIFI_IFACE} → 192.168.4.1/24 (dhcpcd)"
 fi
 
 # ============================================================================
@@ -160,10 +205,22 @@ fi
 
 log_info "Configurazione dnsmasq..."
 
+# Disabilita stub DNS di systemd-resolved sulla porta 53 se presente,
+# altrimenti dnsmasq fallisce ad aprire :53 (conflitto bind).
+if systemctl is-active --quiet systemd-resolved 2>/dev/null; then
+  mkdir -p /etc/systemd/resolved.conf.d
+  cat > /etc/systemd/resolved.conf.d/haccp-hotspot.conf <<'RESOLVED'
+[Resolve]
+DNSStubListener=no
+RESOLVED
+  systemctl restart systemd-resolved 2>/dev/null || true
+fi
+
 cat > /etc/dnsmasq.d/haccp-hotspot.conf <<DNSMASQ
 # HACCP Tracker hotspot DNS/DHCP
-interface=wlan0
+interface=${WIFI_IFACE}
 bind-interfaces
+except-interface=lo
 dhcp-range=192.168.4.50,192.168.4.150,255.255.255.0,24h
 # Resolve haccp.local to gateway
 address=/haccp.local/192.168.4.1
@@ -172,7 +229,7 @@ no-resolv
 no-poll
 DNSMASQ
 
-log_ok "dnsmasq configurato (192.168.4.50-150, haccp.local)"
+log_ok "dnsmasq configurato su ${WIFI_IFACE} (192.168.4.50-150, haccp.local)"
 
 # ============================================================================
 # CONFIGURE HOSTAPD
@@ -183,7 +240,7 @@ log_info "Configurazione hostapd..."
 if [ "$MODE" = "setup" ] || [ -z "$PASSWORD" ]; then
   # Open network (no WPA)
   cat > /etc/hostapd/hostapd.conf <<HOSTAPD
-interface=wlan0
+interface=${WIFI_IFACE}
 driver=nl80211
 ssid=${SSID}
 hw_mode=g
@@ -198,7 +255,7 @@ HOSTAPD
 else
   # WPA2 protected
   cat > /etc/hostapd/hostapd.conf <<HOSTAPD
-interface=wlan0
+interface=${WIFI_IFACE}
 driver=nl80211
 ssid=${SSID}
 hw_mode=g
