@@ -140,47 +140,63 @@ systemctl stop hostapd 2>/dev/null || true
 systemctl stop dnsmasq 2>/dev/null || true
 
 # ============================================================================
-# CONFIGURE STATIC IP ON wlan0
+# CONFIGURE STATIC IP ON ${WIFI_IFACE}
 # ============================================================================
 
-log_info "Configurazione IP statico su wlan0..."
+log_info "Configurazione IP statico su ${WIFI_IFACE}..."
 
 if [ "$USE_NM" = true ]; then
-  # NetworkManager (RPi OS Bookworm Lite)
-  # Remove existing HACCP hotspot connection if present
+  # NetworkManager (Bookworm / Armbian / Ubuntu)
   nmcli connection delete "HACCP-Hotspot" 2>/dev/null || true
 
-  # Disable wifi management by NM for wlan0 so hostapd can control it
-  cat > /etc/NetworkManager/conf.d/haccp-hotspot.conf <<'NMCONF'
+  # Disable NM management on the wifi iface so hostapd can drive it
+  cat > /etc/NetworkManager/conf.d/haccp-hotspot.conf <<NMCONF
 [keyfile]
-unmanaged-devices=interface-name:wlan0
+unmanaged-devices=interface-name:${WIFI_IFACE}
 NMCONF
 
-  # Restart NM to release wlan0
   systemctl restart NetworkManager
   sleep 2
 
-  # Manually assign static IP
-  ip addr flush dev wlan0 2>/dev/null || true
-  ip addr add 192.168.4.1/24 dev wlan0 2>/dev/null || true
-  ip link set wlan0 up
-  log_ok "wlan0 → 192.168.4.1/24 (NetworkManager: wlan0 unmanaged)"
+  # Manual static IP via iproute2
+  ip addr flush dev "${WIFI_IFACE}" 2>/dev/null || true
+  ip addr add 192.168.4.1/24 dev "${WIFI_IFACE}" 2>/dev/null || true
+  ip link set "${WIFI_IFACE}" up
+  log_ok "${WIFI_IFACE} → 192.168.4.1/24 (NetworkManager: ${WIFI_IFACE} unmanaged)"
+
+  # Netplan (Ubuntu/Armbian): scrivi config se presente
+  if [ -d /etc/netplan ]; then
+    cat > /etc/netplan/99-haccp-hotspot.yaml <<NETPLAN
+network:
+  version: 2
+  renderer: NetworkManager
+  wifis:
+    ${WIFI_IFACE}:
+      dhcp4: false
+      addresses: [192.168.4.1/24]
+      optional: true
+NETPLAN
+    chmod 600 /etc/netplan/99-haccp-hotspot.yaml
+    netplan apply 2>/dev/null || true
+  fi
 else
   # Legacy dhcpcd
   if [ -f /etc/dhcpcd.conf ]; then
     sed -i '/^# HACCP-HOTSPOT-START/,/^# HACCP-HOTSPOT-END/d' /etc/dhcpcd.conf
   fi
 
-  cat >> /etc/dhcpcd.conf <<'DHCP'
+  cat >> /etc/dhcpcd.conf <<DHCP
 # HACCP-HOTSPOT-START
-interface wlan0
+interface ${WIFI_IFACE}
     static ip_address=192.168.4.1/24
     nohook wpa_supplicant
 # HACCP-HOTSPOT-END
 DHCP
 
   systemctl restart dhcpcd 2>/dev/null || true
-  log_ok "wlan0 → 192.168.4.1/24 (dhcpcd)"
+  ip addr add 192.168.4.1/24 dev "${WIFI_IFACE}" 2>/dev/null || true
+  ip link set "${WIFI_IFACE}" up 2>/dev/null || true
+  log_ok "${WIFI_IFACE} → 192.168.4.1/24 (dhcpcd)"
 fi
 
 # ============================================================================
@@ -189,10 +205,22 @@ fi
 
 log_info "Configurazione dnsmasq..."
 
+# Disabilita stub DNS di systemd-resolved sulla porta 53 se presente,
+# altrimenti dnsmasq fallisce ad aprire :53 (conflitto bind).
+if systemctl is-active --quiet systemd-resolved 2>/dev/null; then
+  mkdir -p /etc/systemd/resolved.conf.d
+  cat > /etc/systemd/resolved.conf.d/haccp-hotspot.conf <<'RESOLVED'
+[Resolve]
+DNSStubListener=no
+RESOLVED
+  systemctl restart systemd-resolved 2>/dev/null || true
+fi
+
 cat > /etc/dnsmasq.d/haccp-hotspot.conf <<DNSMASQ
 # HACCP Tracker hotspot DNS/DHCP
-interface=wlan0
+interface=${WIFI_IFACE}
 bind-interfaces
+except-interface=lo
 dhcp-range=192.168.4.50,192.168.4.150,255.255.255.0,24h
 # Resolve haccp.local to gateway
 address=/haccp.local/192.168.4.1
@@ -201,7 +229,7 @@ no-resolv
 no-poll
 DNSMASQ
 
-log_ok "dnsmasq configurato (192.168.4.50-150, haccp.local)"
+log_ok "dnsmasq configurato su ${WIFI_IFACE} (192.168.4.50-150, haccp.local)"
 
 # ============================================================================
 # CONFIGURE HOSTAPD
