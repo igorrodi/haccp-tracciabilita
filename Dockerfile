@@ -34,7 +34,8 @@ COPY scripts/rclone-sync.sh /pb/rclone-sync.sh
 COPY scripts/docker-entrypoint.sh /pb/entrypoint.sh
 COPY scripts/healthcheck.sh /pb/healthcheck.sh
 COPY scripts/autofix.sh /pb/autofix.sh
-RUN chmod +x /pb/entrypoint.sh /pb/rclone-sync.sh /pb/healthcheck.sh /pb/autofix.sh
+COPY scripts/armbian-repair.sh /pb/armbian-repair.sh
+RUN chmod +x /pb/entrypoint.sh /pb/rclone-sync.sh /pb/healthcheck.sh /pb/autofix.sh /pb/armbian-repair.sh
 
 COPY scripts/cups/cupsd.conf /etc/cups/cupsd.conf
 
