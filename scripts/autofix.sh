@@ -326,8 +326,9 @@ if [ "$FAIL" -gt 0 ]; then
   echo ""
   echo "Alcuni problemi non risolti automaticamente. Suggerimenti:"
   echo "  - Logs:       docker logs haccp-tracker-haccp-1 --tail 100"
-  echo "  - Reset full: cd $APP_DIR && $COMPOSE down && rm -rf pb_data && $COMPOSE up -d"
-  echo "  - Re-import schema: sudo sh $0 --reset-schema"
+  echo "  - NON cancellare i dati: usa sempre backup/migrazione prima di interventi manuali"
+  echo "  - Riparazione Armbian completa: sudo bash ${APP_DIR}/armbian-repair.sh --reset-schema --fix-wifi"
+  echo "  - Re-import schema leggero: sudo sh $0 --reset-schema"
   exit 1
 fi
 exit 0
