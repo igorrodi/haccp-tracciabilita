@@ -149,6 +149,11 @@ curl -sSL "${GITHUB_RAW}/scripts/setup-hotspot.sh" -o "${APP_DIR}/setup-hotspot.
 chmod +x "${APP_DIR}/setup-hotspot.sh" 2>/dev/null || true
 log_ok "setup-hotspot.sh scaricato"
 
+curl -sSL "${GITHUB_RAW}/scripts/armbian-repair.sh" -o "${APP_DIR}/armbian-repair.sh" \
+    || log_warn "armbian-repair.sh non scaricato (opzionale)"
+chmod +x "${APP_DIR}/armbian-repair.sh" 2>/dev/null || true
+log_ok "armbian-repair.sh scaricato"
+
 # ============================================================================
 # GOOGLE DRIVE / RCLONE CONFIGURATION
 # ============================================================================
@@ -334,6 +339,7 @@ echo "  Comandi utili:"
 echo "    cd ${APP_DIR} && docker compose logs -f    # Log"
 echo "    cd ${APP_DIR} && docker compose restart     # Riavvia"
 echo "    ${APP_DIR}/update.sh                        # Aggiorna"
+echo "    ${APP_DIR}/armbian-repair.sh --reset-schema --fix-wifi  # Ripara Armbian/PocketBase"
 echo ""
 echo "  Aggiornamento automatico (crontab opzionale):"
 echo "    0 3 * * * ${APP_DIR}/update.sh >> /var/log/haccp-update.log 2>&1"

@@ -15,9 +15,12 @@ ADMIN_EMAIL="${PB_SUPERUSER_EMAIL:-admin@haccp.local}"
 ADMIN_PASSWORD="${PB_SUPERUSER_PASSWORD:-Admin123456!}"
 
 # Se eseguito dall'host (non dentro al container) ricalcola percorsi host
-if [ ! -d "$PB_DATA_DIR" ] && [ -d "/opt/haccp-tracker/pb_data" ]; then
+if [ ! -d "$PB_DATA_DIR" ] && [ -d "/opt/haccp-tracker/data/pb_data" ]; then
+  PB_DATA_DIR="/opt/haccp-tracker/data/pb_data"
+  SCHEMA_FILE="/opt/haccp-tracker/pb_schema.json"
+elif [ ! -d "$PB_DATA_DIR" ] && [ -d "/opt/haccp-tracker/pb_data" ]; then
   PB_DATA_DIR="/opt/haccp-tracker/pb_data"
-  SCHEMA_FILE="/opt/haccp-tracker/scripts/pocketbase/pb_schema.json"
+  SCHEMA_FILE="/opt/haccp-tracker/pb_schema.json"
 fi
 
 # ---------- Output helpers ----------
