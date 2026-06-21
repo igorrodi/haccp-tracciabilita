@@ -112,6 +112,13 @@ else
   log_warn "Download schema fallito, mantenuto precedente"
 fi
 
+if curl -sSL --fail "${GITHUB_RAW}/scripts/armbian-repair.sh" -o "${APP_DIR}/armbian-repair.sh" 2>/dev/null; then
+  chmod +x "${APP_DIR}/armbian-repair.sh" 2>/dev/null || true
+  log_ok "Script riparazione Armbian aggiornato"
+else
+  log_warn "Download armbian-repair.sh fallito, mantenuto precedente"
+fi
+
 # ============================================================================
 # PULL & RESTART
 # ============================================================================
