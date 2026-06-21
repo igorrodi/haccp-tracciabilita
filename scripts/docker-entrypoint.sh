@@ -79,6 +79,9 @@ if [ -f /pb/pb_schema.json ]; then
     IMPORT_SCHEMA=true
   elif [ "$(cat "$SCHEMA_MARKER" 2>/dev/null || true)" != "$SCHEMA_HASH" ]; then
     IMPORT_SCHEMA=true
+  elif [ ! -f /pb/pb_data/data.db ]; then
+    echo "Schema marker presente ma data.db assente — re-import necessario"
+    IMPORT_SCHEMA=true
   elif [ -f /pb/pb_data/data.db ] && command -v sqlite3 >/dev/null 2>&1; then
     for collection in $EXPECTED_COLLECTIONS; do
       if ! sqlite3 /pb/pb_data/data.db "select 1 from _collections where name='${collection}' limit 1;" 2>/dev/null | grep -q 1; then
