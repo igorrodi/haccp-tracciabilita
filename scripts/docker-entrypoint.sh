@@ -72,12 +72,21 @@ fi
 SCHEMA_MARKER="/pb/pb_data/.schema_imported"
 IMPORT_SCHEMA=false
 SCHEMA_HASH=""
+EXPECTED_COLLECTIONS="users products product_images suppliers seasons lots allergens printer_settings app_settings temperature_logs reception_logs cleaning_logs cloud_settings lot_images wifi_settings"
 if [ -f /pb/pb_schema.json ]; then
   SCHEMA_HASH=$(sha256sum /pb/pb_schema.json 2>/dev/null | awk '{print $1}')
   if [ ! -f "$SCHEMA_MARKER" ]; then
     IMPORT_SCHEMA=true
   elif [ "$(cat "$SCHEMA_MARKER" 2>/dev/null || true)" != "$SCHEMA_HASH" ]; then
     IMPORT_SCHEMA=true
+  elif [ -f /pb/pb_data/data.db ] && command -v sqlite3 >/dev/null 2>&1; then
+    for collection in $EXPECTED_COLLECTIONS; do
+      if ! sqlite3 /pb/pb_data/data.db "select 1 from _collections where name='${collection}' limit 1;" 2>/dev/null | grep -q 1; then
+        echo "Schema marker presente ma collezione mancante: ${collection} — re-import necessario"
+        IMPORT_SCHEMA=true
+        break
+      fi
+    done
   fi
 fi
 
