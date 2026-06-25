@@ -3,12 +3,6 @@
 # Tracker HACCP - Aggiornamento Automatico (Fault-Tolerant)
 # Usage: sudo /opt/haccp-tracker/update.sh
 #
-# Features:
-#   - Pre-update backup of SQLite database
-#   - Rollback on failure
-#   - Schema download with integrity check
-#   - Version tracking
-#
 set -uo pipefail
 
 readonly APP_DIR="/opt/haccp-tracker"
@@ -21,219 +15,152 @@ readonly GITHUB_REPO="igorrodi/haccp-tracciabilita"
 readonly GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_REPO}/main"
 readonly VERSION_FILE="${PB_DATA}/version.json"
 readonly LOG_FILE="${PB_DATA}/update.log"
+readonly LIB_PATH="${APP_DIR}/scripts/system-prepare.sh"
 
 # Migrazione automatica vecchia struttura → nuova
 if [ -d "${APP_DIR}/pb_data" ] && [ ! -d "${PB_DATA}" ]; then
   mkdir -p "${DATA_DIR}"
   mv "${APP_DIR}/pb_data" "${PB_DATA}"
-  echo "Migrazione dati: ${APP_DIR}/pb_data → ${PB_DATA}"
 fi
-mkdir -p "${PB_DATA}" "${BACKUP_DIR}"
+mkdir -p "${PB_DATA}" "${BACKUP_DIR}" "${APP_DIR}/scripts"
 
-readonly GREEN='\033[0;32m'
-readonly RED='\033[0;31m'
-readonly YELLOW='\033[1;33m'
-readonly CYAN='\033[0;36m'
-readonly NC='\033[0m'
+[ "$EUID" -eq 0 ] || { echo "Esegui come root: sudo $0"; exit 1; }
+cd "${APP_DIR}" || exit 1
 
-log_ok()    { echo -e "$(date '+%Y-%m-%d %H:%M:%S') ${GREEN}[✓]${NC} $1" | tee -a "$LOG_FILE"; }
-log_error() { echo -e "$(date '+%Y-%m-%d %H:%M:%S') ${RED}[✗]${NC} $1" | tee -a "$LOG_FILE"; }
-log_warn()  { echo -e "$(date '+%Y-%m-%d %H:%M:%S') ${YELLOW}[!]${NC} $1" | tee -a "$LOG_FILE"; }
-log_info()  { echo -e "$(date '+%Y-%m-%d %H:%M:%S') ${CYAN}[i]${NC} $1" | tee -a "$LOG_FILE"; }
+# Scarica/aggiorna libreria condivisa
+curl -sSL --fail "${GITHUB_RAW}/scripts/system-prepare.sh" -o "${LIB_PATH}.tmp" 2>/dev/null \
+  && mv "${LIB_PATH}.tmp" "${LIB_PATH}" || true
+if [ -f "${LIB_PATH}" ]; then
+  # shellcheck disable=SC1090
+  . "${LIB_PATH}"
+else
+  sp_log_ok()   { echo "[✓] $1"; }
+  sp_log_warn() { echo "[!] $1"; }
+  sp_log_err()  { echo "[✗] $1"; }
+  sp_log_info() { echo "[i] $1"; }
+fi
 
-# ============================================================================
-# CHECKS
-# ============================================================================
-
-[[ $EUID -eq 0 ]] || { echo "Esegui come root: sudo ./update.sh"; exit 1; }
-cd "${APP_DIR}" || { echo "Cartella ${APP_DIR} non trovata"; exit 1; }
+log_to_file() { echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG_FILE"; }
 
 echo "" >> "$LOG_FILE"
-log_info "═══ Inizio aggiornamento ═══"
+sp_log_info "═══ Aggiornamento $(date '+%Y-%m-%d %H:%M:%S') ═══" | tee -a "$LOG_FILE"
 
 # ============================================================================
-# PRE-UPDATE BACKUP
+# 1. DETECT + 2. VERIFY PACKAGES (solo mancanti)
 # ============================================================================
+if type sp_detect_system &>/dev/null; then
+  sp_detect_system
+  sp_ensure_packages curl ca-certificates jq sqlite3 rsync iproute2 iw rfkill \
+    hostapd dnsmasq 2>&1 | tee -a "$LOG_FILE"
+  sp_install_docker 2>&1 | tee -a "$LOG_FILE"
+fi
 
-mkdir -p "${BACKUP_DIR}"
-
+# ============================================================================
+# PRE-UPDATE BACKUP DB
+# ============================================================================
 TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
 BACKUP_FILE="${BACKUP_DIR}/data_${TIMESTAMP}.db"
-
 if [ -f "$DB_FILE" ]; then
-  # Use SQLite's .backup for a consistent copy (WAL-safe)
   if command -v sqlite3 &>/dev/null; then
-    sqlite3 "$DB_FILE" ".backup '${BACKUP_FILE}'"
-    log_ok "Backup database (sqlite3 .backup): ${BACKUP_FILE}"
+    sqlite3 "$DB_FILE" ".backup '${BACKUP_FILE}'" \
+      && sp_log_ok "Backup DB: ${BACKUP_FILE}" | tee -a "$LOG_FILE"
   else
-    # Fallback: file copy
     cp "$DB_FILE" "$BACKUP_FILE"
-    # Also copy WAL/SHM if present
     [ -f "${DB_FILE}-wal" ] && cp "${DB_FILE}-wal" "${BACKUP_FILE}-wal"
     [ -f "${DB_FILE}-shm" ] && cp "${DB_FILE}-shm" "${BACKUP_FILE}-shm"
-    log_ok "Backup database (copia file): ${BACKUP_FILE}"
   fi
 else
-  log_warn "Database non trovato, skip backup"
+  sp_log_warn "Database non trovato, skip backup" | tee -a "$LOG_FILE"
 fi
-
-# Keep only last 5 backups
-ls -t "${BACKUP_DIR}"/data_*.db 2>/dev/null | tail -n +6 | while read old; do
+# Mantieni solo ultimi 5
+ls -t "${BACKUP_DIR}"/data_*.db 2>/dev/null | tail -n +6 | while read -r old; do
   rm -f "$old" "${old}-wal" "${old}-shm"
 done
-log_ok "Pulizia backup vecchi completata (max 5 conservati)"
 
 # ============================================================================
-# DOWNLOAD UPDATED SCHEMA
+# DOWNLOAD SCHEMA + SCRIPTS
 # ============================================================================
-
 SCHEMA_TMP="${SCHEMA_FILE}.tmp"
 if curl -sSL --fail "${GITHUB_RAW}/scripts/pocketbase/pb_schema.json" -o "$SCHEMA_TMP" 2>/dev/null; then
-  # Validate JSON — try jq, python3, or basic grep as fallback
-  JSON_VALID=false
   if command -v jq &>/dev/null && jq empty "$SCHEMA_TMP" 2>/dev/null; then
-    JSON_VALID=true
-  elif command -v python3 &>/dev/null && python3 -c "import json; json.load(open('${SCHEMA_TMP}'))" 2>/dev/null; then
-    JSON_VALID=true
-  elif head -c 1 "$SCHEMA_TMP" | grep -q '^\[' && tail -c 2 "$SCHEMA_TMP" | grep -q '\]'; then
-    # Basic sanity check: starts with [ and ends with ]
-    JSON_VALID=true
-  fi
-
-  if [ "$JSON_VALID" = true ]; then
+    mv "$SCHEMA_TMP" "$SCHEMA_FILE" && sp_log_ok "Schema aggiornato" | tee -a "$LOG_FILE"
+  elif head -c 1 "$SCHEMA_TMP" | grep -q '^\['; then
     mv "$SCHEMA_TMP" "$SCHEMA_FILE"
-    log_ok "Schema aggiornato"
   else
     rm -f "$SCHEMA_TMP"
-    log_warn "Schema scaricato non valido (JSON malformato), mantenuto precedente"
+    sp_log_warn "Schema scaricato non valido" | tee -a "$LOG_FILE"
   fi
-else
-  rm -f "$SCHEMA_TMP"
-  log_warn "Download schema fallito, mantenuto precedente"
 fi
 
-if curl -sSL --fail "${GITHUB_RAW}/scripts/armbian-repair.sh" -o "${APP_DIR}/armbian-repair.sh" 2>/dev/null; then
-  chmod +x "${APP_DIR}/armbian-repair.sh" 2>/dev/null || true
-  log_ok "Script riparazione Armbian aggiornato"
-else
-  log_warn "Download armbian-repair.sh fallito, mantenuto precedente"
-fi
+for f in armbian-repair.sh setup-hotspot.sh; do
+  curl -sSL --fail "${GITHUB_RAW}/scripts/${f}" -o "${APP_DIR}/${f}" 2>/dev/null \
+    && chmod +x "${APP_DIR}/${f}" || true
+done
 
 # ============================================================================
 # PULL & RESTART
 # ============================================================================
-
-# Save current image digest for comparison
 OLD_DIGEST=$(docker compose images -q haccp 2>/dev/null || echo "none")
-
-if docker compose pull 2>&1 | tee -a "$LOG_FILE"; then
-  log_ok "Immagine scaricata"
-else
-  log_error "Pull fallito — mantenuta versione corrente"
-  # Don't exit, the current image might still work
-fi
-
+docker compose pull 2>&1 | tee -a "$LOG_FILE" || sp_log_warn "Pull parziale" | tee -a "$LOG_FILE"
 NEW_DIGEST=$(docker compose images -q haccp 2>/dev/null || echo "none")
 
 if [ "$OLD_DIGEST" = "$NEW_DIGEST" ] && [ "$OLD_DIGEST" != "none" ]; then
-  log_info "Nessun aggiornamento disponibile (stessa immagine)"
-  
-  # Update version file with check timestamp
+  sp_log_info "Nessun aggiornamento immagine" | tee -a "$LOG_FILE"
   PREV_UPDATE=$(grep -o '"last_update":"[^"]*"' "$VERSION_FILE" 2>/dev/null | cut -d'"' -f4 || date -u '+%Y-%m-%dT%H:%M:%SZ')
   cat > "$VERSION_FILE" <<EOF
-{
-  "last_check": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
-  "last_update": "${PREV_UPDATE}",
-  "status": "up_to_date",
-  "image_digest": "${NEW_DIGEST}"
-}
+{"last_check":"$(date -u '+%Y-%m-%dT%H:%M:%SZ')","last_update":"${PREV_UPDATE}","status":"up_to_date","image_digest":"${NEW_DIGEST}"}
 EOF
-  log_ok "Aggiornamento completato (nessuna modifica)"
+  # Cleanup leggero comunque
+  docker image prune -f &>/dev/null || true
   exit 0
 fi
 
-# Restart with new image
-if docker compose up -d --remove-orphans 2>&1 | tee -a "$LOG_FILE"; then
-  log_ok "Container riavviato con nuova immagine"
-else
-  log_error "Riavvio fallito — tentativo rollback"
-  
-  # Rollback: restore database backup
+if ! docker compose up -d --remove-orphans 2>&1 | tee -a "$LOG_FILE"; then
+  sp_log_err "Riavvio fallito — rollback" | tee -a "$LOG_FILE"
   if [ -f "$BACKUP_FILE" ]; then
     cp "$BACKUP_FILE" "$DB_FILE"
     [ -f "${BACKUP_FILE}-wal" ] && cp "${BACKUP_FILE}-wal" "${DB_FILE}-wal"
     [ -f "${BACKUP_FILE}-shm" ] && cp "${BACKUP_FILE}-shm" "${DB_FILE}-shm"
-    log_warn "Database ripristinato dal backup"
   fi
-  
-  # Try to restart with whatever is available
   docker compose up -d 2>/dev/null || true
-  
   cat > "$VERSION_FILE" <<EOF
-{
-  "last_check": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
-  "last_update": "$(grep -o '"last_update":"[^"]*"' "$VERSION_FILE" 2>/dev/null | cut -d'"' -f4 || echo "unknown")",
-  "status": "rollback",
-  "error": "Riavvio fallito, rollback effettuato"
-}
+{"last_check":"$(date -u '+%Y-%m-%dT%H:%M:%SZ')","status":"rollback","error":"Riavvio fallito"}
 EOF
   exit 1
 fi
 
 # ============================================================================
-# POST-UPDATE HEALTH CHECK
+# HEALTH CHECK
 # ============================================================================
-
-log_info "Verifica salute post-aggiornamento..."
 HEALTHY=false
 for i in $(seq 1 20); do
-  if curl -sf http://localhost/api/health &>/dev/null; then
-    HEALTHY=true
-    break
-  fi
+  curl -sf http://localhost/api/health &>/dev/null && { HEALTHY=true; break; }
   sleep 3
 done
 
-if [ "$HEALTHY" = true ]; then
-  log_ok "Health check superato"
-else
-  log_error "Health check fallito dopo 60s — tentativo rollback"
-  
+if [ "$HEALTHY" != true ]; then
+  sp_log_err "Health check fallito — rollback" | tee -a "$LOG_FILE"
   if [ -f "$BACKUP_FILE" ]; then
     docker compose down 2>/dev/null || true
     cp "$BACKUP_FILE" "$DB_FILE"
     [ -f "${BACKUP_FILE}-wal" ] && cp "${BACKUP_FILE}-wal" "${DB_FILE}-wal"
     [ -f "${BACKUP_FILE}-shm" ] && cp "${BACKUP_FILE}-shm" "${DB_FILE}-shm"
     docker compose up -d 2>/dev/null || true
-    log_warn "Rollback completato"
   fi
-  
   cat > "$VERSION_FILE" <<EOF
-{
-  "last_check": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
-  "last_update": "$(grep -o '"last_update":"[^"]*"' "$VERSION_FILE" 2>/dev/null | cut -d'"' -f4 || echo "unknown")",
-  "status": "failed",
-  "error": "Health check fallito post-aggiornamento"
-}
+{"last_check":"$(date -u '+%Y-%m-%dT%H:%M:%SZ')","status":"failed","error":"Health check fallito"}
 EOF
   exit 1
 fi
 
 # ============================================================================
-# CLEANUP & VERSION
+# CLEANUP LEGGERO (NON tocca dati, NON rilancia wizard)
 # ============================================================================
+docker image prune -f >> "$LOG_FILE" 2>&1 || true
+# Log vecchi >30gg
+find "${PB_DATA}/logs" -type f -mtime +30 -delete 2>/dev/null || true
 
-docker image prune -f >> "$LOG_FILE" 2>&1
-log_ok "Immagini inutilizzate rimosse"
-
-# Write version info
 cat > "$VERSION_FILE" <<EOF
-{
-  "last_check": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
-  "last_update": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
-  "status": "updated",
-  "image_digest": "${NEW_DIGEST}"
-}
+{"last_check":"$(date -u '+%Y-%m-%dT%H:%M:%SZ')","last_update":"$(date -u '+%Y-%m-%dT%H:%M:%SZ')","status":"updated","image_digest":"${NEW_DIGEST}"}
 EOF
-
-log_ok "═══ Aggiornamento completato con successo ═══"
+sp_log_ok "═══ Aggiornamento completato ═══" | tee -a "$LOG_FILE"
