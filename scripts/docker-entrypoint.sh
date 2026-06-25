@@ -68,58 +68,78 @@ if [ ! -f "$PB_SUPERUSER_MARKER" ]; then
   fi
 fi
 
-# Auto-import schema on first boot (creates collections from pb_schema.json)
-SCHEMA_MARKER="/pb/pb_data/.schema_imported"
-IMPORT_SCHEMA=false
-SCHEMA_HASH=""
+# ============================================================================
+# PERSISTENCE & SCHEMA IMPORT (robust, idempotent, self-healing)
+# ============================================================================
 EXPECTED_COLLECTIONS="users products product_images suppliers seasons lots allergens printer_settings app_settings temperature_logs reception_logs cleaning_logs cloud_settings lot_images wifi_settings"
+SCHEMA_MARKER="/pb/pb_data/.schema_imported"
+
+# 1) Verifica che pb_data sia scrivibile (montaggio volume corretto)
+if ! touch /pb/pb_data/.write_test 2>/dev/null; then
+  echo "ERRORE CRITICO: /pb/pb_data non scrivibile — controlla i mount Docker"
+  ls -la /pb/pb_data || true
+  exit 1
+fi
+rm -f /pb/pb_data/.write_test
+echo "Persistenza OK: /pb/pb_data scrivibile"
+
+# 2) Valida pb_schema.json prima di toccarlo
+SCHEMA_HASH=""
+SCHEMA_VALID=false
 if [ -f /pb/pb_schema.json ]; then
-  SCHEMA_HASH=$(sha256sum /pb/pb_schema.json 2>/dev/null | awk '{print $1}')
-  if [ ! -f "$SCHEMA_MARKER" ]; then
-    IMPORT_SCHEMA=true
-  elif [ "$(cat "$SCHEMA_MARKER" 2>/dev/null || true)" != "$SCHEMA_HASH" ]; then
-    IMPORT_SCHEMA=true
-  elif [ ! -f /pb/pb_data/data.db ]; then
-    echo "Schema marker presente ma data.db assente — re-import necessario"
-    IMPORT_SCHEMA=true
-  elif [ -f /pb/pb_data/data.db ] && command -v sqlite3 >/dev/null 2>&1; then
-    for collection in $EXPECTED_COLLECTIONS; do
-      if ! sqlite3 /pb/pb_data/data.db "select 1 from _collections where name='${collection}' limit 1;" 2>/dev/null | grep -q 1; then
-        echo "Schema marker presente ma collezione mancante: ${collection} — re-import necessario"
-        IMPORT_SCHEMA=true
-        break
-      fi
-    done
+  if command -v jq >/dev/null 2>&1 && jq -e 'type=="array" and length>0' /pb/pb_schema.json >/dev/null 2>&1; then
+    SCHEMA_VALID=true
+    SCHEMA_HASH=$(sha256sum /pb/pb_schema.json | awk '{print $1}')
+    echo "pb_schema.json valido ($(jq 'length' /pb/pb_schema.json) collezioni, hash ${SCHEMA_HASH%????????????????????????????????????????????????????????})"
+  else
+    echo "ATTENZIONE: pb_schema.json non valido o vuoto — import saltato"
   fi
 fi
 
-if [ "$IMPORT_SCHEMA" = "true" ]; then
-  echo "Importazione schema collezioni..."
+# 3) Decide se serve (re)import
+IMPORT_SCHEMA=false
+MISSING_COLLECTIONS=""
+if [ "$SCHEMA_VALID" = "true" ]; then
+  if [ ! -f "$SCHEMA_MARKER" ]; then
+    IMPORT_SCHEMA=true
+    echo "Schema mai importato — import iniziale"
+  elif [ "$(cat "$SCHEMA_MARKER" 2>/dev/null)" != "$SCHEMA_HASH" ]; then
+    IMPORT_SCHEMA=true
+    echo "Schema modificato — re-import"
+  elif [ ! -f /pb/pb_data/data.db ]; then
+    IMPORT_SCHEMA=true
+    echo "data.db assente — re-import"
+  elif command -v sqlite3 >/dev/null 2>&1; then
+    for collection in $EXPECTED_COLLECTIONS; do
+      if ! sqlite3 /pb/pb_data/data.db "select 1 from _collections where name='${collection}' limit 1;" 2>/dev/null | grep -q 1; then
+        MISSING_COLLECTIONS="$MISSING_COLLECTIONS $collection"
+        IMPORT_SCHEMA=true
+      fi
+    done
+    [ -n "$MISSING_COLLECTIONS" ] && echo "Collezioni mancanti:$MISSING_COLLECTIONS — re-import"
+  fi
+fi
+
+# 4) Esegui import con retry e verifica post-import
+do_schema_import() {
   pocketbase serve --http=127.0.0.1:8091 --dir=/pb/pb_data --hooksDir=/pb/pb_hooks >/tmp/pb-import.log 2>&1 &
   PB_PID=$!
 
-  # Wait for PocketBase to be ready
   PB_READY=false
   for i in $(seq 1 30); do
-    if curl -sf http://127.0.0.1:8091/api/health >/dev/null 2>&1; then
-      PB_READY=true
-      break
-    fi
+    curl -sf http://127.0.0.1:8091/api/health >/dev/null 2>&1 && { PB_READY=true; break; }
     sleep 1
   done
 
+  IMPORT_OK=false
   if [ "$PB_READY" = "true" ]; then
-    # Authenticate as superuser
-    AUTH_BODY="{\"identity\":\"${PB_SUPERUSER_EMAIL}\",\"password\":\"${PB_SUPERUSER_PASSWORD}\"}"
     AUTH_RESPONSE=$(curl -s -X POST \
       -H "Content-Type: application/json" \
-      -d "$AUTH_BODY" \
+      -d "{\"identity\":\"${PB_SUPERUSER_EMAIL}\",\"password\":\"${PB_SUPERUSER_PASSWORD}\"}" \
       "http://127.0.0.1:8091/api/collections/_superusers/auth-with-password" || echo "")
-
     TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.token // empty' 2>/dev/null)
 
     if [ -n "$TOKEN" ]; then
-      # Build import payload to a file (avoids shell quoting issues)
       jq -n --slurpfile cols /pb/pb_schema.json \
         '{collections: $cols[0], deleteMissing: false}' > /tmp/import-payload.json
 
@@ -131,29 +151,70 @@ if [ "$IMPORT_SCHEMA" = "true" ]; then
         "http://127.0.0.1:8091/api/collections/import")
 
       if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
-        echo "Schema collezioni importato con successo (HTTP $HTTP_CODE)"
-        echo "$SCHEMA_HASH" > "$SCHEMA_MARKER"
+        echo "  ✓ Import HTTP $HTTP_CODE"
+        IMPORT_OK=true
       else
-        echo "ERRORE importazione schema (HTTP $HTTP_CODE):"
-        cat /tmp/import-result.json || true
+        echo "  ✗ Import HTTP $HTTP_CODE:"
+        cat /tmp/import-result.json 2>/dev/null || true
         echo ""
       fi
     else
-      echo "ERRORE: autenticazione superuser fallita per import schema"
-      echo "Response: $AUTH_RESPONSE"
+      echo "  ✗ Auth superuser fallita: $AUTH_RESPONSE"
     fi
   else
-    echo "ERRORE: PocketBase non raggiungibile per import schema"
+    echo "  ✗ PocketBase non pronto per import"
     tail -20 /tmp/pb-import.log || true
   fi
 
-  # Stop temporary PocketBase
   kill $PB_PID 2>/dev/null || true
   wait $PB_PID 2>/dev/null || true
   sleep 1
+  [ "$IMPORT_OK" = "true" ]
+}
+
+verify_collections() {
+  command -v sqlite3 >/dev/null 2>&1 || return 0
+  [ -f /pb/pb_data/data.db ] || return 1
+  for c in $EXPECTED_COLLECTIONS; do
+    sqlite3 /pb/pb_data/data.db "select 1 from _collections where name='${c}' limit 1;" 2>/dev/null | grep -q 1 \
+      || { echo "  ✗ Verifica fallita: manca '${c}'"; return 1; }
+  done
+  return 0
+}
+
+if [ "$IMPORT_SCHEMA" = "true" ]; then
+  ATTEMPT=0
+  IMPORT_SUCCESS=false
+  while [ $ATTEMPT -lt 2 ]; do
+    ATTEMPT=$((ATTEMPT+1))
+    echo "Importazione schema (tentativo ${ATTEMPT}/2)..."
+    if do_schema_import && verify_collections; then
+      IMPORT_SUCCESS=true
+      break
+    fi
+    echo "  → retry tra 2s..."
+    sleep 2
+  done
+
+  if [ "$IMPORT_SUCCESS" = "true" ]; then
+    echo "$SCHEMA_HASH" > "$SCHEMA_MARKER"
+    echo "✓ Schema importato e verificato (${ATTEMPT} tent.)"
+  else
+    echo "✗ ERRORE: import schema fallito dopo ${ATTEMPT} tentativi."
+    echo "  Avvio PocketBase comunque — usa: armbian-repair.sh --reset-schema"
+    rm -f "$SCHEMA_MARKER"
+  fi
 fi
 
-echo "Schema gestito via pb_schema.json"
+# 5) Sanity check finale persistenza SQLite
+if [ -f /pb/pb_data/data.db ] && command -v sqlite3 >/dev/null 2>&1; then
+  if ! sqlite3 /pb/pb_data/data.db "pragma integrity_check;" 2>/dev/null | grep -q '^ok$'; then
+    echo "ATTENZIONE: pragma integrity_check NON ok — DB potenzialmente corrotto"
+  else
+    COL_COUNT=$(sqlite3 /pb/pb_data/data.db "select count(*) from _collections;" 2>/dev/null || echo "0")
+    echo "✓ DB integro — ${COL_COUNT} collezioni presenti"
+  fi
+fi
 
 # Start PocketBase with hooks
 exec pocketbase serve \
