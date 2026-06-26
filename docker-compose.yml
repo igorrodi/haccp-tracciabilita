@@ -15,7 +15,8 @@ services:
       - ./data/pb_data:/pb/pb_data
       - ./data/backups:/pb/pb_data/backups
       - ./pb_schema.json:/pb/pb_schema.json:ro
-      - ./data/rclone.conf:/pb/pb_data/rclone.conf:ro
+      # rclone.conf vive dentro pb_data (scritto dall'hook cloud_backup.pb.js)
+      # NON montare ./data/rclone.conf: l'app lo gestisce internamente
     devices:
       - /dev/bus/usb:/dev/bus/usb
     privileged: true
