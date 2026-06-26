@@ -55,15 +55,22 @@ ok "mDNS attivo: haccp.local"
 log "Avvio profilo https in docker compose..."
 cd "${APP_DIR}" || { err "APP_DIR non trovato: ${APP_DIR}"; exit 1; }
 
-if ! grep -q "profiles:" docker-compose.yml || ! grep -q "caddy:" docker-compose.yml; then
+if ! grep -q "caddy:" docker-compose.yml; then
   warn "docker-compose.yml non contiene il service 'caddy' — aggiorna l'app (./update.sh)"
   exit 1
 fi
 
+# Sposta haccp su 8080 per liberare 80/443 a Caddy
+ENV_FILE="${APP_DIR}/.env"
+if ! grep -q "^HACCP_HTTP_PORT=" "${ENV_FILE}" 2>/dev/null; then
+  echo "HACCP_HTTP_PORT=8080" >> "${ENV_FILE}"
+fi
+
+docker compose up -d --remove-orphans haccp >/dev/null 2>&1 || true
 docker compose --profile https pull 2>/dev/null || true
 docker compose --profile https up -d --remove-orphans \
   || { err "Avvio Caddy fallito"; exit 1; }
-ok "Caddy avviato (porte 80/443)"
+ok "Caddy avviato (porte 80/443), haccp interno su :8080"
 
 # ---------- 4. Healthcheck ----------
 log "Verifica HTTPS..."

@@ -104,8 +104,8 @@ case "${SP_OS_ID}" in
     ;;
 esac
 
-[ "$WITH_CADDY" -eq 1 ] && sp_ensure_packages caddy
-sp_install_docker
+# Caddy NON va installato a livello host: gira in container (vedi setup-https.sh)
+[ "$WITH_CADDY" -eq 1 ] && sp_log_info "Modalità HTTPS richiesta — sarà attivata dopo l'avvio"
 sp_prepare_network
 
 # ============================================================================
