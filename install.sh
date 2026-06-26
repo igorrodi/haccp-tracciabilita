@@ -147,6 +147,9 @@ download_file "${GITHUB_RAW}/scripts/pocketbase/pb_schema.json" "${APP_DIR}/pb_s
 download_file "${GITHUB_RAW}/update.sh" "${APP_DIR}/update.sh"
 download_file "${GITHUB_RAW}/scripts/setup-hotspot.sh" "${APP_DIR}/setup-hotspot.sh"
 download_file "${GITHUB_RAW}/scripts/armbian-repair.sh" "${APP_DIR}/armbian-repair.sh"
+download_file "${GITHUB_RAW}/scripts/setup-https.sh" "${APP_DIR}/setup-https.sh"
+mkdir -p "${APP_DIR}/caddy"
+download_file "${GITHUB_RAW}/scripts/caddy/Caddyfile" "${APP_DIR}/caddy/Caddyfile"
 chmod +x "${APP_DIR}"/*.sh 2>/dev/null || true
 
 # rclone.conf vuoto se non esiste (per il volume Docker)
