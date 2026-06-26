@@ -208,6 +208,12 @@ else
   fi
 fi
 
+# Setup HTTPS + haccp.local (opzionale)
+if [ "$WITH_CADDY" -eq 1 ] && [ -x "${APP_DIR}/setup-https.sh" ]; then
+  sp_log_info "── Attivazione HTTPS + haccp.local ──"
+  APP_DIR="${APP_DIR}" "${APP_DIR}/setup-https.sh" || sp_log_warn "Setup HTTPS fallito"
+fi
+
 # ============================================================================
 # DONE
 # ============================================================================
@@ -224,7 +230,13 @@ if [ "$NEEDS_SETUP" = true ]; then
   echo "    3. Crea admin, configura Wi-Fi e backup cloud dal wizard web"
   echo ""
 fi
-echo "  App:       http://${IP}  o  http://haccp.local"
+if [ "$WITH_CADDY" -eq 1 ]; then
+  echo "  App:       https://haccp.local/  o  https://${IP}/  (HTTPS attivo)"
+  echo "  CA cert:   ${DATA_DIR}/haccp-root-ca.crt"
+else
+  echo "  App:       http://${IP}  o  http://haccp.local"
+  echo "  HTTPS:     attivalo con  sudo ${APP_DIR}/setup-https.sh"
+fi
 echo "  Admin PB:  http://${IP}/_/"
 echo "  Dati:      ${PB_DATA}/  (PROTETTI da update/cleanup)"
 echo "  Backup:    ${BACKUP_DIR}/"
