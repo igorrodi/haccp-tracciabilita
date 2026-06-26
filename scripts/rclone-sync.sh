@@ -8,10 +8,18 @@ set -e
 
 EXPORT_DIR="/pb/pb_data/exports"
 BACKUP_DIR="/pb/pb_data"
-RCLONE_REMOTE="gdrive:HACCP-Backup"
 LOG_FILE="/pb/pb_data/rclone-sync.log"
 SETTINGS_FILE="/pb/pb_data/rclone.conf"
 STATUS_FILE="/pb/pb_data/exports/.rclone-status.json"
+REMOTE_MARKER="/pb/pb_data/.rclone-remote"
+
+# Provider rilevato dal marker scritto dall'hook cloud_backup.pb.js
+if [ -s "$REMOTE_MARKER" ]; then
+  REMOTE_NAME="$(tr -d '[:space:]' < "$REMOTE_MARKER")"
+else
+  REMOTE_NAME="gdrive"
+fi
+RCLONE_REMOTE="${REMOTE_NAME}:HACCP-Backup"
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
