@@ -7,10 +7,11 @@ services:
       dockerfile: Dockerfile
       platforms:
         - linux/arm64
-    # Quando il profilo "https" è attivo, Caddy fa da reverse proxy: haccp resta interno.
-    # Senza profilo (default), espone 80 direttamente sull'host.
-    ports: !override
-      - "80:80"
+    # Quando il profilo "https" è attivo, Caddy prende 80/443 e haccp resta
+    # accessibile sulla porta HACCP_HTTP_PORT (default 8080 in modalità https).
+    # Senza profilo, la porta default 80 espone l'app direttamente.
+    ports:
+      - "${HACCP_HTTP_PORT:-80}:80"
       - "631:631"
     volumes:
       # Separazione codice/dati: tutti i dati persistenti vivono in ./data
