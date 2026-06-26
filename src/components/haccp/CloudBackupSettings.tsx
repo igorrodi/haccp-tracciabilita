@@ -147,6 +147,13 @@ export const CloudBackupSettings = () => {
         setConfig(prev => ({ ...prev, id: record.id }));
       }
 
+      // Rigenera rclone.conf lato server
+      try {
+        await pb.send('/api/cloud-backup/configure', { method: 'POST' });
+      } catch (err: any) {
+        console.warn('configure warning:', err?.message);
+      }
+
       toast({ title: "Configurazione salvata", description: "Le impostazioni cloud sono state aggiornate" });
     } catch (error: any) {
       toast({ title: "Errore", description: error.message || "Impossibile salvare la configurazione", variant: "destructive" });
@@ -157,18 +164,35 @@ export const CloudBackupSettings = () => {
 
   const testConnection = async () => {
     setTestingConnection(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    toast({ title: "Connessione verificata", description: `Connessione a ${getProviderName(config.provider)} riuscita!` });
-    setTestingConnection(false);
+    try {
+      const res: any = await pb.send('/api/cloud-backup/test', { method: 'POST' });
+      if (res?.success) {
+        toast({ title: "Connessione verificata", description: `Connessione a ${getProviderName(config.provider)} riuscita!` });
+      } else {
+        throw new Error(res?.error || 'Test fallito');
+      }
+    } catch (error: any) {
+      toast({ title: "Test fallito", description: error?.message || 'Verifica le credenziali e riprova', variant: 'destructive' });
+    } finally {
+      setTestingConnection(false);
+    }
   };
 
   const triggerManualBackup = async () => {
     setLoading(true);
-    toast({ title: "Backup avviato", description: "Il backup manuale è in corso..." });
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    setConfig(prev => ({ ...prev, lastBackup: new Date().toISOString(), lastBackupStatus: 'success' }));
-    toast({ title: "Backup completato", description: "I dati sono stati salvati su cloud" });
-    setLoading(false);
+    try {
+      const res: any = await pb.send('/api/cloud-backup/run', { method: 'POST' });
+      if (res?.success) {
+        toast({ title: "Backup avviato", description: "Il backup è in esecuzione in background. Controlla lo stato fra qualche istante." });
+        setTimeout(() => { loadRcloneStatus(); }, 5000);
+      } else {
+        throw new Error(res?.error || 'Avvio backup fallito');
+      }
+    } catch (error: any) {
+      toast({ title: "Errore backup", description: error?.message || 'Impossibile avviare il backup', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getProviderName = (provider: string) => {
