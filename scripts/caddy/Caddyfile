@@ -1,0 +1,59 @@
+# =============================================================
+# HACCP Tracker - Caddy reverse proxy
+# - HTTPS via cert self-signed gestito da Caddy ("tls internal")
+# - Funziona offline su LAN del ristorante
+# - Risponde su haccp.local + IP del Pi + qualsiasi hostname
+# - HTTP → redirect a HTTPS
+# - Endpoint /api/health passthrough verso PocketBase
+# =============================================================
+
+{
+	# Disabilita auto-HTTPS pubblico (Let's Encrypt) — siamo offline
+	auto_https disable_redirects
+	admin off
+	# CA root persistente per esportazione
+	storage file_system {
+		root /data
+	}
+}
+
+# Catch-all: haccp.local, *.local, IP, hostname — qualsiasi cosa colpisca questo Pi
+:443 {
+	tls internal {
+		on_demand
+	}
+
+	# Headers di sicurezza standard
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Proxy a PocketBase (container haccp, porta 80 interna)
+	reverse_proxy haccp:80 {
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	# Log compatti
+	log {
+		output stdout
+		format console
+		level WARN
+	}
+}
+
+# Redirect HTTP → HTTPS (eccetto /api/health per healthcheck Docker)
+:80 {
+	@health path /api/health
+	handle @health {
+		reverse_proxy haccp:80
+	}
+	handle {
+		redir https://{host}{uri} permanent
+	}
+}

@@ -7,7 +7,9 @@ services:
       dockerfile: Dockerfile
       platforms:
         - linux/arm64
-    ports:
+    # Quando il profilo "https" è attivo, Caddy fa da reverse proxy: haccp resta interno.
+    # Senza profilo (default), espone 80 direttamente sull'host.
+    ports: !override
       - "80:80"
       - "631:631"
     volumes:
@@ -16,7 +18,6 @@ services:
       - ./data/backups:/pb/pb_data/backups
       - ./pb_schema.json:/pb/pb_schema.json:ro
       # rclone.conf vive dentro pb_data (scritto dall'hook cloud_backup.pb.js)
-      # NON montare ./data/rclone.conf: l'app lo gestisce internamente
     devices:
       - /dev/bus/usb:/dev/bus/usb
     privileged: true
@@ -40,3 +41,42 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - haccp-net
+
+  # ---- Reverse proxy HTTPS (opzionale) ----
+  # Attiva con:  docker compose --profile https up -d
+  # Oppure usa:  bash scripts/setup-https.sh
+  caddy:
+    image: caddy:2-alpine
+    platform: linux/arm64
+    profiles: ["https"]
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data/caddy:/data
+      - ./data/caddy-config:/config
+    depends_on:
+      - haccp
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    networks:
+      - haccp-net
+
+networks:
+  haccp-net:
+    driver: bridge
+
