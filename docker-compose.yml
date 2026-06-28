@@ -30,6 +30,8 @@ services:
       - POCKETBASE_PRAGMA_BUSY_TIMEOUT=5000
       - PB_SUPERUSER_EMAIL=admin@haccp.local
       - PB_SUPERUSER_PASSWORD=Admin123456!
+      # AI Maintenance: passa la chiave Lovable AI Gateway al container (vuota = AI disabilitata)
+      - LOVABLE_API_KEY=${LOVABLE_API_KEY:-}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/api/health"]
