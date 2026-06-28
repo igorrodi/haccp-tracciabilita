@@ -10,8 +10,9 @@ import { UpdatesBackupPanel } from './UpdatesBackupPanel';
 import { TemperatureLocationsSettings } from './TemperatureLocationsSettings';
 import { SeasonManager } from './SeasonManager';
 import { WiFiSettings } from './WiFiSettings';
+import { AIMaintenancePanel } from './AIMaintenancePanel';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ExternalLink, Database, Settings, FileSpreadsheet, AlertTriangle, Truck, Users, Info, Printer, ArrowUpCircle, Calendar, KeyRound, Wifi } from 'lucide-react';
+import { ExternalLink, Database, Settings, FileSpreadsheet, AlertTriangle, Truck, Users, Info, Printer, ArrowUpCircle, Calendar, KeyRound, Wifi, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isAdmin } from '@/lib/pocketbase';
 import { useAppVersion } from '@/hooks/useAppVersion';
@@ -75,6 +76,10 @@ export const SystemPanel = () => {
           {admin && <TabsTrigger value="wifi" className="flex-shrink-0 flex items-center gap-1">
             <Wifi className="w-3 h-3" />
             Wi-Fi
+          </TabsTrigger>}
+          {admin && <TabsTrigger value="ai" className="flex-shrink-0 flex items-center gap-1">
+            <Brain className="w-3 h-3" />
+            AI
           </TabsTrigger>}
           <TabsTrigger value="account" className="flex-shrink-0 flex items-center gap-1">
             <KeyRound className="w-3 h-3" />
