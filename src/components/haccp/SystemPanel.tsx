@@ -131,6 +131,12 @@ export const SystemPanel = () => {
         </TabsContent>
       )}
 
+      {admin && (
+        <TabsContent value="ai">
+          <AIMaintenancePanel />
+        </TabsContent>
+      )}
+
       <TabsContent value="account">
         <ChangePassword />
       </TabsContent>
