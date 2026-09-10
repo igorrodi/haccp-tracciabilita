@@ -54,15 +54,15 @@ export const Header = ({ activeTab, onTabChange }: HeaderProps) => {
   ];
 
   return (
-    <header className="bg-card shadow-sm sticky top-0 z-30 border-b border-border">
+    <header className="bg-card/95 backdrop-blur shadow-soft sticky top-0 z-30 border-b border-border">
       <div className="max-w-6xl mx-auto px-4 py-3 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-primary text-primary-foreground p-2.5 rounded-xl">
+            <div className="bg-gradient-primary text-primary-foreground p-2.5 rounded-xl shadow-soft">
               <Shield className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-foreground">HACCP Tracker</h1>
+              <h1 className="font-display text-lg font-bold text-foreground">HACCP Tracker</h1>
               <p className="text-xs text-muted-foreground">Versione Locale</p>
             </div>
           </div>
