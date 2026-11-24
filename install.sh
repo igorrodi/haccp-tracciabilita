@@ -8,6 +8,14 @@
 #   --with-caddy             installa Caddy come reverse proxy
 #   --non-interactive        non chiede nulla (anche con HACCP_NONINTERACTIVE=1)
 #   --skip-cleanup           salta la pulizia di vecchie config
+#   --phase1                 solo Fase 1: prepara sistema + hotspot + portale rete
+#   --phase2                 solo Fase 2: installa e avvia la web app (lanciata dal portale)
+#   --no-onboarding          salta il portale rete e installa subito tutto (es. con cavo)
+#
+# Installazione in DUE FASI (default su prima installazione):
+#   Fase 1 (host, senza Docker): pacchetti, hotspot HACCP-Setup-XXXXXX e portale
+#          http://192.168.4.1 per scegliere cavo / Wi-Fi esterno (anche doppia scheda)
+#   Fase 2 (live dal portale): scarica e avvia la web app, poi wizard account admin
 #
 set -uo pipefail
 
@@ -24,12 +32,17 @@ PURGE_OLD=0
 WITH_CADDY=0
 NONINTERACTIVE="${HACCP_NONINTERACTIVE:-0}"
 SKIP_CLEANUP=0
+PHASE="all"
+ONBOARDING=1
 for arg in "$@"; do
   case "$arg" in
     --purge-old) PURGE_OLD=1 ;;
     --with-caddy) WITH_CADDY=1 ;;
     --non-interactive) NONINTERACTIVE=1 ;;
     --skip-cleanup) SKIP_CLEANUP=1 ;;
+    --phase1) PHASE=1 ;;
+    --phase2) PHASE=2; NONINTERACTIVE=1 ;;
+    --no-onboarding) ONBOARDING=0 ;;
   esac
 done
 
@@ -71,8 +84,19 @@ if ! sp_is_supported_os; then
 fi
 
 # Internet
-ping -c 2 -W 5 8.8.8.8 &>/dev/null || { sp_log_err "Nessuna connessione internet"; exit 1; }
-sp_log_ok "Connessione internet OK"
+HAS_INTERNET=0
+ping -c 2 -W 5 8.8.8.8 &>/dev/null && HAS_INTERNET=1
+if [ "$HAS_INTERNET" -eq 1 ]; then
+  sp_log_ok "Connessione internet OK"
+elif [ "$PHASE" = "2" ]; then
+  sp_log_err "Fase 2: nessuna connessione internet — collega cavo o Wi-Fi dal portale"; exit 1
+elif command -v hostapd &>/dev/null && command -v dnsmasq &>/dev/null && command -v python3 &>/dev/null \
+     && [ -f "${APP_DIR}/onboarding/haccp-onboarding.py" ]; then
+  sp_log_warn "Nessuna connessione internet: avvio direttamente la Fase 1 (hotspot + portale rete)"
+  PHASE=1
+else
+  sp_log_err "Nessuna connessione internet e pacchetti hotspot assenti: collega il cavo Ethernet e riprova"; exit 1
+fi
 
 # Disco
 FREE_KB=$(df -k / | tail -1 | awk '{print $4}')
@@ -89,8 +113,9 @@ fi
 # 2. PACKAGES & SYSTEM PREP
 # ============================================================================
 sp_log_info "── Pacchetti & preparazione sistema ──"
+if [ "$HAS_INTERNET" -eq 1 ]; then
 sp_ensure_packages curl ca-certificates jq sqlite3 rsync iproute2 iw rfkill \
-  hostapd dnsmasq
+  hostapd dnsmasq python3 wpasupplicant
 
 # Rete: NetworkManager preferito su Armbian/Ubuntu, dhcpcd su RaspiOS classico
 case "${SP_OS_ID}" in
@@ -108,6 +133,79 @@ esac
 [ "$WITH_CADDY" -eq 1 ] && sp_log_info "Modalità HTTPS richiesta — sarà attivata dopo l'avvio"
 sp_install_docker
 sp_prepare_network
+fi
+
+# ============================================================================
+# FASE 1 — HOTSPOT + PORTALE RETE (nativo, senza Docker)
+# ============================================================================
+ONB_FLAG="${DATA_DIR}/.onboarding_active"
+start_onboarding() {
+  sp_log_info "── FASE 1: preparazione rete (hotspot + portale) ──"
+  mkdir -p "${APP_DIR}/onboarding"
+  if [ "$HAS_INTERNET" -eq 1 ]; then
+    for f in haccp-onboarding.py index.html; do
+      curl -sSL --fail "${GITHUB_RAW}/scripts/onboarding/${f}" -o "${APP_DIR}/onboarding/${f}.tmp" 2>/dev/null \
+        && mv "${APP_DIR}/onboarding/${f}.tmp" "${APP_DIR}/onboarding/${f}" || rm -f "${APP_DIR}/onboarding/${f}.tmp"
+    done
+    curl -sSL --fail "${GITHUB_RAW}/scripts/setup-hotspot.sh" -o "${APP_DIR}/setup-hotspot.sh" 2>/dev/null || true
+    curl -sSL --fail "${GITHUB_RAW}/install.sh" -o "${APP_DIR}/install.sh.tmp" 2>/dev/null \
+      && mv "${APP_DIR}/install.sh.tmp" "${APP_DIR}/install.sh" || rm -f "${APP_DIR}/install.sh.tmp"
+    curl -sSL --fail "${GITHUB_RAW}/scripts/haccp-onboarding.service" -o /etc/systemd/system/haccp-onboarding.service 2>/dev/null || true
+    # Pre-scarico immagini: la Fase 2 sarà veloce anche se la rete cambia
+    curl -sSL --fail "${GITHUB_RAW}/docker-compose.yml" -o "${APP_DIR}/docker-compose.yml" 2>/dev/null \
+      && (cd "${APP_DIR}" && docker compose pull 2>/dev/null) && sp_log_ok "Immagini web app pre-scaricate" || true
+  fi
+  chmod +x "${APP_DIR}"/*.sh 2>/dev/null || true
+  [ -f "${APP_DIR}/onboarding/haccp-onboarding.py" ] || { sp_log_err "Portale onboarding non disponibile"; exit 1; }
+
+  # Scheda hotspot: la prima Wi-Fi; con doppia scheda la seconda resta client
+  AP_IFACE=$(iw dev 2>/dev/null | awk '$1=="Interface"{print $2}' | sort | head -1)
+  [ -n "$AP_IFACE" ] || { sp_log_err "Nessuna scheda Wi-Fi per l'hotspot"; exit 1; }
+  WIFI_COUNT=$(iw dev 2>/dev/null | awk '$1=="Interface"' | wc -l)
+  sp_log_ok "Schede Wi-Fi: ${WIFI_COUNT} (hotspot su ${AP_IFACE})"
+
+  # Libera la porta 80 (container eventualmente attivo)
+  (cd "${APP_DIR}" && docker compose down 2>/dev/null) || true
+  "${APP_DIR}/setup-hotspot.sh" --mode=setup --iface="${AP_IFACE}" || sp_log_warn "Hotspot: verifica manuale necessaria"
+  # Captive portal: tutti i domini puntano al portale
+  if [ -d /etc/dnsmasq.d ]; then
+    echo "address=/#/192.168.4.1" > /etc/dnsmasq.d/haccp-captive.conf
+    systemctl restart dnsmasq 2>/dev/null || true
+  fi
+
+  printf 'HACCP_AP_IFACE=%s\n' "$AP_IFACE" > "${DATA_DIR}/onboarding.env"
+  touch "$ONB_FLAG"
+  rm -f "${DATA_DIR}/onboarding_state.json" "${DATA_DIR}/phase2-install.log.rc"
+  systemctl daemon-reload
+  systemctl enable haccp-onboarding.service &>/dev/null || true
+  systemctl restart haccp-onboarding.service \
+    || { sp_log_err "Portale non avviato (journalctl -u haccp-onboarding)"; exit 1; }
+
+  echo ""
+  sp_log_ok "═══════════════════════════════════════════════"
+  sp_log_ok "  ✓ FASE 1 COMPLETATA — sistema preparato"
+  sp_log_ok "═══════════════════════════════════════════════"
+  echo "  1. Collega telefono/tablet al Wi-Fi 'HACCP-Setup-XXXXXX'"
+  echo "  2. Si apre la pagina di preparazione (o vai su http://192.168.4.1)"
+  echo "  3. Scegli cavo o Wi-Fi esterno → l'app si installa in automatico (Fase 2)"
+  echo "  Log Fase 2: ${DATA_DIR}/phase2-install.log"
+  echo ""
+  exit 0
+}
+
+stop_onboarding() {
+  [ -f "$ONB_FLAG" ] || return 0
+  sp_log_info "Chiusura portale Fase 1..."
+  rm -f "$ONB_FLAG" /etc/dnsmasq.d/haccp-captive.conf
+  systemctl disable --now haccp-onboarding.service &>/dev/null || true
+  systemctl restart dnsmasq 2>/dev/null || true
+}
+
+FRESH_INSTALL=1
+[ -f "${PB_DATA}/setup_complete.json" ] || [ -f "${PB_DATA}/data.db" ] && FRESH_INSTALL=0
+if [ "$PHASE" = "1" ] || { [ "$PHASE" = "all" ] && [ "$ONBOARDING" -eq 1 ] && [ "$FRESH_INSTALL" -eq 1 ]; }; then
+  start_onboarding
+fi
 
 # ============================================================================
 # 3. WEB APP INSTALL
@@ -178,7 +276,9 @@ fi
 # 5. START & HANDOFF AL WIZARD WEB
 # ============================================================================
 sp_log_info "── Avvio container ──"
-(cd "${APP_DIR}" && docker compose pull 2>/dev/null && docker compose up -d --remove-orphans) \
+(cd "${APP_DIR}" && docker compose pull 2>/dev/null) || sp_log_warn "Pull immagini fallito (uso cache locale)"
+stop_onboarding
+(cd "${APP_DIR}" && docker compose up -d --remove-orphans) \
   || { sp_log_err "Avvio container fallito"; exit 1; }
 sp_log_ok "Container avviato"
 
@@ -198,7 +298,10 @@ FIRST_RUN_FLAG="${PB_DATA}/first_run.flag"
 if [ "$NEEDS_SETUP" = true ]; then
   touch "$FIRST_RUN_FLAG"
   sp_log_info "Prima configurazione: avvio hotspot per wizard web..."
-  if [ -x "${APP_DIR}/setup-hotspot.sh" ]; then
+  if [ "$PHASE" = "2" ]; then
+    # Rete già scelta in Fase 1: non toccare Wi-Fi/hotspot (scheda singola resterebbe offline)
+    sp_log_ok "Rete configurata in Fase 1 — hotspot invariato"
+  elif [ -x "${APP_DIR}/setup-hotspot.sh" ]; then
     "${APP_DIR}/setup-hotspot.sh" --mode=setup || sp_log_warn "Hotspot setup fallito"
   fi
 else

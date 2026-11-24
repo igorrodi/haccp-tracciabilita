@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HACCP Tracker – Preparazione</title>
+<style>
+:root{--bg:#0f1b2d;--card:#fff;--fg:#10223b;--mut:#5b6b82;--pri:#1d5fd1;--ok:#178a4c;--err:#c0392b;--bd:#d9e1ec}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--fg);padding:16px}
+.c{max-width:560px;margin:0 auto;background:var(--card);border-radius:18px;padding:22px}
+h1{font-size:22px;margin:0 0 4px}p{color:var(--mut);margin:4px 0 14px}
+.steps{display:flex;gap:6px;margin:12px 0 18px}.steps i{flex:1;height:6px;border-radius:3px;background:var(--bd)}.steps i.on{background:var(--pri)}
+.row{display:flex;justify-content:space-between;align-items:center;padding:12px;border:1px solid var(--bd);border-radius:12px;margin:8px 0;gap:8px}
+.b{font-size:13px;padding:3px 9px;border-radius:99px;background:#eef2f7;white-space:nowrap}.b.ok{background:#dff3e8;color:var(--ok)}.b.err{background:#fbe3e0;color:var(--err)}
+button{width:100%;min-height:52px;font-size:17px;border:0;border-radius:12px;background:var(--pri);color:#fff;margin-top:10px;cursor:pointer}
+button.sec{background:#eef2f7;color:var(--fg)}button:disabled{opacity:.5}
+input{width:100%;min-height:50px;font-size:17px;padding:0 12px;border:1px solid var(--bd);border-radius:12px;margin:6px 0}
+.net{cursor:pointer}.net.sel{border-color:var(--pri);background:#eef4ff}
+pre{background:#0b1626;color:#cfe3ff;padding:12px;border-radius:12px;max-height:340px;overflow:auto;font-size:12px;white-space:pre-wrap}
+.msg{padding:10px;border-radius:10px;margin:10px 0;display:none}.msg.err{display:block;background:#fbe3e0;color:var(--err)}.msg.ok{display:block;background:#dff3e8;color:var(--ok)}
+.hide{display:none}
+</style></head><body><div class="c">
+<h1>HACCP Tracker</h1><p>Fase 1 di 2 · Preparazione del dispositivo</p>
+<div class="steps"><i id="s1" class="on"></i><i id="s2"></i><i id="s3"></i></div>
+<div id="msg" class="msg"></div>
+
+<section id="v1"><h3>1 · Schede di rete rilevate</h3><div id="ifs">Rilevamento…</div>
+<div class="row"><span>Connessione Internet</span><span id="inet" class="b">…</span></div>
+<button id="btnEth" class="hide" onclick="useEth()">Usa la connessione via cavo e continua</button>
+<button class="sec" onclick="go(2)">Configura un Wi-Fi esterno</button></section>
+
+<section id="v2" class="hide"><h3>2 · Collega a un Wi-Fi</h3><p id="dualInfo"></p>
+<div id="nets">Scansione…</div><button class="sec" onclick="scan()">Aggiorna elenco</button>
+<input id="ssid" placeholder="Nome rete (SSID)"><input id="pw" type="password" placeholder="Password Wi-Fi (vuota se rete aperta)">
+<button id="btnConn" onclick="connect()">Collega e installa l'app</button><button class="sec" onclick="go(1)">Indietro</button></section>
+
+<section id="v3" class="hide"><h3>3 · Installazione web app in corso</h3><p id="instInfo">Scaricamento e avvio… può richiedere alcuni minuti.</p>
+<pre id="log"></pre><div id="done" class="hide"><div class="msg ok" style="display:block">Installazione completata!</div>
+<p>Apri l'app per creare l'account amministratore:</p><button onclick="openApp()">Apri la web app</button><p id="appUrls"></p></div>
+<button id="retry" class="hide" onclick="install()">Riprova installazione</button></section>
+</div>
+<script>
+let dual=false,lanIp="";
+const $=id=>document.getElementById(id);
+function msg(t,k){const m=$("msg");m.textContent=t||"";m.className="msg "+(t?k:"");}
+function go(n){[1,2,3].forEach(i=>{$("v"+i).classList.toggle("hide",i!==n);$("s"+i).classList.toggle("on",i<=n)});msg("");if(n===2)scan();if(n===3)poll();}
+async function j(u,o){const r=await fetch(u,o);return r.json();}
+async function status(){try{const s=await j("/api/onboarding/status");
+ dual=s.wifi_cards>1;
+ $("ifs").innerHTML=s.interfaces.map(i=>{lanIp=lanIp||(i.role!=="hotspot"&&i.ip)||"";return `<div class="row"><span><b>${i.name}</b> · ${i.type==="wifi"?"Wi-Fi":"Ethernet"}${i.role==="hotspot"?" (hotspot)":""}<br><small>${i.ip||"nessun IP"}${i.ssid?" · "+i.ssid:""}</small></span><span class="b ${i.ip&&i.role!=="hotspot"?"ok":""}">${i.role==="hotspot"?"Hotspot":(i.ip?"Collegato":(i.carrier?"Cavo inserito":"Scollegato"))}</span></div>`}).join("")||"Nessuna scheda trovata";
+ $("inet").textContent=s.internet?"Disponibile":"Assente";$("inet").className="b "+(s.internet?"ok":"err");
+ $("btnEth").classList.toggle("hide",!(s.ethernet&&s.internet));
+ if(["running","done","failed"].includes(s.state.install))go(3);
+}catch(e){}}
+async function scan(){$("dualInfo").textContent=dual?"Doppia scheda Wi-Fi: l'hotspot resta attivo mentre ci si collega.":"Una sola scheda Wi-Fi: l'hotspot si spegnerà. Dopo, collega il telefono alla stessa rete e apri http://haccp.local";
+ $("nets").textContent="Scansione…";try{const r=await j("/api/onboarding/scan");
+ $("nets").innerHTML=r.networks.map(n=>`<div class="row net" data-s="${encodeURIComponent(n.ssid)}"><span>${n.secure?"🔒 ":""}${n.ssid.replace(/</g,"&lt;")}</span><span class="b">${n.signal}%</span></div>`).join("")||"Nessuna rete trovata";
+ document.querySelectorAll(".net").forEach(el=>el.onclick=()=>{document.querySelectorAll(".net").forEach(x=>x.classList.remove("sel"));el.classList.add("sel");$("ssid").value=decodeURIComponent(el.dataset.s);$("pw").focus();});
+}catch(e){$("nets").textContent="Scansione non riuscita";}}
+async function connect(){const ssid=$("ssid").value.trim(),pw=$("pw").value;
+ if(!ssid)return msg("Inserisci il nome della rete","err");if(pw&&(pw.length<8||pw.length>63))return msg("La password deve avere 8-63 caratteri","err");
+ $("btnConn").disabled=true;msg(dual?"Connessione in corso…":"Connessione in corso: l'hotspot si spegnerà. Collega il telefono a "+ssid+" e apri http://haccp.local tra qualche minuto.","ok");
+ try{const r=await j("/api/onboarding/connect",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ssid,password:pw,auto_install:true})});
+  if(r.ok)go(3);else msg(r.error||"Connessione fallita: controlla nome e password","err");}catch(e){if(!dual)msg("Hotspot spento: collega il telefono a "+ssid+" e apri http://haccp.local","ok");}
+ $("btnConn").disabled=false;}
+async function useEth(){const r=await j("/api/onboarding/use-ethernet",{method:"POST"});if(r.ok)install();else msg("Internet via cavo non disponibile","err");}
+async function install(){const r=await j("/api/onboarding/install",{method:"POST"});if(r.ok)go(3);else msg(r.error||"Impossibile avviare","err");}
+let polling=false;async function poll(){if(polling)return;polling=true;
+ const t=async()=>{try{const r=await j("/api/onboarding/log");$("log").textContent=r.log;$("log").scrollTop=1e9;
+  const st=r.state.install;$("retry").classList.toggle("hide",st!=="failed");if(st==="failed")$("instInfo").textContent="Installazione non riuscita: controlla il log e riprova.";
+  if(st==="done"){$("done").classList.remove("hide");return;}}catch(e){/* portale spento: l'app sta partendo */
+  $("done").classList.remove("hide");$("instInfo").textContent="La web app sta partendo…";return;}
+  setTimeout(t,2000);};t();}
+function openApp(){location.href="/setup";}
+$("appUrls").textContent="Oppure: http://haccp.local · http://192.168.4.1";
+status();setInterval(()=>{if(!$("v1").classList.contains("hide"))status()},5000);
+</script></body></html>

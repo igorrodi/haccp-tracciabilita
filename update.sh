@@ -97,6 +97,16 @@ for f in armbian-repair.sh setup-hotspot.sh; do
     && chmod +x "${APP_DIR}/${f}" || true
 done
 
+# Fase 1 (portale rete): mantieni aggiornati installer e portale per reinstallazioni
+mkdir -p "${APP_DIR}/onboarding"
+for f in haccp-onboarding.py index.html; do
+  curl -sSL --fail "${GITHUB_RAW}/scripts/onboarding/${f}" -o "${APP_DIR}/onboarding/${f}.tmp" 2>/dev/null \
+    && mv "${APP_DIR}/onboarding/${f}.tmp" "${APP_DIR}/onboarding/${f}" || rm -f "${APP_DIR}/onboarding/${f}.tmp"
+done
+curl -sSL --fail "${GITHUB_RAW}/install.sh" -o "${APP_DIR}/install.sh.tmp" 2>/dev/null \
+  && mv "${APP_DIR}/install.sh.tmp" "${APP_DIR}/install.sh" && chmod +x "${APP_DIR}/install.sh" || rm -f "${APP_DIR}/install.sh.tmp"
+curl -sSL --fail "${GITHUB_RAW}/scripts/haccp-onboarding.service" -o /etc/systemd/system/haccp-onboarding.service 2>/dev/null || true
+
 # ============================================================================
 # PULL & RESTART
 # ============================================================================

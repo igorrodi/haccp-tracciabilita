@@ -1,0 +1,1 @@
+- Installer runs in two phases: phase 1 is a native host Python portal (no Docker) on the setup hotspot for network choice; phase 2 (install.sh --phase2) installs the Docker app live. Why: the device must have a working uplink before pulling the app, and Docker-in-Docker is avoided on the Pi.

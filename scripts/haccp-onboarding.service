@@ -1,0 +1,15 @@
+[Unit]
+Description=HACCP Tracker - Fase 1 portale preparazione rete
+After=network.target
+ConditionPathExists=/opt/haccp-tracker/data/.onboarding_active
+
+[Service]
+Type=simple
+EnvironmentFile=-/opt/haccp-tracker/data/onboarding.env
+Environment=APP_DIR=/opt/haccp-tracker
+ExecStart=/usr/bin/python3 /opt/haccp-tracker/onboarding/haccp-onboarding.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
