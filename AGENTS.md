@@ -1,1 +1,2 @@
 - Installer runs in two phases: phase 1 is a native host Python portal (no Docker) on the setup hotspot for network choice; phase 2 (install.sh --phase2) installs the Docker app live. Why: the device must have a working uplink before pulling the app, and Docker-in-Docker is avoided on the Pi.
+- Phase 2 binds the app to the hotspot IP (HACCP_BIND_IP) and creates the admin from a one-shot 0600 bootstrap file written by the portal, deleted after /api/complete-setup succeeds. Why: the app must never be reachable from the uplink network and the admin must exist before first use.
