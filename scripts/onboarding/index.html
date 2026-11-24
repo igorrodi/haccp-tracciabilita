@@ -17,58 +17,83 @@ pre{background:#0b1626;color:#cfe3ff;padding:12px;border-radius:12px;max-height:
 .msg{padding:10px;border-radius:10px;margin:10px 0;display:none}.msg.err{display:block;background:#fbe3e0;color:var(--err)}.msg.ok{display:block;background:#dff3e8;color:var(--ok)}
 .hide{display:none}
 </style></head><body><div class="c">
-<h1>HACCP Tracker</h1><p>Fase 1 di 2 · Preparazione del dispositivo</p>
-<div class="steps"><i id="s1" class="on"></i><i id="s2"></i><i id="s3"></i></div>
+<h1>HACCP Tracker</h1><p>Preparazione del dispositivo</p>
+<div class="steps"><i id="s1" class="on"></i><i id="s2"></i><i id="s3"></i><i id="s4"></i><i id="s5"></i></div>
 <div id="msg" class="msg"></div>
 
-<section id="v1"><h3>1 · Schede di rete rilevate</h3><div id="ifs">Rilevamento…</div>
-<div class="row"><span>Connessione Internet</span><span id="inet" class="b">…</span></div>
-<button id="btnEth" class="hide" onclick="useEth()">Usa la connessione via cavo e continua</button>
-<button class="sec" onclick="go(2)">Configura un Wi-Fi esterno</button></section>
-
-<section id="v2" class="hide"><h3>2 · Collega a un Wi-Fi</h3><p id="dualInfo"></p>
+<section id="v1"><h3>1 · Connessione a Internet</h3><p>Serve solo al dispositivo per installare e aggiornare l'app. L'app non sarà visibile su questa rete.</p>
+<div class="row"><span>Internet</span><span id="inet" class="b">…</span></div>
+<div id="mEth" class="hide"><p>Cavo di rete rilevato.</p><button id="btnEth" onclick="useEth()">Continua</button></div>
+<div id="mDual" class="hide"><p>Scegli il Wi-Fi del locale a cui collegare il dispositivo.</p>
 <div id="nets">Scansione…</div><button class="sec" onclick="scan()">Aggiorna elenco</button>
-<input id="ssid" placeholder="Nome rete (SSID)"><input id="pw" type="password" placeholder="Password Wi-Fi (vuota se rete aperta)">
-<button id="btnConn" onclick="connect()">Collega e installa l'app</button><button class="sec" onclick="go(1)">Indietro</button></section>
+<input id="ssid" placeholder="Nome rete"><input id="pw" type="password" placeholder="Password (vuota se rete aperta)">
+<button id="btnConn" onclick="connect()">Collega</button></div>
+<div id="mNo" class="hide"><div class="msg err" style="display:block">Configurazione non supportata: collega un cavo di rete oppure aggiungi una chiavetta Wi-Fi USB, poi ricarica la pagina.</div></div></section>
 
-<section id="v3" class="hide"><h3>3 · Installazione web app in corso</h3><p id="instInfo">Scaricamento e avvio… può richiedere alcuni minuti.</p>
+<section id="v2" class="hide"><h3>2 · Wi-Fi dell'app</h3><p>Il dispositivo crea questa rete: l'app si apre solo da qui.</p>
+<input id="apSsid" placeholder="Nome del Wi-Fi (es. HACCP-Cucina)"><input id="apPw" type="password" placeholder="Password Wi-Fi (min. 8 caratteri)">
+<input id="dom" placeholder="Indirizzo dell'app (es. haccp.local)" value="haccp.local" autocapitalize="off">
+<label class="row"><span>Dai Internet anche a chi si collega</span><input id="share" type="checkbox" checked style="width:28px;min-height:28px"></label>
+<button id="btnAp" onclick="appnet()">Salva e riavvia</button></section>
+
+<section id="v3" class="hide"><h3>3 · Riavvio in corso</h3><p id="rbInfo"></p><p>Questa pagina si aggiornerà da sola quando sarai collegato al nuovo Wi-Fi.</p></section>
+
+<section id="v4" class="hide"><h3>4 · Account amministratore</h3><p>Queste credenziali servono per entrare nell'app. Conservale.</p>
+<input id="rn" placeholder="Nome del locale"><input id="an" placeholder="Il tuo nome">
+<input id="ae" type="email" placeholder="Email" autocapitalize="off"><input id="ap" type="password" placeholder="Password (min. 8 caratteri)"><input id="ap2" type="password" placeholder="Ripeti password">
+<button id="btnAdm" onclick="admin()">Crea account e installa l'app</button></section>
+
+<section id="v5" class="hide"><h3>5 · Installazione web app</h3><p id="instInfo">Può richiedere alcuni minuti.</p>
 <pre id="log"></pre><div id="done" class="hide"><div class="msg ok" style="display:block">Installazione completata!</div>
-<p>Apri l'app per creare l'account amministratore:</p><button onclick="openApp()">Apri la web app</button><p id="appUrls"></p></div>
+<p>Accedi con l'email e la password appena create. La prima volta il browser può mostrare un avviso di sicurezza: è normale, scegli di proseguire.</p>
+<button onclick="openApp()">Apri la web app</button></div>
 <button id="retry" class="hide" onclick="install()">Riprova installazione</button></section>
 </div>
 <script>
-let dual=false,lanIp="";
+let st={},dom="haccp.local";
 const $=id=>document.getElementById(id);
 function msg(t,k){const m=$("msg");m.textContent=t||"";m.className="msg "+(t?k:"");}
-function go(n){[1,2,3].forEach(i=>{$("v"+i).classList.toggle("hide",i!==n);$("s"+i).classList.toggle("on",i<=n)});msg("");if(n===2)scan();if(n===3)poll();}
+function go(n){[1,2,3,4,5].forEach(i=>{$("v"+i).classList.toggle("hide",i!==n);$("s"+i).classList.toggle("on",i<=n)});if(n===5)poll();}
 async function j(u,o){const r=await fetch(u,o);return r.json();}
-async function status(){try{const s=await j("/api/onboarding/status");
- dual=s.wifi_cards>1;
- $("ifs").innerHTML=s.interfaces.map(i=>{lanIp=lanIp||(i.role!=="hotspot"&&i.ip)||"";return `<div class="row"><span><b>${i.name}</b> · ${i.type==="wifi"?"Wi-Fi":"Ethernet"}${i.role==="hotspot"?" (hotspot)":""}<br><small>${i.ip||"nessun IP"}${i.ssid?" · "+i.ssid:""}</small></span><span class="b ${i.ip&&i.role!=="hotspot"?"ok":""}">${i.role==="hotspot"?"Hotspot":(i.ip?"Collegato":(i.carrier?"Cavo inserito":"Scollegato"))}</span></div>`}).join("")||"Nessuna scheda trovata";
- $("inet").textContent=s.internet?"Disponibile":"Assente";$("inet").className="b "+(s.internet?"ok":"err");
- $("btnEth").classList.toggle("hide",!(s.ethernet&&s.internet));
- if(["running","done","failed"].includes(s.state.install))go(3);
-}catch(e){}}
-async function scan(){$("dualInfo").textContent=dual?"Doppia scheda Wi-Fi: l'hotspot resta attivo mentre ci si collega.":"Una sola scheda Wi-Fi: l'hotspot si spegnerà. Dopo, collega il telefono alla stessa rete e apri http://haccp.local";
- $("nets").textContent="Scansione…";try{const r=await j("/api/onboarding/scan");
- $("nets").innerHTML=r.networks.map(n=>`<div class="row net" data-s="${encodeURIComponent(n.ssid)}"><span>${n.secure?"🔒 ":""}${n.ssid.replace(/</g,"&lt;")}</span><span class="b">${n.signal}%</span></div>`).join("")||"Nessuna rete trovata";
+function post(u,b){return j(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b||{})});}
+let scanned=false;
+async function status(){try{const s=await j("/api/onboarding/status");st=s.state||{};dom=st.app_domain||dom;
+ if(["running","done","failed"].includes(st.install))return go(5);
+ if(st.phase==="admin")return go(4);
+ if(!$("v1").classList.contains("hide")){
+  $("inet").textContent=s.internet?"Disponibile":"Assente";$("inet").className="b "+(s.internet?"ok":"err");
+  $("mEth").classList.toggle("hide",s.mode!=="ethernet");$("mDual").classList.toggle("hide",s.mode!=="dual");$("mNo").classList.toggle("hide",s.mode!=="unsupported");
+  if(s.mode==="dual"&&!scanned){scanned=true;scan();}
+  if(s.mode==="dual"&&s.internet&&st.uplink==="wifi")go(2);
+ }}catch(e){}}
+async function scan(){$("nets").textContent="Scansione…";try{const r=await j("/api/onboarding/scan");
+ $("nets").innerHTML=r.networks.map(n=>`<div class="row net" data-s="${encodeURIComponent(n.ssid)}"><span>${n.ssid.replace(/</g,"&lt;")}</span><span class="b">${n.signal}%</span></div>`).join("")||"Nessuna rete trovata";
  document.querySelectorAll(".net").forEach(el=>el.onclick=()=>{document.querySelectorAll(".net").forEach(x=>x.classList.remove("sel"));el.classList.add("sel");$("ssid").value=decodeURIComponent(el.dataset.s);$("pw").focus();});
 }catch(e){$("nets").textContent="Scansione non riuscita";}}
 async function connect(){const ssid=$("ssid").value.trim(),pw=$("pw").value;
  if(!ssid)return msg("Inserisci il nome della rete","err");if(pw&&(pw.length<8||pw.length>63))return msg("La password deve avere 8-63 caratteri","err");
- $("btnConn").disabled=true;msg(dual?"Connessione in corso…":"Connessione in corso: l'hotspot si spegnerà. Collega il telefono a "+ssid+" e apri http://haccp.local tra qualche minuto.","ok");
- try{const r=await j("/api/onboarding/connect",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ssid,password:pw,auto_install:true})});
-  if(r.ok)go(3);else msg(r.error||"Connessione fallita: controlla nome e password","err");}catch(e){if(!dual)msg("Hotspot spento: collega il telefono a "+ssid+" e apri http://haccp.local","ok");}
+ $("btnConn").disabled=true;msg("Connessione in corso…","ok");
+ try{const r=await post("/api/onboarding/connect",{ssid,password:pw});if(r.ok){msg("");go(2);}else msg(r.error||"Connessione fallita","err");}catch(e){msg("Connessione fallita","err");}
  $("btnConn").disabled=false;}
-async function useEth(){const r=await j("/api/onboarding/use-ethernet",{method:"POST"});if(r.ok)install();else msg("Internet via cavo non disponibile","err");}
-async function install(){const r=await j("/api/onboarding/install",{method:"POST"});if(r.ok)go(3);else msg(r.error||"Impossibile avviare","err");}
+async function useEth(){const r=await post("/api/onboarding/use-ethernet");if(r.ok){msg("");go(2);}else msg("Internet via cavo non disponibile","err");}
+async function appnet(){const ssid=$("apSsid").value.trim(),pw=$("apPw").value;let d=$("dom").value.trim().toLowerCase();
+ if(!ssid)return msg("Inserisci il nome del Wi-Fi","err");if(pw.length<8||pw.length>63)return msg("La password deve avere 8-63 caratteri","err");
+ if(!d)return msg("Inserisci l'indirizzo dell'app","err");
+ $("btnAp").disabled=true;try{const r=await post("/api/onboarding/appnet",{ssid,password:pw,domain:d,share_internet:$("share").checked});
+  if(!r.ok){$("btnAp").disabled=false;return msg(r.error||"Errore","err");}
+  dom=r.domain;msg("");$("rbInfo").innerHTML=`Collega il telefono al Wi-Fi <b>${ssid.replace(/</g,"&lt;")}</b> e apri <b>http://${dom}</b> (oppure http://192.168.4.1).`;go(3);
+ }catch(e){$("btnAp").disabled=false;msg("Errore di comunicazione","err");}}
+async function admin(){const email=$("ae").value.trim(),password=$("ap").value;
+ if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))return msg("Email non valida","err");
+ if(password.length<8)return msg("La password deve avere almeno 8 caratteri","err");if(password!==$("ap2").value)return msg("Le password non coincidono","err");
+ $("btnAdm").disabled=true;try{const r=await post("/api/onboarding/admin",{email,password,name:$("an").value,restaurant_name:$("rn").value});
+  if(r.ok){msg("");go(5);}else{msg(r.error||"Errore","err");$("btnAdm").disabled=false;}}catch(e){msg("Errore di comunicazione","err");$("btnAdm").disabled=false;}}
+async function install(){const r=await post("/api/onboarding/install");if(r.ok)go(5);else msg(r.error||"Impossibile avviare","err");}
 let polling=false;async function poll(){if(polling)return;polling=true;
  const t=async()=>{try{const r=await j("/api/onboarding/log");$("log").textContent=r.log;$("log").scrollTop=1e9;
-  const st=r.state.install;$("retry").classList.toggle("hide",st!=="failed");if(st==="failed")$("instInfo").textContent="Installazione non riuscita: controlla il log e riprova.";
-  if(st==="done"){$("done").classList.remove("hide");return;}}catch(e){/* portale spento: l'app sta partendo */
-  $("done").classList.remove("hide");$("instInfo").textContent="La web app sta partendo…";return;}
+  const s=r.state.install;$("retry").classList.toggle("hide",s!=="failed");if(s==="failed")$("instInfo").textContent="Installazione non riuscita: riprova.";
+  if(s==="done"){$("done").classList.remove("hide");return;}}catch(e){$("done").classList.remove("hide");$("instInfo").textContent="La web app sta partendo…";return;}
   setTimeout(t,2000);};t();}
-function openApp(){location.href="/setup";}
-$("appUrls").textContent="Oppure: http://haccp.local · http://192.168.4.1";
-status();setInterval(()=>{if(!$("v1").classList.contains("hide"))status()},5000);
+function openApp(){location.href="https://"+dom+"/";}
+status();setInterval(()=>{if($("v5").classList.contains("hide"))status()},4000);
 </script></body></html>

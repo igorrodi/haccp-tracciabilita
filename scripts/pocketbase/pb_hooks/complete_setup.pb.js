@@ -65,6 +65,8 @@ routerAdd("POST", "/api/complete-setup", function(e) {
   var ssid = (body.wifi_ssid || "HACCP-Tracciabilita").trim();
   var wifiPassword = body.wifi_password || "";
   var restaurantName = (body.restaurant_name || "").trim();
+  // skip_wifi: rete gia configurata dal portale di Fase 1 (non riapplicare l'hotspot)
+  var skipWifi = body.skip_wifi === true;
 
   var admins = [];
   try {
@@ -127,7 +129,7 @@ routerAdd("POST", "/api/complete-setup", function(e) {
     console.log("Errore salvataggio wifi_settings: " + err);
   }
 
-  try {
+  if (!skipWifi) try {
     $os.writeFile("/pb/pb_data/.wifi_config_request.json", JSON.stringify({
       ssid: ssid,
       password: wifiPassword || "",

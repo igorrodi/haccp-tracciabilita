@@ -38,14 +38,14 @@ if ! command -v avahi-daemon >/dev/null 2>&1; then
 fi
 
 # Hostname → haccp (così haccp.local risolve a questo Pi)
+HACCP_DOMAIN="${HACCP_DOMAIN:-haccp.local}"
+HN="${HACCP_DOMAIN%%.*}"
 CURRENT_HN="$(hostname)"
-if [ "$CURRENT_HN" != "haccp" ]; then
-  log "Cambio hostname: $CURRENT_HN → haccp"
-  hostnamectl set-hostname haccp 2>/dev/null || echo "haccp" > /etc/hostname
-  if ! grep -q "127.0.1.1.*haccp" /etc/hosts; then
-    sed -i '/127.0.1.1/d' /etc/hosts
-    echo "127.0.1.1   haccp haccp.local" >> /etc/hosts
-  fi
+if [ "$CURRENT_HN" != "$HN" ]; then
+  log "Cambio hostname: $CURRENT_HN → $HN"
+  hostnamectl set-hostname "$HN" 2>/dev/null || echo "$HN" > /etc/hostname
+  sed -i '/127.0.1.1/d' /etc/hosts
+  echo "127.0.1.1   $HN $HACCP_DOMAIN" >> /etc/hosts
 fi
 
 systemctl enable --now avahi-daemon >/dev/null 2>&1 || warn "avahi-daemon non avviato"

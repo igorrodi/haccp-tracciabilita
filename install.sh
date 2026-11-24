@@ -275,6 +275,31 @@ fi
 # ============================================================================
 # 5. START & HANDOFF AL WIZARD WEB
 # ============================================================================
+# Fase 2 da portale: rete app, nome locale e admin scelti in Fase 1
+ONB_ENV="${DATA_DIR}/onboarding.env"
+APP_HOST="localhost"
+if [ "$PHASE" = "2" ] && [ -f "$ONB_ENV" ]; then
+  # shellcheck disable=SC1090
+  . "$ONB_ENV"
+  export HACCP_DOMAIN HACCP_APP_SSID HACCP_APP_WIFI_PASSWORD
+  # La web app è esposta SOLO sulla rete Wi-Fi creata dal dispositivo
+  touch "${APP_DIR}/.env"
+  sed -i '/^HACCP_BIND_IP=/d' "${APP_DIR}/.env"
+  echo "HACCP_BIND_IP=192.168.4.1" >> "${APP_DIR}/.env"
+  APP_HOST="192.168.4.1"
+  # Docker parte solo quando l'IP dell'hotspot esiste (altrimenti il bind fallisce al boot)
+  mkdir -p /etc/systemd/system/docker.service.d
+  cat > /etc/systemd/system/docker.service.d/haccp-hotspot.conf <<'DROPIN'
+[Unit]
+After=hostapd.service dnsmasq.service network-online.target
+Wants=hostapd.service
+[Service]
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 30); do ip -4 addr | grep -q "192.168.4.1/" && exit 0; sleep 1; done; exit 0'
+DROPIN
+  systemctl daemon-reload
+  sp_log_ok "App visibile solo sulla rete ${HACCP_APP_SSID:-hotspot} (${HACCP_DOMAIN:-haccp.local})"
+fi
+
 sp_log_info "── Avvio container ──"
 (cd "${APP_DIR}" && docker compose pull 2>/dev/null) || sp_log_warn "Pull immagini fallito (uso cache locale)"
 stop_onboarding
@@ -284,14 +309,44 @@ sp_log_ok "Container avviato"
 
 echo -n "Attesa avvio PocketBase"
 for i in $(seq 1 30); do
-  curl -sf http://localhost/api/health &>/dev/null && { echo; sp_log_ok "PocketBase pronto"; break; }
+  curl -sf "http://${APP_HOST}/api/health" &>/dev/null && { echo; sp_log_ok "PocketBase pronto"; break; }
   echo -n "."; sleep 2
 done
 echo ""
 
+# Account amministratore creato nel portale di Fase 1: applicato una sola volta
+ADMIN_FILE="${DATA_DIR}/admin_bootstrap.json"
+if [ "$PHASE" = "2" ] && [ -f "$ADMIN_FILE" ]; then
+  sp_log_info "Creazione account amministratore..."
+  PAYLOAD=$(python3 - "$ADMIN_FILE" <<'PY'
+import json, os, sys
+a = json.load(open(sys.argv[1]))
+a.update({"wifi_ssid": os.environ.get("HACCP_APP_SSID", ""), "wifi_password": os.environ.get("HACCP_APP_WIFI_PASSWORD", ""), "skip_wifi": True})
+print(json.dumps(a))
+PY
+)
+  ADMIN_OK=0
+  for i in $(seq 1 10); do
+    CODE=$(HACCP_APP_SSID="${HACCP_APP_SSID:-}" HACCP_APP_WIFI_PASSWORD="${HACCP_APP_WIFI_PASSWORD:-}" \
+      curl -s -o /tmp/haccp-admin.out -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
+      --data-binary "$PAYLOAD" "http://${APP_HOST}/api/complete-setup" 2>/dev/null || echo 000)
+    if [ "$CODE" = "200" ] || { [ "$CODE" = "403" ] && grep -q "completato" /tmp/haccp-admin.out; }; then
+      ADMIN_OK=1; break
+    fi
+    sleep 3
+  done
+  unset PAYLOAD; rm -f /tmp/haccp-admin.out
+  if [ "$ADMIN_OK" -eq 1 ]; then
+    rm -f "$ADMIN_FILE"
+    sp_log_ok "Account amministratore creato (stessa email/password anche per il pannello /_/)"
+  else
+    sp_log_err "Creazione amministratore non riuscita (codice ${CODE}): riprova dal portale"; exit 1
+  fi
+fi
+
 # Setup wizard (handoff web)
 NEEDS_SETUP=false
-SETUP_RESPONSE=$(curl -sf http://localhost/api/setup-check 2>/dev/null || echo '{}')
+SETUP_RESPONSE=$(curl -sf "http://${APP_HOST}/api/setup-check" 2>/dev/null || echo '{}')
 echo "$SETUP_RESPONSE" | grep -q '"needsSetup":true' && NEEDS_SETUP=true
 
 FIRST_RUN_FLAG="${PB_DATA}/first_run.flag"
@@ -306,7 +361,7 @@ if [ "$NEEDS_SETUP" = true ]; then
   fi
 else
   sp_log_ok "Sistema già configurato"
-  if command -v hostapd &>/dev/null && [ -x "${APP_DIR}/setup-hotspot.sh" ]; then
+  if [ "$PHASE" != "2" ] && [ ! -f "$ONB_ENV" ] && command -v hostapd &>/dev/null && [ -x "${APP_DIR}/setup-hotspot.sh" ]; then
     "${APP_DIR}/setup-hotspot.sh" --mode=normal 2>/dev/null || true
   fi
 fi
@@ -314,7 +369,7 @@ fi
 # Setup HTTPS + haccp.local (opzionale)
 if [ "$WITH_CADDY" -eq 1 ] && [ -x "${APP_DIR}/setup-https.sh" ]; then
   sp_log_info "── Attivazione HTTPS + haccp.local ──"
-  APP_DIR="${APP_DIR}" "${APP_DIR}/setup-https.sh" || sp_log_warn "Setup HTTPS fallito"
+  APP_DIR="${APP_DIR}" HACCP_DOMAIN="${HACCP_DOMAIN:-haccp.local}" "${APP_DIR}/setup-https.sh" || sp_log_warn "Setup HTTPS fallito"
 fi
 
 # ============================================================================

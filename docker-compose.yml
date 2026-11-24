@@ -11,8 +11,8 @@ services:
     # accessibile sulla porta HACCP_HTTP_PORT (default 8080 in modalità https).
     # Senza profilo, la porta default 80 espone l'app direttamente.
     ports:
-      - "${HACCP_HTTP_PORT:-80}:80"
-      - "631:631"
+      - "${HACCP_BIND_IP:-0.0.0.0}:${HACCP_HTTP_PORT:-80}:80"
+      - "${HACCP_BIND_IP:-0.0.0.0}:631:631"
     volumes:
       # Separazione codice/dati: tutti i dati persistenti vivono in ./data
       - ./data/pb_data:/pb/pb_data
@@ -56,9 +56,9 @@ services:
     profiles: ["https"]
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
+      - "${HACCP_BIND_IP:-0.0.0.0}:80:80"
+      - "${HACCP_BIND_IP:-0.0.0.0}:443:443"
+      - "${HACCP_BIND_IP:-0.0.0.0}:443:443/udp"
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./data/caddy:/data

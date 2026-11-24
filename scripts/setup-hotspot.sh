@@ -25,6 +25,8 @@ MODE="normal"
 SSID=""
 PASSWORD=""
 WIFI_IFACE=""
+DOMAIN="haccp.local"
+SHARE_INTERNET=0
 
 for arg in "$@"; do
   case "$arg" in
@@ -32,6 +34,8 @@ for arg in "$@"; do
     --ssid=*)    SSID="${arg#*=}" ;;
     --password=*) PASSWORD="${arg#*=}" ;;
     --iface=*)   WIFI_IFACE="${arg#*=}" ;;
+    --domain=*)  DOMAIN="${arg#*=}" ;;
+    --share-internet) SHARE_INTERNET=1 ;;
   esac
 done
 
@@ -216,20 +220,57 @@ RESOLVED
   systemctl restart systemd-resolved 2>/dev/null || true
 fi
 
+# Nome locale dell'app (scelto nel wizard): risolto SOLO sulla rete hotspot
+echo "$DOMAIN" | grep -Eq '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$' || DOMAIN="haccp.local"
+if [ "$SHARE_INTERNET" -eq 1 ]; then
+  UPSTREAM_DNS="server=1.1.1.1
+server=9.9.9.9"
+else
+  UPSTREAM_DNS="# No upstream DNS — rete isolata"
+fi
 cat > /etc/dnsmasq.d/haccp-hotspot.conf <<DNSMASQ
 # HACCP Tracker hotspot DNS/DHCP
 interface=${WIFI_IFACE}
 bind-interfaces
 except-interface=lo
 dhcp-range=192.168.4.50,192.168.4.150,255.255.255.0,24h
-# Resolve haccp.local to gateway
+address=/${DOMAIN}/192.168.4.1
 address=/haccp.local/192.168.4.1
-# No upstream DNS — isolated network
 no-resolv
 no-poll
+${UPSTREAM_DNS}
 DNSMASQ
 
-log_ok "dnsmasq configurato su ${WIFI_IFACE} (192.168.4.50-150, haccp.local)"
+# Condivisione Internet (opzionale): NAT dall'hotspot verso l'uplink
+UPLINK_IFACE=$(ip route show default 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev"){print $(i+1); exit}}')
+rm -f /etc/sysctl.d/90-haccp-forward.conf
+if command -v iptables >/dev/null 2>&1; then
+  iptables -t nat -D POSTROUTING -s 192.168.4.0/24 -j MASQUERADE 2>/dev/null || true
+fi
+if [ "$SHARE_INTERNET" -eq 1 ] && [ -n "$UPLINK_IFACE" ] && [ "$UPLINK_IFACE" != "$WIFI_IFACE" ] && command -v iptables >/dev/null 2>&1; then
+  echo "net.ipv4.ip_forward=1" > /etc/sysctl.d/90-haccp-forward.conf
+  sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
+  iptables -t nat -A POSTROUTING -s 192.168.4.0/24 -j MASQUERADE
+  cat > /etc/systemd/system/haccp-nat.service <<NAT
+[Unit]
+Description=HACCP hotspot Internet sharing
+After=network-online.target
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'sysctl -w net.ipv4.ip_forward=1; iptables -t nat -C POSTROUTING -s 192.168.4.0/24 -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -s 192.168.4.0/24 -j MASQUERADE'
+[Install]
+WantedBy=multi-user.target
+NAT
+  systemctl daemon-reload; systemctl enable haccp-nat.service >/dev/null 2>&1 || true
+  command -v ufw >/dev/null 2>&1 && sed -i 's/^DEFAULT_FORWARD_POLICY=.*/DEFAULT_FORWARD_POLICY="ACCEPT"/' /etc/default/ufw 2>/dev/null || true
+  log_ok "Internet condiviso sull'hotspot via ${UPLINK_IFACE}"
+else
+  systemctl disable haccp-nat.service >/dev/null 2>&1 || true
+  rm -f /etc/systemd/system/haccp-nat.service
+fi
+
+log_ok "dnsmasq configurato su ${WIFI_IFACE} (192.168.4.50-150, ${DOMAIN})"
 
 # ============================================================================
 # CONFIGURE HOSTAPD
@@ -290,6 +331,7 @@ if [ "$UFW_AVAILABLE" = true ]; then
 
   # Allow HTTP from hotspot subnet
   ufw allow from 192.168.4.0/24 to any port 80 proto tcp >/dev/null 2>&1
+  ufw allow from 192.168.4.0/24 to any port 443 proto tcp >/dev/null 2>&1
   # Allow CUPS from hotspot subnet
   ufw allow from 192.168.4.0/24 to any port 631 proto tcp >/dev/null 2>&1
   # Allow DHCP/DNS on hotspot

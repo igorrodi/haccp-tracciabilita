@@ -140,13 +140,21 @@ def scan_wifi():
     return {"iface": iface, "dual": bool(ifaces), "networks": sorted(nets.values(), key=lambda n: -n["signal"])}
 
 
+def net_mode():
+    """ethernet | dual | unsupported — decisione automatica, l'utente non sceglie schede."""
+    ifs = list_interfaces()
+    if any(i["type"] == "ethernet" and i["carrier"] for i in ifs):
+        return "ethernet"
+    if client_wifi_ifaces():
+        return "dual"
+    return "unsupported"
+
+
 def connect_wifi(ssid, password):
     ifaces = client_wifi_ifaces()
-    dual = bool(ifaces)
-    iface = ifaces[0] if dual else AP_IFACE
-    if not dual:
-        # Scheda singola: l'hotspot verrà spento per collegarsi al Wi-Fi esterno.
-        run([os.path.join(APP_DIR, "setup-hotspot.sh"), "--mode=normal", "--iface=" + iface], timeout=60)
+    if not ifaces:
+        return {"ok": False, "error": "Serve una seconda scheda Wi-Fi o il cavo di rete."}
+    iface = ifaces[0]
     if has("nmcli"):
         run(["nmcli", "dev", "set", iface, "managed", "yes"])
         cmd = ["nmcli", "dev", "wifi", "connect", ssid, "ifname", iface]
@@ -163,22 +171,50 @@ def connect_wifi(ssid, password):
         code, out = run(["dhclient", iface] if has("dhclient") else ["dhcpcd", iface], timeout=45)
     time.sleep(3)
     ok = internet_ok()
-    if not ok and not dual:
-        # Ripristina l'hotspot per non perdere l'accesso al portale
-        run([os.path.join(APP_DIR, "setup-hotspot.sh"), "--mode=setup", "--iface=" + iface], timeout=90)
     write_state(uplink="wifi", wifi_ssid=ssid, wifi_iface=iface, network_ok=ok)
-    return {"ok": ok, "dual": dual, "iface": iface, "detail": out[-400:]}
+    return {"ok": ok, "iface": iface, "error": "" if ok else "Connessione fallita: controlla nome e password.", "detail": out[-400:]}
+
+
+DOMAIN_RE = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$")
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+ENV_FILE = os.path.join(DATA_DIR, "onboarding.env")
+ADMIN_FILE = os.path.join(DATA_DIR, "admin_bootstrap.json")
+
+
+def write_private(path, text):
+    tmp = path + ".tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
+def apply_app_network(ssid, password, domain, share):
+    """Salva rete app + nome locale, applica l'hotspot definitivo e riavvia."""
+    q = lambda v: "'" + v.replace("'", "'\\''") + "'"
+    write_private(ENV_FILE, "HACCP_AP_IFACE=%s\nHACCP_DOMAIN=%s\nHACCP_APP_SSID=%s\nHACCP_APP_WIFI_PASSWORD=%s\nHACCP_SHARE_INTERNET=%d\n"
+                  % (q(AP_IFACE), q(domain), q(ssid), q(password), 1 if share else 0))
+    write_state(phase="admin", app_ssid=ssid, app_domain=domain, share_internet=bool(share))
+    cmd = ("sleep 4; rm -f /etc/dnsmasq.d/haccp-captive.conf; %s/setup-hotspot.sh --mode=normal --iface=%s --ssid=%s --password=%s --domain=%s %s"
+           " > %s/appnet.log 2>&1; sleep 2; systemctl reboot") % (
+        APP_DIR, q(AP_IFACE), q(ssid), q(password), q(domain), "--share-internet" if share else "", DATA_DIR)
+    if has("systemd-run"):
+        subprocess.Popen(["systemd-run", "--unit=haccp-appnet-%d" % int(time.time()), "--collect", "bash", "-c", cmd])
+    else:
+        subprocess.Popen(["setsid", "bash", "-c", cmd])
 
 
 def start_install():
     st = read_state()
     if st.get("install") == "running":
         return {"ok": True, "already": True}
+    if not os.path.exists(ADMIN_FILE):
+        return {"ok": False, "error": "Crea prima l'account amministratore."}
     if not internet_ok():
         return {"ok": False, "error": "Nessuna connessione Internet: collega cavo o Wi-Fi prima di installare."}
     write_state(install="running", phase="install")
     open(INSTALL_LOG, "w").close()
-    cmd = "bash %s/install.sh --phase2 --non-interactive > %s 2>&1; echo $? > %s.rc" % (APP_DIR, INSTALL_LOG, INSTALL_LOG)
+    cmd = "bash %s/install.sh --phase2 --non-interactive --with-caddy > %s 2>&1; echo $? > %s.rc" % (APP_DIR, INSTALL_LOG, INSTALL_LOG)
     # systemd-run: sopravvive allo stop del portale durante la Fase 2
     if has("systemd-run"):
         subprocess.Popen(["systemd-run", "--unit=haccp-phase2-%d" % int(time.time()), "--collect", "bash", "-c", cmd])
@@ -200,6 +236,7 @@ def status():
         "wifi_cards": len([i for i in ifs if i["type"] == "wifi"]),
         "internet": internet_ok(),
         "ap_iface": AP_IFACE,
+        "mode": net_mode(),
         "state": st,
     }
 
@@ -273,14 +310,42 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(400, {"ok": False, "error": "Nome rete non valido"})
             if pw and not (8 <= len(pw) <= 63):
                 return self._json(400, {"ok": False, "error": "La password Wi-Fi deve avere 8-63 caratteri"})
-            res = connect_wifi(ssid, pw)
-            if res["ok"] and body.get("auto_install"):
-                start_install()
-            return self._json(200, res)
+            return self._json(200, connect_wifi(ssid, pw))
         if p == "/api/onboarding/use-ethernet":
             ok = internet_ok()
             write_state(uplink="ethernet", network_ok=ok)
             return self._json(200, {"ok": ok})
+        if p == "/api/onboarding/appnet":
+            ssid = str(body.get("ssid", "")).strip()
+            pw = str(body.get("password", ""))
+            domain = str(body.get("domain", "")).strip().lower()
+            if "." not in domain:
+                domain += ".local"
+            if not SSID_RE.match(ssid):
+                return self._json(400, {"ok": False, "error": "Nome Wi-Fi non valido"})
+            if not (8 <= len(pw) <= 63):
+                return self._json(400, {"ok": False, "error": "La password del Wi-Fi deve avere 8-63 caratteri"})
+            if not DOMAIN_RE.match(domain):
+                return self._json(400, {"ok": False, "error": "Nome del sito non valido (es. haccp.local)"})
+            if not internet_ok():
+                return self._json(409, {"ok": False, "error": "Prima collega il dispositivo a Internet"})
+            apply_app_network(ssid, pw, domain, bool(body.get("share_internet")))
+            return self._json(200, {"ok": True, "ssid": ssid, "domain": domain})
+        if p == "/api/onboarding/admin":
+            email = str(body.get("email", "")).strip().lower()
+            pw = str(body.get("password", ""))
+            if not EMAIL_RE.match(email):
+                return self._json(400, {"ok": False, "error": "Email non valida"})
+            if len(pw) < 8:
+                return self._json(400, {"ok": False, "error": "La password deve avere almeno 8 caratteri"})
+            write_private(ADMIN_FILE, json.dumps({
+                "email": email, "password": pw,
+                "name": str(body.get("name", "")).strip()[:100],
+                "restaurant_name": str(body.get("restaurant_name", "")).strip()[:100],
+            }))
+            write_state(admin_email=email)
+            res = start_install()
+            return self._json(200 if res.get("ok") else 409, res)
         if p == "/api/onboarding/install":
             res = start_install()
             return self._json(200 if res.get("ok") else 409, res)
