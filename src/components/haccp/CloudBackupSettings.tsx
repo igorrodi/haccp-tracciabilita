@@ -9,10 +9,13 @@ import { Badge } from '@/components/ui/badge';
 import { Cloud, HardDrive, Check, AlertCircle, Loader2, Settings2, FolderSync, FileSpreadsheet, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { pb } from '@/lib/pocketbase';
+import { Textarea } from '@/components/ui/textarea';
+import { InspectionUsbPanel } from './InspectionUsbPanel';
 
 interface CloudConfig {
   id?: string;
-  provider: 'mega' | 'gdrive' | 'dropbox' | 'webdav' | 'none';
+  provider: 'mega' | 'gdrive' | 'onedrive' | 'dropbox' | 'webdav' | 'none';
+  onedriveToken?: string;
   enabled: boolean;
   autoBackup: boolean;
   backupFrequency: 'daily' | 'weekly';
@@ -100,6 +103,7 @@ export const CloudBackupSettings = () => {
           gdriveClientSecret: record.gdrive_client_secret ? '********' : undefined,
           gdriveRefreshToken: record.gdrive_refresh_token ? '********' : undefined,
           dropboxAccessToken: record.dropbox_access_token ? '********' : undefined,
+          onedriveToken: record.onedrive_token ? '********' : undefined,
           webdavUrl: record.webdav_url,
           webdavUsername: record.webdav_username,
           webdavPassword: record.webdav_password ? '********' : undefined,
@@ -132,6 +136,11 @@ export const CloudBackupSettings = () => {
         data.gdrive_client_id = config.gdriveClientId;
         if (config.gdriveClientSecret && !config.gdriveClientSecret.includes('*')) data.gdrive_client_secret = config.gdriveClientSecret;
         if (config.gdriveRefreshToken && !config.gdriveRefreshToken.includes('*')) data.gdrive_refresh_token = config.gdriveRefreshToken;
+      } else if (config.provider === 'onedrive') {
+        if (config.onedriveToken && !config.onedriveToken.includes('*')) {
+          data.onedrive_token = config.onedriveToken.trim();
+          data.onedrive_drive_id = '';
+        }
       } else if (config.provider === 'dropbox') {
         if (config.dropboxAccessToken && !config.dropboxAccessToken.includes('*')) data.dropbox_access_token = config.dropboxAccessToken;
       } else if (config.provider === 'webdav') {
@@ -199,6 +208,7 @@ export const CloudBackupSettings = () => {
     switch (provider) {
       case 'mega': return 'Mega.nz';
       case 'gdrive': return 'Google Drive';
+      case 'onedrive': return 'OneDrive';
       case 'dropbox': return 'Dropbox';
       case 'webdav': return 'WebDAV/Nextcloud';
       default: return 'Nessuno';
@@ -217,6 +227,7 @@ export const CloudBackupSettings = () => {
 
   return (
     <div className="space-y-4">
+      <InspectionUsbPanel />
       {/* CSV Export Status Card */}
       <Card>
         <CardHeader className="pb-3">
@@ -355,8 +366,9 @@ export const CloudBackupSettings = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Nessuno (solo locale)</SelectItem>
-                <SelectItem value="gdrive">Google Drive (consigliato)</SelectItem>
-                <SelectItem value="mega">Mega.nz</SelectItem>
+                <SelectItem value="mega">Mega (consigliato, solo email e password)</SelectItem>
+                <SelectItem value="gdrive">Google Drive</SelectItem>
+                <SelectItem value="onedrive">OneDrive</SelectItem>
                 <SelectItem value="dropbox">Dropbox</SelectItem>
                 <SelectItem value="webdav">WebDAV / Nextcloud</SelectItem>
               </SelectContent>
@@ -436,24 +448,44 @@ export const CloudBackupSettings = () => {
                 <div className="space-y-4 p-4 bg-muted rounded-lg">
                   <h4 className="font-medium flex items-center gap-2">
                     <Cloud className="w-4 h-4" />
-                    Credenziali Google Drive (OAuth2)
+                    Collega Google Drive
                   </h4>
+                  <ol className="text-sm text-muted-foreground list-decimal pl-5 space-y-1">
+                    <li>Su un computer installa <a href="https://rclone.org/downloads/" target="_blank" rel="noreferrer" className="underline">rclone</a>.</li>
+                    <li>Apri il terminale e scrivi <code className="bg-background px-1 rounded">rclone authorize "drive"</code></li>
+                    <li>Si apre Google: accedi e accetta.</li>
+                    <li>Copia il testo tra le righe <code>---&gt;</code> e <code>&lt;---</code> e incollalo qui sotto.</li>
+                  </ol>
                   <div className="space-y-2">
-                    <Label>Client ID</Label>
-                    <Input value={config.gdriveClientId || ''} onChange={(e) => setConfig(prev => ({ ...prev, gdriveClientId: e.target.value }))} placeholder="xxxxx.apps.googleusercontent.com" />
+                    <Label>Codice di accesso</Label>
+                    <Textarea rows={3} value={config.gdriveRefreshToken || ''} onChange={(e) => setConfig(prev => ({ ...prev, gdriveRefreshToken: e.target.value }))} placeholder='{"access_token":"...","refresh_token":"..."}' className="font-mono text-xs" />
                   </div>
+                  <details className="text-sm">
+                    <summary className="cursor-pointer text-muted-foreground">Avanzate: chiave app personale (facoltativa)</summary>
+                    <div className="space-y-3 mt-3">
+                      <Input value={config.gdriveClientId || ''} onChange={(e) => setConfig(prev => ({ ...prev, gdriveClientId: e.target.value }))} placeholder="Client ID (xxxxx.apps.googleusercontent.com)" />
+                      <Input type="password" value={config.gdriveClientSecret || ''} onChange={(e) => setConfig(prev => ({ ...prev, gdriveClientSecret: e.target.value }))} placeholder="Client Secret" />
+                    </div>
+                  </details>
+                </div>
+              )}
+
+              {config.provider === 'onedrive' && (
+                <div className="space-y-4 p-4 bg-muted rounded-lg">
+                  <h4 className="font-medium flex items-center gap-2">
+                    <Cloud className="w-4 h-4" />
+                    Collega OneDrive
+                  </h4>
+                  <ol className="text-sm text-muted-foreground list-decimal pl-5 space-y-1">
+                    <li>Su un computer installa <a href="https://rclone.org/downloads/" target="_blank" rel="noreferrer" className="underline">rclone</a>.</li>
+                    <li>Apri il terminale e scrivi <code className="bg-background px-1 rounded">rclone authorize "onedrive"</code></li>
+                    <li>Si apre Microsoft: accedi e accetta.</li>
+                    <li>Copia il testo tra le righe <code>---&gt;</code> e <code>&lt;---</code> e incollalo qui sotto, poi salva entro un'ora.</li>
+                  </ol>
                   <div className="space-y-2">
-                    <Label>Client Secret</Label>
-                    <Input type="password" value={config.gdriveClientSecret || ''} onChange={(e) => setConfig(prev => ({ ...prev, gdriveClientSecret: e.target.value }))} placeholder="••••••••" />
+                    <Label>Codice di accesso</Label>
+                    <Textarea rows={3} value={config.onedriveToken || ''} onChange={(e) => setConfig(prev => ({ ...prev, onedriveToken: e.target.value }))} placeholder='{"access_token":"...","refresh_token":"..."}' className="font-mono text-xs" />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Refresh Token</Label>
-                    <Input type="password" value={config.gdriveRefreshToken || ''} onChange={(e) => setConfig(prev => ({ ...prev, gdriveRefreshToken: e.target.value }))} placeholder="••••••••" />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Il refresh_token viene usato da rclone per autenticarsi con Google Drive.{' '}
-                    <a href="https://console.cloud.google.com" target="_blank" className="underline">Crea credenziali OAuth</a>
-                  </p>
                 </div>
               )}
 

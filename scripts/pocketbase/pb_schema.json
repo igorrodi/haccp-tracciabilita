@@ -566,7 +566,8 @@
           "mega",
           "gdrive",
           "dropbox",
-          "webdav"
+          "webdav",
+          "onedrive"
         ],
         "maxSelect": 1
       },
@@ -639,6 +640,26 @@
           "error"
         ],
         "maxSelect": 1
+      },
+      {
+        "name": "onedrive_token",
+        "type": "text"
+      },
+      {
+        "name": "onedrive_drive_id",
+        "type": "text"
+      },
+      {
+        "name": "onedrive_drive_type",
+        "type": "text"
+      },
+      {
+        "name": "usb_enabled",
+        "type": "bool"
+      },
+      {
+        "name": "usb_device",
+        "type": "text"
       }
     ],
     "id": "haccp_cloud_settings"
